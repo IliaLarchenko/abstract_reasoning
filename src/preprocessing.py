@@ -256,3 +256,172 @@ def get_color_scheme(image):
         result["colors"][grid_color].append({"type": "grid"})
 
     return result
+
+
+def process_image(image, list_of_processors=None):
+    """processes the original image and returns dict with structured image blocks"""
+    if not list_of_processors:
+        list_of_processors = []
+
+    result = get_color_scheme(image)
+    result["blocks"] = []
+
+    # generating blocks
+
+    # starting with the original image
+    result["blocks"].append({"block": image, "params": []})
+
+    # adding the max area covered by each color
+    for color in result["colors_sorted"]:
+        status, block = get_color_max(image, color)
+        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+            for color_dict in result["colors"][color].copy():
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": [{"type": "color_max", "color": color_dict}],
+                    }
+                )
+
+    # adding 'voting corners' block
+    status, block = get_voting_corners(image, operation="rotate")
+    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+        result["blocks"].append(
+            {
+                "block": block,
+                "params": [{"type": "voting_corners", "operation": "rotate"}],
+            }
+        )
+
+    status, block = get_voting_corners(image, operation="reflect")
+    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+        result["blocks"].append(
+            {
+                "block": block,
+                "params": [{"type": "voting_corners", "operation": "reflect"}],
+            }
+        )
+
+    # adding grid cells
+    if result["grid_color"] > 0:
+        for i in range(result["grid_size"][0]):
+            for j in range(result["grid_size"][1]):
+                status, block = get_grid(image, result["grid_size"], (i, j))
+                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                    result["blocks"].append(
+                        {
+                            "block": block,
+                            "params": [
+                                {
+                                    "type": "grid",
+                                    "grid_size": result["grid_size"],
+                                    "cell": [i, j],
+                                }
+                            ],
+                        }
+                    )
+
+    # adding halfs of the images
+    for side in "lrtb":
+        status, block = get_half(image, side=side)
+        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+            result["blocks"].append(
+                {"block": block, "params": [{"type": "half", "side": side}]}
+            )
+
+    # rotate all blocks
+    current_blocks = result["blocks"].copy()
+    for k in range(1, 4):
+        for data in current_blocks:
+            status, block = get_rotation(data["block"], k=k)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"] + [{"type": "rotation", "k": k}],
+                    }
+                )
+
+    # transpose all blocks
+    current_blocks = result["blocks"].copy()
+    for data in current_blocks:
+        status, block = get_transpose(data["block"])
+        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+            result["blocks"].append(
+                {"block": block, "params": data["params"] + [{"type": "transpose"}]}
+            )
+
+    # cut_edgest for all blocks
+    current_blocks = result["blocks"].copy()
+    for l, r, t, b in [
+        (1, 1, 1, 1),
+        (1, 0, 0, 0),
+        (0, 1, 0, 0),
+        (0, 0, 1, 0),
+        (0, 0, 0, 1),
+        (1, 1, 0, 0),
+        (1, 0, 0, 1),
+        (0, 0, 1, 1),
+        (0, 1, 1, 0),
+    ]:
+        for data in current_blocks:
+            status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"]
+                        + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
+                    }
+                )
+
+    # reflect all blocks
+    current_blocks = result["blocks"].copy()
+    for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
+        for data in current_blocks:
+            status, block = get_reflect(data["block"], side)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"] + [{"type": "reflect", "side": side}],
+                    }
+                )
+
+    # resize all blocks
+    current_blocks = result["blocks"].copy()
+    for scale in [2, 3]:
+        for data in current_blocks:
+            status, block = get_resize(data["block"], scale)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"] + [{"type": "resize", "scale": scale}],
+                    }
+                )
+
+    # swap some colors
+    current_blocks = result["blocks"].copy()
+    for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+        for color_2 in result["colors_sorted"][i:]:
+            for data in current_blocks:
+                status, block = get_color_swap(image, color_1, color_2)
+                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                    for color_dict_1 in result["colors"][color_1].copy():
+                        for color_dict_2 in result["colors"][color_2].copy():
+                            result["blocks"].append(
+                                {
+                                    "block": block,
+                                    "params": data["params"]
+                                    + [
+                                        {
+                                            "type": "color_swap",
+                                            "color_1": color_dict_1,
+                                            "color_2": color_dict_2,
+                                        }
+                                    ],
+                                }
+                            )
+
+    return result
