@@ -110,3 +110,20 @@ def get_half(image, side):
         return 0, image[-(image.shape[0] + 1) // 2 :, :]
     if side == "b":
         return 0, image[: (image.shape[0] + 1) // 2, :]
+
+
+def get_rotation(image, k):
+    return 0, np.rot90(image, k)
+
+
+def get_transpose(image):
+    return 0, np.transpose(image)
+
+
+def get_roll(image, shift, axis):
+    return 0, np.roll(image, shift=shift, axis=axis)
+
+
+def get_cut_edge(image, l, r, t, b):
+    """deletes pixels from some sided of an image"""
+    return 0, image[t : image.shape[0] - b, l : image.shape[1] - r]
