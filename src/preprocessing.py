@@ -7,6 +7,7 @@ def find_grid(image):
     grid_color = -1
     size = [0, 0]
     # TODO: border = False
+    # TODO: bold_grid
 
     for color in range(10):
         for i in range(size[0] + 1, image.shape[0] // 2 + 1):
@@ -212,7 +213,6 @@ def get_color_swap(image, color_1, color_2):
 
 def get_color(color_dict, colors):
     """ retrive the absolute number corresponding a color set by color_dict"""
-    # TODO: check the final usage of this function
     for i, color in enumerate(colors):
         for data in color:
             equal = True
