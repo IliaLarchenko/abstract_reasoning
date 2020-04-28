@@ -200,3 +200,17 @@ def get_reflect(image, side):
         return 2, None
 
     return 0, result
+
+
+def get_color(color_dict, colors):
+    """ looks for the dict element of colors list, equals to color_dict"""
+    for i, color in enumerate(colors):
+        for data in color:
+            equal = True
+            for k, v in data.items():
+                if k not in color_dict or v != color_dict[k]:
+                    equal = False
+                    break
+            if equal:
+                return i
+    return -1
