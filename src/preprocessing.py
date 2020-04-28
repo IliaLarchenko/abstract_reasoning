@@ -204,6 +204,7 @@ def get_reflect(image, side):
 
 def get_color(color_dict, colors):
     """ looks for the dict element of colors list, equals to color_dict"""
+    # TODO: check the final usage of this function
     for i, color in enumerate(colors):
         for data in color:
             equal = True
@@ -214,3 +215,36 @@ def get_color(color_dict, colors):
             if equal:
                 return i
     return -1
+
+
+def get_color_scheme(image):
+    """processes original image and returns dict with structured image blocks"""
+    result = {
+        "grid_color": -1,
+        "colors": [[], [], [], [], [], [], [], [], [], []],
+        "colors_sorted": [],
+        "grid_size": [1, 1],
+    }
+
+    # preparing colors info
+
+    unique, counts = np.uint8(np.unique(image, return_counts=True))
+    colors = [unique[i] for i in np.argsort(counts)]
+
+    result["colors_sorted"] = colors
+
+    for k, color in enumerate(colors):
+        # use abs color value - same for any image
+        result["colors"][color].append({"type": "abs", "k": color})
+        # use k-th colour (sorted by presence on image)
+        result["colors"][color].append({"type": "min", "k": k})
+        # use k-th colour (sorted by presence on image)
+        result["colors"][color].append({"type": "max", "k": len(colors) - k - 1})
+
+    grid_color, grid_size = find_grid(image)
+    if grid_color >= 0:
+        result["grid_color"] = grid_color
+        result["grid_size"] = grid_size
+        result["colors"][grid_color].append({"type": "grid"})
+
+    return result
