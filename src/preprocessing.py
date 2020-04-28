@@ -1,8 +1,9 @@
 import numpy as np
+from scipy.stats import mode
 
 
 def find_grid(image):
-    "Looks for the grid in image and returns color and size"
+    # Looks for the grid in image and returns color and size
     grid_color = -1
     size = [0, 0]
     # TODO: border = False
@@ -25,7 +26,7 @@ def find_grid(image):
 
 
 def find_color_boundaries(array, color):
-    "Looks for the boundaries of any color and returns them"
+    # Looks for the boundaries of any color and returns them
     if (array == color).any() == False:
         return None
     ind_0 = np.arange(array.shape[0])
@@ -41,7 +42,7 @@ def find_color_boundaries(array, color):
 
 
 def get_color_max(image, color):
-    "Returns the part of the image inside the color boundaries"
+    # Returns the part of the image inside the color boundaries
     boundaries = find_color_boundaries(image, color)
     if boundaries:
         return (
@@ -50,3 +51,36 @@ def get_color_max(image, color):
         )
     else:
         return 1, None
+
+
+def get_voting_corners(image, operation="rotate"):
+    # Producing new image with 1/4 of initial size
+    # by stacking of 4 rotated or reflected coners
+    # and choosing the most popular color for each pixel
+    # (restores symmetrical images with noise)"
+    if operation not in ["rotate", "reflect"]:
+        return 1, None
+    if operation == "rotate":
+        if image.shape[0] != image.shape[1]:
+            return 2, None
+        size = (image.shape[0] + 1) // 2
+        voters = np.stack(
+            [
+                image[:size, :size],
+                np.rot90(image[:size, -size:], k=1),
+                np.rot90(image[-size:, -size:], k=2),
+                np.rot90(image[-size:, :size], k=3),
+            ]
+        )
+
+    if operation == "reflect":
+        sizes = ((image.shape[0] + 1) // 2, (image.shape[1] + 1) // 2)
+        voters = np.stack(
+            [
+                image[: sizes[0], : sizes[1]],
+                image[: sizes[0], -sizes[1] :][:, ::-1],
+                image[-sizes[0] :, -sizes[1] :][::-1, ::-1],
+                image[-sizes[0] :, : sizes[1]][::-1, :],
+            ]
+        )
+    return 0, mode(voters, axis=0).mode[0]
