@@ -443,3 +443,16 @@ def get_predict(image, transforms):
         if status != 0:
             return 1, None
     return 0, image
+
+
+def preprocess_sample(sample):
+    """ make the whole preprocessing for particular sample"""
+    sample["processed_train"] = []
+
+    original_image = np.array(sample["train"][0]["input"])
+    sample["processed_train"].append(process_image(original_image))
+
+    for image in sample["train"][1:]:
+        original_image = np.array(image["input"])
+        sample["processed_train"].append(get_color_scheme(original_image))
+    return sample
