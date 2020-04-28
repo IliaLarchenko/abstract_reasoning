@@ -226,7 +226,7 @@ def get_color(color_dict, colors):
 
 
 def get_color_scheme(image):
-    """processes original image and returns dict with structured image blocks"""
+    """processes original image and returns dict color scheme"""
     result = {
         "grid_color": -1,
         "colors": [[], [], [], [], [], [], [], [], [], []],
