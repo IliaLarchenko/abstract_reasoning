@@ -211,7 +211,7 @@ def get_color_swap(image, color_1, color_2):
 
 
 def get_color(color_dict, colors):
-    """ looks for the dict element of colors list, equals to color_dict"""
+    """ retrive the absolute number corresponding a color set by color_dict"""
     # TODO: check the final usage of this function
     for i, color in enumerate(colors):
         for data in color:
@@ -425,3 +425,21 @@ def process_image(image, list_of_processors=None):
                             )
 
     return result
+
+
+def get_predict(image, transforms):
+    """ applies the list of transforms to the image"""
+    for transform in transforms:
+        function = globals()["get_" + transform["type"]]
+        params = transform.copy()
+        params.pop("type")
+        for color_name in ["color", "color_1", "color_2"]:
+            if color_name in params:
+                color_scheme = get_color_scheme(image)
+                params[color_name] = get_color(
+                    params[color_name], color_scheme["colors"]
+                )
+        status, image = function(image, **params)
+        if status != 0:
+            return 1, None
+    return 0, image
