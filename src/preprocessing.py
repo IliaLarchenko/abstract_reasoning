@@ -202,6 +202,14 @@ def get_reflect(image, side):
     return 0, result
 
 
+def get_color_swap(image, color_1, color_2):
+    """swapping two colors"""
+    result = image.copy()
+    result[image == color_1] = color_2
+    result[image == color_2] = color_1
+    return 0, result
+
+
 def get_color(color_dict, colors):
     """ looks for the dict element of colors list, equals to color_dict"""
     # TODO: check the final usage of this function
