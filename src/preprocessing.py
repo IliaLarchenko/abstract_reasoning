@@ -127,3 +127,21 @@ def get_roll(image, shift, axis):
 def get_cut_edge(image, l, r, t, b):
     """deletes pixels from some sided of an image"""
     return 0, image[t : image.shape[0] - b, l : image.shape[1] - r]
+
+
+def get_resize(image, scale):
+    """ resizes image according to scale"""
+    if image.shape[0] % scale != 0 or image.shape[1] % scale != 0:
+        return 1, None
+    if image.shape[0] <= scale or image.shape[1] <= scale:
+        return 2, None
+
+    arrays = []
+    size = image.shape[0] // scale, image.shape[1] // scale
+    for i in range(size[0]):
+        for j in range(size[1]):
+            arrays.append(image[i :: size[0], j :: size[1]])
+
+    result = mode(np.stack(arrays), axis=0).mode[0]
+
+    return 0, result
