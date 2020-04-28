@@ -96,3 +96,17 @@ def get_grid(image, grid_size, cell):
         steps[1] * cell[1] : steps[1] * (cell[1] + 1) - 1,
     ]
     return 0, block
+
+
+def get_half(image, side):
+    """ returns the half of the image"""
+    if side not in "lrtb":
+        return 1, None
+    if side == "l":
+        return 0, image[:, : (image.shape[1] + 1) // 2]
+    if side == "r":
+        return 0, image[:, -(image.shape[1] + 1) // 2 :]
+    if side == "t":
+        return 0, image[-(image.shape[0] + 1) // 2 :, :]
+    if side == "b":
+        return 0, image[: (image.shape[0] + 1) // 2, :]
