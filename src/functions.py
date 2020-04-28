@@ -1,5 +1,5 @@
 import numpy as np
-from preprocessing import get_predict, find_grid, get_color, get_color_scheme
+from src.preprocessing import get_predict, find_grid, get_color, get_color_scheme
 
 
 def initiate_candidates_list(factors, initial_values=None):
