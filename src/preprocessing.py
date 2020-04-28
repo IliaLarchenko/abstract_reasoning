@@ -84,3 +84,15 @@ def get_voting_corners(image, operation="rotate"):
             ]
         )
     return 0, mode(voters, axis=0).mode[0]
+
+
+def get_grid(image, grid_size, cell):
+    """ returns the particular cell form the image with grid"""
+    if cell[0] >= grid_size[0] or cell[1] >= grid_size[1]:
+        return 1, None
+    steps = ((image.shape[0] + 1) // grid_size[0], (image.shape[1] + 1) // grid_size[1])
+    block = image[
+        steps[0] * cell[0] : steps[0] * (cell[0] + 1) - 1,
+        steps[1] * cell[1] : steps[1] * (cell[1] + 1) - 1,
+    ]
+    return 0, block
