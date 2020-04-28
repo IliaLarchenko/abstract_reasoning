@@ -38,3 +38,15 @@ def find_color_boundaries(array, color):
     min_1, max_1 = temp_1.min(), temp_1.max()
 
     return min_0, max_0, min_1, max_1
+
+
+def get_color_max(image, color):
+    "Returns the part of the image inside the color boundaries"
+    boundaries = find_color_boundaries(image, color)
+    if boundaries:
+        return (
+            0,
+            image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1],
+        )
+    else:
+        return 1, None
