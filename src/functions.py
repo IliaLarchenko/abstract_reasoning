@@ -13,7 +13,7 @@ def initiate_candidates_list(factors, initial_values=None):
         for i in range(factor[0]):
             candidates[n_factor].append([])
             for j in range(factor[1]):
-                candidates[n_factor][i].append(initial_values)
+                candidates[n_factor][i].append(initial_values.copy())
     return candidates
 
 
@@ -144,7 +144,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
         original_image = np.array(sample["train"][k]["input"])
         target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
 
-        factors, new_candidates = filter_candidates(
+        factors, candidates = filter_candidates(
             target_image,
             factors,
             intersection=intersection,
