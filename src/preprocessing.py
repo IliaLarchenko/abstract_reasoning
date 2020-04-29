@@ -213,7 +213,7 @@ def get_color_swap(image, color_1, color_2):
 
 
 def get_min_block(image):
-    masks, n_masks = ndimage.label(image, structure=[[1, 1, 1], [1, 1, 1], [1, 1, 1]])
+    masks, n_masks = ndimage.label(image, structure=[[0, 1, 0], [1, 1, 1], [0, 1, 0]])
     sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
 
     if n_masks == 0:
@@ -232,7 +232,7 @@ def get_min_block(image):
 
 
 def get_max_block(image):
-    masks, n_masks = ndimage.label(image, structure=[[1, 1, 1], [1, 1, 1], [1, 1, 1]])
+    masks, n_masks = ndimage.label(image, structure=[[0, 1, 0], [1, 1, 1], [0, 1, 0]])
     sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
 
     if n_masks == 0:
@@ -262,6 +262,13 @@ def get_color(color_dict, colors):
             if equal:
                 return i
     return -1
+
+
+def get_mask_from_block(image, color):
+    if color in np.uint8(np.unique(image, return_counts=False)):
+        return 0, image == color
+    else:
+        return 1, None
 
 
 def get_color_scheme(image):
@@ -313,12 +320,12 @@ def process_image(image, list_of_processors=None):
     result["blocks"].append({"block": image, "params": []})
 
     # adding min and max blocks
-    # status, block = get_max_block(image)
-    # if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #     result["blocks"].append({"block": block, "params": [{"type": "max_block"}]})
-    # status, block = get_min_block(image)
-    # if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #     result["blocks"].append({"block": block, "params": [{"type": "min_block"}]})
+    status, block = get_max_block(image)
+    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+        result["blocks"].append({"block": block, "params": [{"type": "max_block"}]})
+    status, block = get_min_block(image)
+    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+        result["blocks"].append({"block": block, "params": [{"type": "min_block"}]})
 
     # adding the max area covered by each color
     for color in result["colors_sorted"]:
