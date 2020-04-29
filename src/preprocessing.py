@@ -385,18 +385,18 @@ def process_image(image, list_of_processors=None):
                 {"block": block, "params": [{"type": "half", "side": side}]}
             )
 
-    # rotate all blocks
-    current_blocks = result["blocks"].copy()
-    for k in range(1, 4):
-        for data in current_blocks:
-            status, block = get_rotation(data["block"], k=k)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                result["blocks"].append(
-                    {
-                        "block": block,
-                        "params": data["params"] + [{"type": "rotation", "k": k}],
-                    }
-                )
+    # # rotate all blocks
+    # current_blocks = result["blocks"].copy()
+    # for k in range(1, 4):
+    #     for data in current_blocks:
+    #         status, block = get_rotation(data["block"], k=k)
+    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #             result["blocks"].append(
+    #                 {
+    #                     "block": block,
+    #                     "params": data["params"] + [{"type": "rotation", "k": k}],
+    #                 }
+    #             )
 
     # transpose all blocks
     current_blocks = result["blocks"].copy()
@@ -496,6 +496,59 @@ def process_image(image, list_of_processors=None):
                         }
                     )
 
+    initial_masks = result["masks"].copy()
+    for mask in initial_masks:
+        result["masks"].append(
+            {
+                "mask": np.logical_not(mask["mask"]),
+                "operation": "not",
+                "params": mask["params"],
+            }
+        )
+
+    for i, mask1 in enumerate(initial_masks[:-1]):
+        for mask2 in initial_masks[i + 1 :]:
+            if (
+                mask1["mask"].shape[0] == mask2["mask"].shape[0]
+                and mask1["mask"].shape[1] == mask2["mask"].shape[1]
+            ):
+                result["masks"].append(
+                    {
+                        "mask": np.logical_and(mask1["mask"], mask2["mask"]),
+                        "operation": "and",
+                        "params": {
+                            "block1": mask1["params"]["block"],
+                            "block2": mask2["params"]["block"],
+                            "color1": mask1["params"]["color"],
+                            "color2": mask2["params"]["color"],
+                        },
+                    }
+                )
+                result["masks"].append(
+                    {
+                        "mask": np.logical_or(mask1["mask"], mask2["mask"]),
+                        "operation": "or",
+                        "params": {
+                            "block1": mask1["params"]["block"],
+                            "block2": mask2["params"]["block"],
+                            "color1": mask1["params"]["color"],
+                            "color2": mask2["params"]["color"],
+                        },
+                    }
+                )
+                result["masks"].append(
+                    {
+                        "mask": np.logical_xor(mask1["mask"], mask2["mask"]),
+                        "operation": "xor",
+                        "params": {
+                            "block1": mask1["params"]["block"],
+                            "block2": mask2["params"]["block"],
+                            "color1": mask1["params"]["color"],
+                            "color2": mask2["params"]["color"],
+                        },
+                    }
+                )
+
     return result
 
 
@@ -521,17 +574,21 @@ def get_mask_from_block_params(image, params):
         return 0, np.logical_not(mask)
     elif params["operation"] in ["and", "or", "xor"]:
         new_params = {
-            "block": params["block1"],
             "operation": "none",
-            "color": params["color1"],
+            "params": {
+                "block": params["params"]["block1"],
+                "color": params["params"]["color1"],
+            },
         }
         status, mask1 = get_mask_from_block_params(image, new_params)
         if status != 0:
             return 4, None
         new_params = {
-            "block": params["block2"],
             "operation": "none",
-            "color": params["color2"],
+            "params": {
+                "block": params["params"]["block2"],
+                "color": params["params"]["color2"],
+            },
         }
         status, mask2 = get_mask_from_block_params(image, new_params)
         if status != 0:
