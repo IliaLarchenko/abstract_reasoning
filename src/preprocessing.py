@@ -500,15 +500,50 @@ def process_image(image, list_of_processors=None):
 
 
 def get_mask_from_block_params(image, params):
-    status, block = get_predict(image, params["params"])
-    if status != 0:
-        return 1, None
-    color_scheme = get_color_scheme(image)
-    color_num = get_color(params["color"], color_scheme["colors"])
-    if color_num < 0:
-        return 2, None
-    mask = get_mask_from_block(block, color_num)
-    return 0, mask
+    if params["operation"] == "none":
+        status, block = get_predict(image, params["params"])
+        if status != 0:
+            return 1, None
+        color_scheme = get_color_scheme(image)
+        color_num = get_color(params["color"], color_scheme["colors"])
+        if color_num < 0:
+            return 2, None
+        mask = get_mask_from_block(block, color_num)
+        return 0, mask
+    elif params["operation"] == "not":
+        new_params = params.copy()
+        new_params["operation"] = "none"
+        status, mask = get_mask_from_block_params(image, new_params)
+        if status != 0:
+            return 3, None
+        return 0, np.logical_not(mask)
+    elif params["operation"] in ["and", "or", "xor"]:
+        new_params = {
+            "block": params["block1"],
+            "operation": "none",
+            "color": params["color1"],
+        }
+        status, mask1 = get_mask_from_block_params(image, new_params)
+        if status != 0:
+            return 4, None
+        new_params = {
+            "block": params["block2"],
+            "operation": "none",
+            "color": params["color2"],
+        }
+        status, mask2 = get_mask_from_block_params(image, new_params)
+        if status != 0:
+            return 5, None
+        if mask1.shape[0] != mask2.shape[0] or mask1.shape[1] != mask2.shape[1]:
+            return 6, None
+        if params["operation"] == "and":
+            mask = np.logical_and(mask1, mask2)
+        elif params["operation"] == "or":
+            mask = np.logical_or(mask1, mask2)
+        elif params["operation"] == "xor":
+            mask = np.logical_xor(mask1, mask2)
+
+        return 0, mask
 
 
 def get_predict(image, transforms):
