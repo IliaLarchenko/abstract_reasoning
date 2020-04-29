@@ -431,18 +431,18 @@ def process_image(image, list_of_processors=None):
     #                 }
     #             )
 
-    # reflect all blocks
-    current_blocks = result["blocks"].copy()
-    for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
-        for data in current_blocks:
-            status, block = get_reflect(data["block"], side)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                result["blocks"].append(
-                    {
-                        "block": block,
-                        "params": data["params"] + [{"type": "reflect", "side": side}],
-                    }
-                )
+    # # reflect all blocks
+    # current_blocks = result["blocks"].copy()
+    # for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
+    #     for data in current_blocks:
+    #         status, block = get_reflect(data["block"], side)
+    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #             result["blocks"].append(
+    #                 {
+    #                     "block": block,
+    #                     "params": data["params"] + [{"type": "reflect", "side": side}],
+    #                 }
+    #             )
 
     # resize all blocks
     current_blocks = result["blocks"].copy()
@@ -457,28 +457,28 @@ def process_image(image, list_of_processors=None):
                     }
                 )
 
-    # swap some colors
-    current_blocks = result["blocks"].copy()
-    for i, color_1 in enumerate(result["colors_sorted"][:-1]):
-        for color_2 in result["colors_sorted"][i:]:
-            for data in current_blocks:
-                status, block = get_color_swap(image, color_1, color_2)
-                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                    for color_dict_1 in result["colors"][color_1].copy():
-                        for color_dict_2 in result["colors"][color_2].copy():
-                            result["blocks"].append(
-                                {
-                                    "block": block,
-                                    "params": data["params"]
-                                    + [
-                                        {
-                                            "type": "color_swap",
-                                            "color_1": color_dict_1,
-                                            "color_2": color_dict_2,
-                                        }
-                                    ],
-                                }
-                            )
+    # # swap some colors
+    # current_blocks = result["blocks"].copy()
+    # for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+    #     for color_2 in result["colors_sorted"][i:]:
+    #         for data in current_blocks:
+    #             status, block = get_color_swap(image, color_1, color_2)
+    #             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #                 for color_dict_1 in result["colors"][color_1].copy():
+    #                     for color_dict_2 in result["colors"][color_2].copy():
+    #                         result["blocks"].append(
+    #                             {
+    #                                 "block": block,
+    #                                 "params": data["params"]
+    #                                 + [
+    #                                     {
+    #                                         "type": "color_swap",
+    #                                         "color_1": color_dict_1,
+    #                                         "color_2": color_dict_2,
+    #                                     }
+    #                                 ],
+    #                             }
+    #                         )
 
     result["masks"] = []
 
@@ -501,14 +501,16 @@ def process_image(image, list_of_processors=None):
 
 def get_mask_from_block_params(image, params):
     if params["operation"] == "none":
-        status, block = get_predict(image, params["params"])
+        status, block = get_predict(image, params["params"]["block"])
         if status != 0:
             return 1, None
         color_scheme = get_color_scheme(image)
-        color_num = get_color(params["color"], color_scheme["colors"])
+        color_num = get_color(params["params"]["color"], color_scheme["colors"])
         if color_num < 0:
             return 2, None
-        mask = get_mask_from_block(block, color_num)
+        status, mask = get_mask_from_block(block, color_num)
+        if status != 0:
+            return 6, None
         return 0, mask
     elif params["operation"] == "not":
         new_params = params.copy()

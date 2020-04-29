@@ -1,5 +1,11 @@
 import numpy as np
-from src.preprocessing import get_predict, find_grid, get_color, get_color_scheme
+from src.preprocessing import (
+    get_predict,
+    find_grid,
+    get_color,
+    get_color_scheme,
+    get_mask_from_block_params,
+)
 
 
 def initiate_candidates_list(factors, initial_values=None):
@@ -204,3 +210,88 @@ def mosaic(sample, rotate_target=0, intersection=0):
         return 1, None
 
     return 0, answers
+
+
+def mask_to_blocks(sample):
+    target_image = np.array(sample["train"][0]["output"])
+    t_n, t_m = target_image.shape
+    candidates = []
+    for block in sample["processed_train"][0]["blocks"]:
+        if t_n == block["block"].shape[0] and t_m == block["block"].shape[1]:
+            for mask in sample["processed_train"][0]["masks"]:
+                if t_n == mask["mask"].shape[0] and t_m == mask["mask"].shape[1]:
+                    for color in range(10):
+                        if (
+                            target_image
+                            == block["block"] * (1 - mask["mask"])
+                            + mask["mask"] * color
+                        ).all():
+                            for color_dict in sample["processed_train"][0]["colors"][
+                                color
+                            ].copy():
+                                candidates.append(
+                                    {
+                                        "block": block["params"],
+                                        "mask": {
+                                            "params": mask["params"],
+                                            "operation": mask["operation"],
+                                        },
+                                        "color": color_dict.copy(),
+                                    }
+                                )
+
+    for k in range(1, len(sample["train"])):
+        original_image = np.array(sample["train"][k]["input"])
+        target_image = np.array(sample["train"][k]["output"])
+        t_n, t_m = target_image.shape
+        new_candidates = []
+        for candidate in candidates:
+            status, block = get_predict(original_image, candidate["block"])
+            if status != 0 or block.shape[0] != t_n or block.shape[1] != t_m:
+                continue
+            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            if status != 0 or mask.shape[0] != t_n or mask.shape[1] != t_m:
+                continue
+            color = get_color(
+                candidate["color"], sample["processed_train"][0]["colors"]
+            )
+            if color < 0:
+                continue
+            if (target_image == block * (1 - mask) + mask * color).all():
+                new_candidates.append(candidate)
+        candidates = new_candidates.copy()
+
+    if len(candidates) == 0:
+        return 1, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.array(test_data["input"])
+        for candidate in candidates:
+            status, block = get_predict(original_image, candidate["block"])
+            if status != 0:
+                continue
+            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            if (
+                status != 0
+                or mask.shape[0] != block.shape[0]
+                or mask.shape[1] != block.shape[1]
+            ):
+                continue
+            color = get_color(
+                candidate["color"], sample["processed_train"][0]["colors"]
+            )
+            if color < 0:
+                continue
+            prediction = block * (1 - mask) + mask * color
+            answers[test_n].append(prediction)
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 2, None
