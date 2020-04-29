@@ -480,7 +480,35 @@ def process_image(image, list_of_processors=None):
                                 }
                             )
 
+    result["masks"] = []
+
+    # making one mask for each generated block
+    for block in result["blocks"]:
+        for color in result["colors_sorted"]:
+            status, mask = get_mask_from_block(block["block"], color)
+            if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+                for color_dict in result["colors"][color].copy():
+                    result["masks"].append(
+                        {
+                            "mask": mask,
+                            "operation": "none",
+                            "params": {"block": block["params"], "color": color_dict},
+                        }
+                    )
+
     return result
+
+
+def get_mask_from_block_params(image, params):
+    status, block = get_predict(image, params["params"])
+    if status != 0:
+        return 1, None
+    color_scheme = get_color_scheme(image)
+    color_num = get_color(params["color"], color_scheme["colors"])
+    if color_num < 0:
+        return 2, None
+    mask = get_mask_from_block(block, color_num)
+    return 0, mask
 
 
 def get_predict(image, transforms):
