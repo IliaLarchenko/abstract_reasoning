@@ -43,7 +43,7 @@ def filter_candidates(
                         params = data
                         result, array = get_predict(original_image, data)
                         if result != 0:
-                            break
+                            continue
 
                     n, m = array.shape
 
@@ -154,48 +154,53 @@ def mosaic(sample, rotate_target=0, intersection=0):
         )
 
     answers = []
+    for _ in sample["test"]:
+        answers.append([])
     final_factor_n = -1
 
     # check if we have at least one valid solution
     for n_factor, factor in enumerate(factors):
         if factor[0] > 0 and factor[1] > 0:
             final_factor_n = n_factor
-            break
+            factor = factors[final_factor_n]
+
+            for test_n, test_data in enumerate(sample["test"]):
+                original_image = np.array(test_data["input"])
+                skip = False
+                for i in range(factor[0]):
+                    for j in range(factor[1]):
+                        result, array = get_predict(
+                            original_image, candidates[final_factor_n][i][j][0]
+                        )
+                        if result != 0:
+                            skip = True
+                            break
+                        n, m = array.shape
+                        if i == 0 and j == 0:
+                            predict = np.int32(
+                                np.zeros(
+                                    (
+                                        (n - intersection) * factor[0] + intersection,
+                                        (m - intersection) * factor[1] + intersection,
+                                    )
+                                )
+                            )
+                            if intersection < 0:
+                                predict += get_color(
+                                    grid_color_list[0],
+                                    get_color_scheme(original_image)["colors"],
+                                )
+
+                        predict[
+                            i * (n - intersection) : i * (n - intersection) + n,
+                            j * (m - intersection) : j * (m - intersection) + m,
+                        ] = array
+                    if skip:
+                        break
+                if not skip:
+                    answers[test_n].append(np.rot90(predict, k=-rotate_target))
+
     if final_factor_n == -1:
         return 1, None
-    factor = factors[final_factor_n]
-
-    for test_data in sample["test"]:
-        original_image = np.array(test_data["input"])
-
-        for i in range(factor[0]):
-            for j in range(factor[1]):
-                result, array = get_predict(
-                    original_image, candidates[final_factor_n][i][j][0]
-                )
-                if result != 0:
-                    return 5, None
-                n, m = array.shape
-                if i == 0 and j == 0:
-                    predict = np.int32(
-                        np.zeros(
-                            (
-                                (n - intersection) * factor[0] + intersection,
-                                (m - intersection) * factor[1] + intersection,
-                            )
-                        )
-                    )
-                    if intersection < 0:
-                        predict += get_color(
-                            grid_color_list[0],
-                            get_color_scheme(original_image)["colors"],
-                        )
-
-                predict[
-                    i * (n - intersection) : i * (n - intersection) + n,
-                    j * (m - intersection) : j * (m - intersection) + m,
-                ] = array
-
-        answers.append(np.rot90(predict, k=-rotate_target))
 
     return 0, answers

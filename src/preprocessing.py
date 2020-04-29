@@ -313,12 +313,12 @@ def process_image(image, list_of_processors=None):
     result["blocks"].append({"block": image, "params": []})
 
     # adding min and max blocks
-    status, block = get_max_block(image)
-    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-        result["blocks"].append({"block": block, "params": [{"type": "max_block"}]})
-    status, block = get_min_block(image)
-    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-        result["blocks"].append({"block": block, "params": [{"type": "min_block"}]})
+    # status, block = get_max_block(image)
+    # if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #     result["blocks"].append({"block": block, "params": [{"type": "max_block"}]})
+    # status, block = get_min_block(image)
+    # if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #     result["blocks"].append({"block": block, "params": [{"type": "min_block"}]})
 
     # adding the max area covered by each color
     for color in result["colors_sorted"]:
@@ -400,29 +400,29 @@ def process_image(image, list_of_processors=None):
                 {"block": block, "params": data["params"] + [{"type": "transpose"}]}
             )
 
-    # cut_edgest for all blocks
-    current_blocks = result["blocks"].copy()
-    for l, r, t, b in [
-        (1, 1, 1, 1),
-        (1, 0, 0, 0),
-        (0, 1, 0, 0),
-        (0, 0, 1, 0),
-        (0, 0, 0, 1),
-        (1, 1, 0, 0),
-        (1, 0, 0, 1),
-        (0, 0, 1, 1),
-        (0, 1, 1, 0),
-    ]:
-        for data in current_blocks:
-            status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                result["blocks"].append(
-                    {
-                        "block": block,
-                        "params": data["params"]
-                        + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
-                    }
-                )
+    # # cut edges for all blocks
+    # current_blocks = result["blocks"].copy()
+    # for l, r, t, b in [
+    #     (1, 1, 1, 1),
+    #     (1, 0, 0, 0),
+    #     (0, 1, 0, 0),
+    #     (0, 0, 1, 0),
+    #     (0, 0, 0, 1),
+    #     (1, 1, 0, 0),
+    #     (1, 0, 0, 1),
+    #     (0, 0, 1, 1),
+    #     (0, 1, 1, 0),
+    # ]:
+    #     for data in current_blocks:
+    #         status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
+    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #             result["blocks"].append(
+    #                 {
+    #                     "block": block,
+    #                     "params": data["params"]
+    #                     + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
+    #                 }
+    #             )
 
     # reflect all blocks
     current_blocks = result["blocks"].copy()
