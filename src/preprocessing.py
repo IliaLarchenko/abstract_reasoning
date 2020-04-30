@@ -695,12 +695,12 @@ def get_dict_hash(d):
     return hash(json.dumps(d, sort_keys=True))
 
 
-def get_predict(image, transforms, cache=None, color_scheme=None):
+def get_predict(image, transforms, block_cache=None, color_scheme=None):
     """ applies the list of transforms to the image"""
     i = 0
     add_new_transforms = False
-    if isinstance(cache, dict):
-        current_node = cache
+    if isinstance(block_cache, dict):
+        current_node = block_cache
         for transform in transforms:
             dict_hash = get_dict_hash(transform)
             if dict_hash in current_node:

@@ -297,15 +297,28 @@ def mask_to_blocks(sample, rotate_target=0):
     result_generated = False
     for test_n, test_data in enumerate(sample["test"]):
         original_image = np.array(test_data["input"])
+
+        if "block_cache" not in sample["test"][test_n]:
+            sample["processed_train"][test_n]["block_cache"] = {}
+        if "mask_cache" not in sample["test"][test_n]:
+            sample["processed_train"][test_n]["mask_cache"] = {}
+
         color_scheme = get_color_scheme(original_image)
         for candidate in candidates:
             status, block = get_predict(
-                original_image, candidate["block"], color_scheme=color_scheme
+                original_image,
+                candidate["block"],
+                color_scheme=color_scheme,
+                block_cache=sample["processed_train"][test_n]["block_cache"],
             )
             if status != 0:
                 continue
             status, mask = get_mask_from_block_params(
-                original_image, candidate["mask"], color_scheme=color_scheme
+                original_image,
+                candidate["mask"],
+                color_scheme=color_scheme,
+                block_cache=sample["processed_train"][test_n]["block_cache"],
+                mask_cache=sample["processed_train"][test_n]["mask_cache"],
             )
             if (
                 status != 0
@@ -316,7 +329,7 @@ def mask_to_blocks(sample, rotate_target=0):
             color = get_color(candidate["color"], color_scheme["colors"])
             if color < 0:
                 continue
-            prediction = block * (1 - mask) + mask * color
+            prediction = (block * (1 - mask)) + (mask * color)
             answers[test_n].append(np.rot90(prediction, k=-rotate_target))
             result_generated = True
 
@@ -406,10 +419,18 @@ def paint_mask(sample, rotate_target=0):
     result_generated = False
     for test_n, test_data in enumerate(sample["test"]):
         original_image = np.array(test_data["input"])
+        if "block_cache" not in sample["test"][test_n]:
+            sample["processed_train"][test_n]["block_cache"] = {}
+        if "mask_cache" not in sample["test"][test_n]:
+            sample["processed_train"][test_n]["mask_cache"] = {}
         color_scheme = get_color_scheme(original_image)
         for candidate in candidates:
             status, mask = get_mask_from_block_params(
-                original_image, candidate["mask"], color_scheme=color_scheme
+                original_image,
+                candidate["mask"],
+                color_scheme=color_scheme,
+                block_cache=sample["processed_train"][test_n]["block_cache"],
+                mask_cache=sample["processed_train"][test_n]["mask_cache"],
             )
             if status != 0:
                 continue
