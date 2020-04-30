@@ -30,8 +30,10 @@ def filter_candidates(
     candidates=None,
     original_image=None,
     blocks=None,
+    blocks_cache=None,
 ):
     t_n, t_m = target_image.shape
+    color_scheme = get_color_scheme(original_image)
     new_candidates = initiate_candidates_list(factors)
     for n_factor, factor in enumerate(factors.copy()):
         for i in range(factor[0]):
@@ -47,7 +49,9 @@ def filter_candidates(
                         params = data["params"]
                     else:
                         params = data
-                        result, array = get_predict(original_image, data)
+                        result, array = get_predict(
+                            original_image, data, blocks_cache, color_scheme
+                        )
                         if result != 0:
                             continue
 
@@ -149,6 +153,8 @@ def mosaic(sample, rotate_target=0, intersection=0):
 
         original_image = np.array(sample["train"][k]["input"])
         target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
+        if "block_cache" not in sample["processed_train"][k]:
+            sample["processed_train"][k]["block_cache"] = {}
 
         factors, candidates = filter_candidates(
             target_image,
@@ -157,6 +163,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
             candidates=candidates,
             original_image=original_image,
             blocks=None,
+            blocks_cache=sample["processed_train"][k]["block_cache"],
         )
 
     answers = []
@@ -172,11 +179,14 @@ def mosaic(sample, rotate_target=0, intersection=0):
 
             for test_n, test_data in enumerate(sample["test"]):
                 original_image = np.array(test_data["input"])
+                color_scheme = get_color_scheme(original_image)
                 skip = False
                 for i in range(factor[0]):
                     for j in range(factor[1]):
                         result, array = get_predict(
-                            original_image, candidates[final_factor_n][i][j][0]
+                            original_image,
+                            candidates[final_factor_n][i][j][0],
+                            color_scheme,
                         )
                         if result != 0:
                             skip = True
@@ -193,8 +203,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
                             )
                             if intersection < 0:
                                 predict += get_color(
-                                    grid_color_list[0],
-                                    get_color_scheme(original_image)["colors"],
+                                    grid_color_list[0], color_scheme["colors"]
                                 )
 
                         predict[
@@ -245,11 +254,28 @@ def mask_to_blocks(sample, rotate_target=0):
         target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
         new_candidates = []
+
+        if "block_cache" not in sample["processed_train"][k]:
+            sample["processed_train"][k]["block_cache"] = {}
+        if "mask_cache" not in sample["processed_train"][k]:
+            sample["processed_train"][k]["mask_cache"] = {}
+
         for candidate in candidates:
-            status, block = get_predict(original_image, candidate["block"])
+            status, block = get_predict(
+                original_image,
+                candidate["block"],
+                sample["processed_train"][k]["block_cache"],
+                color_scheme=sample["processed_train"][k],
+            )
             if status != 0 or block.shape[0] != t_n or block.shape[1] != t_m:
                 continue
-            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            status, mask = get_mask_from_block_params(
+                original_image,
+                candidate["mask"],
+                block_cache=sample["processed_train"][k]["block_cache"],
+                color_scheme=sample["processed_train"][k],
+                mask_cache=sample["processed_train"][k]["mask_cache"],
+            )
             if status != 0 or mask.shape[0] != t_n or mask.shape[1] != t_m:
                 continue
             color = get_color(
@@ -273,10 +299,14 @@ def mask_to_blocks(sample, rotate_target=0):
         original_image = np.array(test_data["input"])
         color_scheme = get_color_scheme(original_image)
         for candidate in candidates:
-            status, block = get_predict(original_image, candidate["block"])
+            status, block = get_predict(
+                original_image, candidate["block"], color_scheme=color_scheme
+            )
             if status != 0:
                 continue
-            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            status, mask = get_mask_from_block_params(
+                original_image, candidate["mask"], color_scheme=color_scheme
+            )
             if (
                 status != 0
                 or mask.shape[0] != block.shape[0]
@@ -333,8 +363,19 @@ def paint_mask(sample, rotate_target=0):
         target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
         new_candidates = []
+        if "block_cache" not in sample["processed_train"][k]:
+            sample["processed_train"][k]["block_cache"] = {}
+        if "mask_cache" not in sample["processed_train"][k]:
+            sample["processed_train"][k]["mask_cache"] = {}
+
         for candidate in candidates:
-            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            status, mask = get_mask_from_block_params(
+                original_image,
+                candidate["mask"],
+                block_cache=sample["processed_train"][k]["block_cache"],
+                color_scheme=sample["processed_train"][k],
+                mask_cache=sample["processed_train"][k]["mask_cache"],
+            )
             if status != 0 or mask.shape[0] != t_n or mask.shape[1] != t_m:
                 continue
             color1 = get_color(
@@ -367,7 +408,9 @@ def paint_mask(sample, rotate_target=0):
         original_image = np.array(test_data["input"])
         color_scheme = get_color_scheme(original_image)
         for candidate in candidates:
-            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            status, mask = get_mask_from_block_params(
+                original_image, candidate["mask"], color_scheme=color_scheme
+            )
             if status != 0:
                 continue
             color1 = get_color(candidate["color1"], color_scheme["colors"])

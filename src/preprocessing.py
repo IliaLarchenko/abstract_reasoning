@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.stats import mode
 from scipy import ndimage
+import json
 
 
 def find_grid(image):
@@ -412,18 +413,18 @@ def process_image(image, list_of_processors=None):
             }
         )
 
-    # rotate all blocks
-    current_blocks = result["blocks"].copy()
-    for k in range(1, 4):
-        for data in current_blocks:
-            status, block = get_rotation(data["block"], k=k)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                result["blocks"].append(
-                    {
-                        "block": block,
-                        "params": data["params"] + [{"type": "rotation", "k": k}],
-                    }
-                )
+    # # rotate all blocks
+    # current_blocks = result["blocks"].copy()
+    # for k in range(1, 4):
+    #     for data in current_blocks:
+    #         status, block = get_rotation(data["block"], k=k)
+    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #             result["blocks"].append(
+    #                 {
+    #                     "block": block,
+    #                     "params": data["params"] + [{"type": "rotation", "k": k}],
+    #                 }
+    #             )
 
     # transpose all blocks
     current_blocks = result["blocks"].copy()
@@ -434,42 +435,29 @@ def process_image(image, list_of_processors=None):
                 {"block": block, "params": data["params"] + [{"type": "transpose"}]}
             )
 
-    # cut edges for all blocks
-    current_blocks = result["blocks"].copy()
-    for l, r, t, b in [
-        (1, 1, 1, 1),
-        (1, 0, 0, 0),
-        (0, 1, 0, 0),
-        (0, 0, 1, 0),
-        (0, 0, 0, 1),
-        (1, 1, 0, 0),
-        (1, 0, 0, 1),
-        (0, 0, 1, 1),
-        (0, 1, 1, 0),
-    ]:
-        for data in current_blocks:
-            status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                result["blocks"].append(
-                    {
-                        "block": block,
-                        "params": data["params"]
-                        + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
-                    }
-                )
-
-    # reflect all blocks
-    current_blocks = result["blocks"].copy()
-    for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
-        for data in current_blocks:
-            status, block = get_reflect(data["block"], side)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                result["blocks"].append(
-                    {
-                        "block": block,
-                        "params": data["params"] + [{"type": "reflect", "side": side}],
-                    }
-                )
+    # # cut edges for all blocks
+    # current_blocks = result["blocks"].copy()
+    # for l, r, t, b in [
+    #     (1, 1, 1, 1),
+    #     (1, 0, 0, 0),
+    #     (0, 1, 0, 0),
+    #     (0, 0, 1, 0),
+    #     (0, 0, 0, 1),
+    #     (1, 1, 0, 0),
+    #     (1, 0, 0, 1),
+    #     (0, 0, 1, 1),
+    #     (0, 1, 1, 0),
+    # ]:
+    #     for data in current_blocks:
+    #         status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
+    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #             result["blocks"].append(
+    #                 {
+    #                     "block": block,
+    #                     "params": data["params"]
+    #                     + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
+    #                 }
+    #             )
 
     # resize all blocks
     current_blocks = result["blocks"].copy()
@@ -484,6 +472,20 @@ def process_image(image, list_of_processors=None):
                     }
                 )
     main_blocks_num = len(result["blocks"])
+
+    # reflect all blocks
+    current_blocks = result["blocks"].copy()
+    for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
+        for data in current_blocks:
+            status, block = get_reflect(data["block"], side)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"] + [{"type": "reflect", "side": side}],
+                    }
+                )
+
     # # swap some colors
     # current_blocks = result["blocks"].copy()
     # for i, color_1 in enumerate(result["colors_sorted"][:-1]):
@@ -590,25 +592,55 @@ def process_image(image, list_of_processors=None):
     return result
 
 
-def get_mask_from_block_params(image, params):
+def get_mask_from_block_params(
+    image, params, block_cache=None, mask_cache=None, color_scheme=None
+):
+    if not isinstance(mask_cache, dict):
+        mask_cache = {}
+    dict_hash = get_dict_hash(params)
+    if dict_hash in mask_cache:
+        if mask_cache[dict_hash]["status"] == 0:
+            return 0, mask_cache[dict_hash]["mask"]
+        else:
+            return mask_cache[dict_hash]["status"], None
+    else:
+        mask_cache[dict_hash] = {}
+
     if params["operation"] == "none":
-        status, block = get_predict(image, params["params"]["block"])
+        status, block = get_predict(
+            image, params["params"]["block"], block_cache, color_scheme
+        )
         if status != 0:
+            mask_cache[dict_hash]["status"] = 1
             return 1, None
-        color_scheme = get_color_scheme(image)
+        if not color_scheme:
+            color_scheme = get_color_scheme(image)
         color_num = get_color(params["params"]["color"], color_scheme["colors"])
         if color_num < 0:
+            mask_cache[dict_hash]["status"] = 1
             return 2, None
         status, mask = get_mask_from_block(block, color_num)
         if status != 0:
+            mask_cache[dict_hash]["status"] = 6
             return 6, None
+        mask_cache[dict_hash]["status"] = 0
+        mask_cache[dict_hash]["mask"] = mask
         return 0, mask
     elif params["operation"] == "not":
         new_params = params.copy()
         new_params["operation"] = "none"
-        status, mask = get_mask_from_block_params(image, new_params)
+        status, mask = get_mask_from_block_params(
+            image,
+            new_params,
+            block_cache=block_cache,
+            color_scheme=color_scheme,
+            mask_cache=mask_cache,
+        )
         if status != 0:
+            mask_cache[dict_hash]["status"] = 3
             return 3, None
+        mask_cache[dict_hash]["status"] = 0
+        mask_cache[dict_hash]["mask"] = mask
         return 0, np.logical_not(mask)
     elif params["operation"] in ["and", "or", "xor"]:
         new_params = {
@@ -618,8 +650,15 @@ def get_mask_from_block_params(image, params):
                 "color": params["params"]["color1"],
             },
         }
-        status, mask1 = get_mask_from_block_params(image, new_params)
+        status, mask1 = get_mask_from_block_params(
+            image,
+            new_params,
+            block_cache=block_cache,
+            color_scheme=color_scheme,
+            mask_cache=mask_cache,
+        )
         if status != 0:
+            mask_cache[dict_hash]["status"] = 4
             return 4, None
         new_params = {
             "operation": "none",
@@ -628,10 +667,18 @@ def get_mask_from_block_params(image, params):
                 "color": params["params"]["color2"],
             },
         }
-        status, mask2 = get_mask_from_block_params(image, new_params)
+        status, mask2 = get_mask_from_block_params(
+            image,
+            new_params,
+            block_cache=block_cache,
+            color_scheme=color_scheme,
+            mask_cache=mask_cache,
+        )
         if status != 0:
+            mask_cache[dict_hash]["status"] = 5
             return 5, None
         if mask1.shape[0] != mask2.shape[0] or mask1.shape[1] != mask2.shape[1]:
+            mask_cache[dict_hash]["status"] = 6
             return 6, None
         if params["operation"] == "and":
             mask = np.logical_and(mask1, mask2)
@@ -639,25 +686,56 @@ def get_mask_from_block_params(image, params):
             mask = np.logical_or(mask1, mask2)
         elif params["operation"] == "xor":
             mask = np.logical_xor(mask1, mask2)
-
+        mask_cache[dict_hash]["status"] = 0
+        mask_cache[dict_hash]["mask"] = mask
         return 0, mask
 
 
-def get_predict(image, transforms):
+def get_dict_hash(d):
+    return hash(json.dumps(d, sort_keys=True))
+
+
+def get_predict(image, transforms, cache=None, color_scheme=None):
     """ applies the list of transforms to the image"""
-    for transform in transforms:
-        function = globals()["get_" + transform["type"]]
-        params = transform.copy()
-        params.pop("type")
-        for color_name in ["color", "color_1", "color_2"]:
-            if color_name in params:
-                color_scheme = get_color_scheme(image)
-                params[color_name] = get_color(
-                    params[color_name], color_scheme["colors"]
-                )
-        status, image = function(image, **params)
-        if status != 0:
-            return 1, None
+    i = 0
+    add_new_transforms = False
+    if isinstance(cache, dict):
+        current_node = cache
+        for transform in transforms:
+            dict_hash = get_dict_hash(transform)
+            if dict_hash in current_node:
+                current_node = current_node[dict_hash]
+                if current_node["status"] != 0:
+                    return 2, None
+                image = current_node["block"]
+                i += 1
+            else:
+                add_new_transforms = True
+                break
+    if not color_scheme:
+        color_scheme = get_color_scheme(image)
+    if add_new_transforms:
+        for transform in transforms[i:]:
+            function = globals()["get_" + transform["type"]]
+            params = transform.copy()
+            params.pop("type")
+            for color_name in ["color", "color_1", "color_2"]:
+                if color_name in params:
+                    params[color_name] = get_color(
+                        params[color_name], color_scheme["colors"]
+                    )
+            status, image = function(image, **params)
+            dict_hash = get_dict_hash(transform)
+            if status != 0:
+                current_node[dict_hash] = {}
+                current_node[dict_hash]["status"] = 1
+                return 1, None
+            else:
+                current_node[dict_hash] = {}
+                current_node = current_node[dict_hash]
+                current_node["status"] = 0
+                current_node["block"] = image
+
     return 0, image
 
 
