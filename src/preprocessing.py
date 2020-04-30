@@ -105,13 +105,13 @@ def get_half(image, side):
     if side not in "lrtb":
         return 1, None
     if side == "l":
-        return 0, image[:, : (image.shape[1] + 1) // 2]
+        return 0, image[:, : (image.shape[1]) // 2]
     if side == "r":
-        return 0, image[:, -(image.shape[1] + 1) // 2 :]
-    if side == "t":
-        return 0, image[-(image.shape[0] + 1) // 2 :, :]
+        return 0, image[:, -((image.shape[1]) // 2) :]
     if side == "b":
-        return 0, image[: (image.shape[0] + 1) // 2, :]
+        return 0, image[-((image.shape[0]) // 2) :, :]
+    if side == "t":
+        return 0, image[: (image.shape[0]) // 2, :]
 
 
 def get_rotation(image, k):
@@ -391,6 +391,8 @@ def process_image(image, list_of_processors=None):
                 {"block": block, "params": [{"type": "half", "side": side}]}
             )
 
+    main_blocks_num = len(result["blocks"])
+
     # adding 'voting corners' block
     status, block = get_voting_corners(image, operation="rotate")
     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
@@ -410,20 +412,18 @@ def process_image(image, list_of_processors=None):
             }
         )
 
-    main_blocks_num = len(result["blocks"])
-
-    # # rotate all blocks
-    # current_blocks = result["blocks"].copy()
-    # for k in range(1, 4):
-    #     for data in current_blocks:
-    #         status, block = get_rotation(data["block"], k=k)
-    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #             result["blocks"].append(
-    #                 {
-    #                     "block": block,
-    #                     "params": data["params"] + [{"type": "rotation", "k": k}],
-    #                 }
-    #             )
+    # rotate all blocks
+    current_blocks = result["blocks"].copy()
+    for k in range(1, 4):
+        for data in current_blocks:
+            status, block = get_rotation(data["block"], k=k)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"] + [{"type": "rotation", "k": k}],
+                    }
+                )
 
     # transpose all blocks
     current_blocks = result["blocks"].copy()
@@ -434,42 +434,42 @@ def process_image(image, list_of_processors=None):
                 {"block": block, "params": data["params"] + [{"type": "transpose"}]}
             )
 
-    # # cut edges for all blocks
-    # current_blocks = result["blocks"].copy()
-    # for l, r, t, b in [
-    #     (1, 1, 1, 1),
-    #     (1, 0, 0, 0),
-    #     (0, 1, 0, 0),
-    #     (0, 0, 1, 0),
-    #     (0, 0, 0, 1),
-    #     (1, 1, 0, 0),
-    #     (1, 0, 0, 1),
-    #     (0, 0, 1, 1),
-    #     (0, 1, 1, 0),
-    # ]:
-    #     for data in current_blocks:
-    #         status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
-    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #             result["blocks"].append(
-    #                 {
-    #                     "block": block,
-    #                     "params": data["params"]
-    #                     + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
-    #                 }
-    #             )
+    # cut edges for all blocks
+    current_blocks = result["blocks"].copy()
+    for l, r, t, b in [
+        (1, 1, 1, 1),
+        (1, 0, 0, 0),
+        (0, 1, 0, 0),
+        (0, 0, 1, 0),
+        (0, 0, 0, 1),
+        (1, 1, 0, 0),
+        (1, 0, 0, 1),
+        (0, 0, 1, 1),
+        (0, 1, 1, 0),
+    ]:
+        for data in current_blocks:
+            status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"]
+                        + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
+                    }
+                )
 
-    # # reflect all blocks
-    # current_blocks = result["blocks"].copy()
-    # for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
-    #     for data in current_blocks:
-    #         status, block = get_reflect(data["block"], side)
-    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #             result["blocks"].append(
-    #                 {
-    #                     "block": block,
-    #                     "params": data["params"] + [{"type": "reflect", "side": side}],
-    #                 }
-    #             )
+    # reflect all blocks
+    current_blocks = result["blocks"].copy()
+    for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
+        for data in current_blocks:
+            status, block = get_reflect(data["block"], side)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                result["blocks"].append(
+                    {
+                        "block": block,
+                        "params": data["params"] + [{"type": "reflect", "side": side}],
+                    }
+                )
 
     # resize all blocks
     current_blocks = result["blocks"].copy()
@@ -483,7 +483,7 @@ def process_image(image, list_of_processors=None):
                         "params": data["params"] + [{"type": "resize", "scale": scale}],
                     }
                 )
-
+    main_blocks_num = len(result["blocks"])
     # # swap some colors
     # current_blocks = result["blocks"].copy()
     # for i, color_1 in enumerate(result["colors_sorted"][:-1]):
@@ -547,9 +547,8 @@ def process_image(image, list_of_processors=None):
 
     for i, mask1 in enumerate(initial_masks[:-1]):
         for mask2 in initial_masks[i + 1 :]:
-            if (
-                mask1["mask"].shape[0] == mask2["mask"].shape[0]
-                and mask1["mask"].shape[1] == mask2["mask"].shape[1]
+            if (mask1["mask"].shape[0] == mask2["mask"].shape[0]) and (
+                mask1["mask"].shape[1] == mask2["mask"].shape[1]
             ):
                 result["masks"].append(
                     {

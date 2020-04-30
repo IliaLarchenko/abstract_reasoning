@@ -253,7 +253,7 @@ def mask_to_blocks(sample, rotate_target=0):
             if status != 0 or mask.shape[0] != t_n or mask.shape[1] != t_m:
                 continue
             color = get_color(
-                candidate["color"], sample["processed_train"][0]["colors"]
+                candidate["color"], sample["processed_train"][k]["colors"]
             )
             if color < 0:
                 continue
@@ -271,6 +271,7 @@ def mask_to_blocks(sample, rotate_target=0):
     result_generated = False
     for test_n, test_data in enumerate(sample["test"]):
         original_image = np.array(test_data["input"])
+        color_scheme = get_color_scheme(original_image)
         for candidate in candidates:
             status, block = get_predict(original_image, candidate["block"])
             if status != 0:
@@ -282,12 +283,99 @@ def mask_to_blocks(sample, rotate_target=0):
                 or mask.shape[1] != block.shape[1]
             ):
                 continue
-            color = get_color(
-                candidate["color"], sample["processed_train"][0]["colors"]
-            )
+            color = get_color(candidate["color"], color_scheme["colors"])
             if color < 0:
                 continue
             prediction = block * (1 - mask) + mask * color
+            answers[test_n].append(np.rot90(prediction, k=-rotate_target))
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 2, None
+
+
+def paint_mask(sample, rotate_target=0):
+    target_image = np.rot90(np.array(sample["train"][0]["output"]), rotate_target)
+    unique = np.unique(target_image)
+    if len(unique) > 2:
+        return 3, None
+    t_n, t_m = target_image.shape
+    candidates = []
+    for mask in sample["processed_train"][0]["masks"]:
+        if t_n == mask["mask"].shape[0] and t_m == mask["mask"].shape[1]:
+            unique = np.unique(target_image[mask["mask"]])
+            if len(unique) != 1:
+                continue
+            color2 = unique[0]
+            unique = np.unique(target_image[np.logical_not(mask["mask"])])
+            if len(unique) != 1:
+                continue
+            color1 = unique[0]
+            for color_dict1 in sample["processed_train"][0]["colors"][color1].copy():
+                for color_dict2 in sample["processed_train"][0]["colors"][
+                    color2
+                ].copy():
+                    candidates.append(
+                        {
+                            "mask": {
+                                "params": mask["params"],
+                                "operation": mask["operation"],
+                            },
+                            "color1": color_dict1.copy(),
+                            "color2": color_dict2.copy(),
+                        }
+                    )
+
+    for k in range(1, len(sample["train"])):
+        original_image = np.array(sample["train"][k]["input"])
+        target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
+        t_n, t_m = target_image.shape
+        new_candidates = []
+        for candidate in candidates:
+            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            if status != 0 or mask.shape[0] != t_n or mask.shape[1] != t_m:
+                continue
+            color1 = get_color(
+                candidate["color1"], sample["processed_train"][k]["colors"]
+            )
+            color2 = get_color(
+                candidate["color2"], sample["processed_train"][k]["colors"]
+            )
+
+            if color1 < 0 or color2 < 0:
+                continue
+
+            part1 = (1 - mask) * color1
+            part2 = mask * color2
+            result = part1 + part2
+            result == target_image
+            if (target_image == ((1 - mask) * color1 + mask * color2)).all():
+                new_candidates.append(candidate)
+        candidates = new_candidates.copy()
+
+    if len(candidates) == 0:
+        return 1, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.array(test_data["input"])
+        color_scheme = get_color_scheme(original_image)
+        for candidate in candidates:
+            status, mask = get_mask_from_block_params(original_image, candidate["mask"])
+            if status != 0:
+                continue
+            color1 = get_color(candidate["color1"], color_scheme["colors"])
+            color2 = get_color(candidate["color2"], color_scheme["colors"])
+
+            if color1 < 0 or color2 < 0:
+                continue
+            prediction = ((1 - mask) * color1) + (mask * color2)
             answers[test_n].append(np.rot90(prediction, k=-rotate_target))
             result_generated = True
 
