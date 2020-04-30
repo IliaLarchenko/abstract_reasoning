@@ -212,8 +212,8 @@ def mosaic(sample, rotate_target=0, intersection=0):
     return 0, answers
 
 
-def mask_to_blocks(sample):
-    target_image = np.array(sample["train"][0]["output"])
+def mask_to_blocks(sample, rotate_target=0):
+    target_image = np.rot90(np.array(sample["train"][0]["output"]), rotate_target)
     t_n, t_m = target_image.shape
     candidates = []
     for block in sample["processed_train"][0]["blocks"]:
@@ -242,7 +242,7 @@ def mask_to_blocks(sample):
 
     for k in range(1, len(sample["train"])):
         original_image = np.array(sample["train"][k]["input"])
-        target_image = np.array(sample["train"][k]["output"])
+        target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
         new_candidates = []
         for candidate in candidates:
@@ -288,7 +288,7 @@ def mask_to_blocks(sample):
             if color < 0:
                 continue
             prediction = block * (1 - mask) + mask * color
-            answers[test_n].append(prediction)
+            answers[test_n].append(np.rot90(prediction, k=-rotate_target))
             result_generated = True
 
     if result_generated:

@@ -212,8 +212,12 @@ def get_color_swap(image, color_1, color_2):
     return 0, result
 
 
-def get_min_block(image):
-    masks, n_masks = ndimage.label(image, structure=[[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+def get_min_block(image, full=True):
+    if full:
+        structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    else:
+        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+    masks, n_masks = ndimage.label(image, structure=structure)
     sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
 
     if n_masks == 0:
@@ -231,8 +235,12 @@ def get_min_block(image):
         return 1, None
 
 
-def get_max_block(image):
-    masks, n_masks = ndimage.label(image, structure=[[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+def get_max_block(image, full=True):
+    if full:
+        structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    else:
+        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+    masks, n_masks = ndimage.label(image, structure=structure)
     sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
 
     if n_masks == 0:
@@ -266,6 +274,18 @@ def get_color(color_dict, colors):
 
 def get_mask_from_block(image, color):
     if color in np.uint8(np.unique(image, return_counts=False)):
+        return 0, image == color
+    else:
+        return 1, None
+
+
+def get_mask_from_max_color_coverage(image, color):
+    if color in np.uint8(np.unique(image, return_counts=False)):
+        find_color_boundaries(image, color)
+        result = (image.copy() * 0).astype(bool)
+        result[
+            boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1
+        ] = True
         return 0, image == color
     else:
         return 1, None
@@ -320,12 +340,17 @@ def process_image(image, list_of_processors=None):
     result["blocks"].append({"block": image, "params": []})
 
     # adding min and max blocks
-    status, block = get_max_block(image)
-    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-        result["blocks"].append({"block": block, "params": [{"type": "max_block"}]})
-    status, block = get_min_block(image)
-    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-        result["blocks"].append({"block": block, "params": [{"type": "min_block"}]})
+    for full in [True, False]:
+        status, block = get_max_block(image, full)
+        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+            result["blocks"].append(
+                {"block": block, "params": [{"type": "max_block", "full": full}]}
+            )
+        status, block = get_min_block(image, full)
+        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+            result["blocks"].append(
+                {"block": block, "params": [{"type": "min_block", "full": full}]}
+            )
 
     # adding the max area covered by each color
     for color in result["colors_sorted"]:
@@ -338,25 +363,6 @@ def process_image(image, list_of_processors=None):
                         "params": [{"type": "color_max", "color": color_dict}],
                     }
                 )
-
-    # adding 'voting corners' block
-    status, block = get_voting_corners(image, operation="rotate")
-    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-        result["blocks"].append(
-            {
-                "block": block,
-                "params": [{"type": "voting_corners", "operation": "rotate"}],
-            }
-        )
-
-    status, block = get_voting_corners(image, operation="reflect")
-    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-        result["blocks"].append(
-            {
-                "block": block,
-                "params": [{"type": "voting_corners", "operation": "reflect"}],
-            }
-        )
 
     # adding grid cells
     if result["grid_color"] > 0:
@@ -384,6 +390,27 @@ def process_image(image, list_of_processors=None):
             result["blocks"].append(
                 {"block": block, "params": [{"type": "half", "side": side}]}
             )
+
+    # adding 'voting corners' block
+    status, block = get_voting_corners(image, operation="rotate")
+    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+        result["blocks"].append(
+            {
+                "block": block,
+                "params": [{"type": "voting_corners", "operation": "rotate"}],
+            }
+        )
+
+    status, block = get_voting_corners(image, operation="reflect")
+    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+        result["blocks"].append(
+            {
+                "block": block,
+                "params": [{"type": "voting_corners", "operation": "reflect"}],
+            }
+        )
+
+    main_blocks_num = len(result["blocks"])
 
     # # rotate all blocks
     # current_blocks = result["blocks"].copy()
@@ -481,9 +508,21 @@ def process_image(image, list_of_processors=None):
     #                         )
 
     result["masks"] = []
+    # # making one orthographical mask for each color on image
+    # for color in result["colors_sorted"]:
+    #     status, mask = get_mask_from_max_color_coverage(block["block"], color)
+    #     if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+    #         for color_dict in result["colors"][color].copy():
+    #             result["masks"].append(
+    #                 {
+    #                     "mask": mask,
+    #                     "operation": "orto",
+    #                     "params": {"color": color_dict},
+    #                 }
+    #             )
 
     # making one mask for each generated block
-    for block in result["blocks"]:
+    for block in result["blocks"][:main_blocks_num]:
         for color in result["colors_sorted"]:
             status, mask = get_mask_from_block(block["block"], color)
             if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
