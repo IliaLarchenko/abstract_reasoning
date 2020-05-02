@@ -300,7 +300,7 @@ def get_mask_from_block(image, color):
 
 def get_mask_from_max_color_coverage(image, color):
     if color in np.uint8(np.unique(image, return_counts=False)):
-        find_color_boundaries(image, color)
+        boundaries = find_color_boundaries(image, color)
         result = (image.copy() * 0).astype(bool)
         result[
             boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1
@@ -335,6 +335,39 @@ def get_color_scheme(image):
         result["colors"][color].append({"type": "min", "k": k})
         # use k-th colour (sorted by presence on image)
         result["colors"][color].append({"type": "max", "k": len(colors) - k - 1})
+
+    # top of the image
+    unique, counts = np.uint8(
+        np.unique(image[: ((image.shape[0] + 1) // 2)], return_counts=True)
+    )
+    if len(unique) == len(colors) - 1:
+        result["colors"][[x for x in colors if x not in unique][0]].append(
+            {"type": "unique", "side": "bottom"}
+        )
+
+    unique, counts = np.uint8(
+        np.unique(image[: -((image.shape[0] + 1) // 2)], return_counts=True)
+    )
+    if len(unique) == len(colors) - 1:
+        result["colors"][[x for x in colors if x not in unique][0]].append(
+            {"type": "unique", "side": "top"}
+        )
+
+    unique, counts = np.uint8(
+        np.unique(image[:, : -((image.shape[0] + 1) // 2)], return_counts=True)
+    )
+    if len(unique) == len(colors) - 1:
+        result["colors"][[x for x in colors if x not in unique][0]].append(
+            {"type": "unique", "side": "left"}
+        )
+
+    unique, counts = np.uint8(
+        np.unique(image[:, ((image.shape[0] + 1) // 2) :], return_counts=True)
+    )
+    if len(unique) == len(colors) - 1:
+        result["colors"][[x for x in colors if x not in unique][0]].append(
+            {"type": "unique", "side": "right"}
+        )
 
     grid_color, grid_size = find_grid(image)
     if grid_color >= 0:
@@ -568,87 +601,77 @@ def process_image(image, list_of_processors=None, max_time=120):
     #                             )
 
     result["masks"] = []
-    # if time.time() - start_time < max_time:
-    # # making one orthographical mask for each color on image
-    # for color in result["colors_sorted"]:
-    #     status, mask = get_mask_from_max_color_coverage(block["block"], color)
-    #     if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-    #         for color_dict in result["colors"][color].copy():
-    #             result["masks"].append(
-    #                 {
-    #                     "mask": mask,
-    #                     "operation": "orto",
-    #                     "params": {"color": color_dict},
-    #                 }
-    #             )
 
-    # # making one mask for each generated block
-    # if time.time() - start_time < max_time * 2:
-    # for block in result["blocks"][:main_blocks_num]:
-    #     for color in result["colors_sorted"]:
-    #         status, mask = get_mask_from_block(block["block"], color)
-    #         if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-    #             for color_dict in result["colors"][color].copy():
-    #                 result["masks"].append(
-    #                     {
-    #                         "mask": mask,
-    #                         "operation": "none",
-    #                         "params": {"block": block["params"], "color": color_dict},
-    #                     }
-    #                 )
-    #
-    # initial_masks = result["masks"].copy()
-    # for mask in initial_masks:
-    #     result["masks"].append(
-    #         {
-    #             "mask": np.logical_not(mask["mask"]),
-    #             "operation": "not",
-    #             "params": mask["params"],
-    #         }
-    #     )
-    #
-    # for i, mask1 in enumerate(initial_masks[:-1]):
-    #     if time.time() - start_time < max_time * 2:
-    # for mask2 in initial_masks[i + 1 :]:
-    #     if (mask1["mask"].shape[0] == mask2["mask"].shape[0]) and (
-    #         mask1["mask"].shape[1] == mask2["mask"].shape[1]
-    #     ):
-    #         result["masks"].append(
-    #             {
-    #                 "mask": np.logical_and(mask1["mask"], mask2["mask"]),
-    #                 "operation": "and",
-    #                 "params": {
-    #                     "block1": mask1["params"]["block"],
-    #                     "block2": mask2["params"]["block"],
-    #                     "color1": mask1["params"]["color"],
-    #                     "color2": mask2["params"]["color"],
-    #                 },
-    #             }
-    #         )
-    #         result["masks"].append(
-    #             {
-    #                 "mask": np.logical_or(mask1["mask"], mask2["mask"]),
-    #                 "operation": "or",
-    #                 "params": {
-    #                     "block1": mask1["params"]["block"],
-    #                     "block2": mask2["params"]["block"],
-    #                     "color1": mask1["params"]["color"],
-    #                     "color2": mask2["params"]["color"],
-    #                 },
-    #             }
-    #         )
-    #         result["masks"].append(
-    #             {
-    #                 "mask": np.logical_xor(mask1["mask"], mask2["mask"]),
-    #                 "operation": "xor",
-    #                 "params": {
-    #                     "block1": mask1["params"]["block"],
-    #                     "block2": mask2["params"]["block"],
-    #                     "color1": mask1["params"]["color"],
-    #                     "color2": mask2["params"]["color"],
-    #                 },
-    #             }
-    #         )
+    # making one mask for each generated block
+    if time.time() - start_time < max_time * 2:
+        for block in result["blocks"][:main_blocks_num]:
+            for color in result["colors_sorted"]:
+                status, mask = get_mask_from_block(block["block"], color)
+                if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+                    for color_dict in result["colors"][color].copy():
+                        result["masks"].append(
+                            {
+                                "mask": mask,
+                                "operation": "none",
+                                "params": {
+                                    "block": block["params"],
+                                    "color": color_dict,
+                                },
+                            }
+                        )
+
+    initial_masks = result["masks"].copy()
+    for mask in initial_masks:
+        result["masks"].append(
+            {
+                "mask": np.logical_not(mask["mask"]),
+                "operation": "not",
+                "params": mask["params"],
+            }
+        )
+
+    for i, mask1 in enumerate(initial_masks[:-1]):
+        if time.time() - start_time < max_time * 2:
+            for mask2 in initial_masks[i + 1 :]:
+                if (mask1["mask"].shape[0] == mask2["mask"].shape[0]) and (
+                    mask1["mask"].shape[1] == mask2["mask"].shape[1]
+                ):
+                    result["masks"].append(
+                        {
+                            "mask": np.logical_and(mask1["mask"], mask2["mask"]),
+                            "operation": "and",
+                            "params": {
+                                "block1": mask1["params"]["block"],
+                                "block2": mask2["params"]["block"],
+                                "color1": mask1["params"]["color"],
+                                "color2": mask2["params"]["color"],
+                            },
+                        }
+                    )
+                    result["masks"].append(
+                        {
+                            "mask": np.logical_or(mask1["mask"], mask2["mask"]),
+                            "operation": "or",
+                            "params": {
+                                "block1": mask1["params"]["block"],
+                                "block2": mask2["params"]["block"],
+                                "color1": mask1["params"]["color"],
+                                "color2": mask2["params"]["color"],
+                            },
+                        }
+                    )
+                    result["masks"].append(
+                        {
+                            "mask": np.logical_xor(mask1["mask"], mask2["mask"]),
+                            "operation": "xor",
+                            "params": {
+                                "block1": mask1["params"]["block"],
+                                "block2": mask2["params"]["block"],
+                                "color1": mask1["params"]["color"],
+                                "color2": mask2["params"]["color"],
+                            },
+                        }
+                    )
 
     return result
 
