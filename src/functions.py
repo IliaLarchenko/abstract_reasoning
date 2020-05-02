@@ -32,7 +32,7 @@ def filter_candidates(
     original_image=None,
     blocks=None,
     blocks_cache=None,
-    max_time=60,
+    max_time=20,
 ):
     candidates_num = 0
     t_n, t_m = target_image.shape
@@ -234,7 +234,7 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
     target_image = np.rot90(np.array(sample["train"][0]["output"]), rotate_target)
     t_n, t_m = target_image.shape
     candidates = []
-    max_time = 60
+    max_time = 20
     start_time = time.time()
     for block in sample["processed_train"][0]["blocks"]:
         if len(block["params"]) > 0 and block["params"][-1]["type"] == "color_swap":
@@ -364,7 +364,7 @@ def paint_mask(sample, rotate_target=0):
         return 3, None
     t_n, t_m = target_image.shape
     candidates = []
-    max_time = 60
+    max_time = 20
     start_time = time.time()
     for mask in sample["processed_train"][0]["masks"]:
         if time.time() - start_time > max_time:

@@ -166,6 +166,8 @@ def get_resize_to(image, size_x, size_y):
     """ resizes image according to scale"""
     scale_x = image.shape[0] // size_x
     scale_y = image.shape[1] // size_y
+    if scale_x == 0 or scale_y == 0:
+        return 3, None
     if image.shape[0] % scale_x != 0 or image.shape[1] % scale_y != 0:
         return 1, None
     if image.shape[0] < scale_x or image.shape[1] < scale_y:
@@ -409,9 +411,9 @@ def get_color_scheme(image, target_image=None):
 def process_image(
     image,
     list_of_processors=None,
-    max_time=120,
+    max_time=20,
     max_blocks=10000,
-    max_masks=200000,
+    max_masks=100000,
     target_image=None,
 ):
     """processes the original image and returns dict with structured image blocks"""
@@ -568,9 +570,9 @@ def process_image(
                             + [{"type": "resize", "scale": scale}],
                         }
                     )
-        for scale_x, scale_y in [(2, 2), (3, 3)]:
+        for size_x, size_y in [(2, 2), (3, 3)]:
             for data in current_blocks:
-                status, block = get_resize_to(data["block"], scale)
+                status, block = get_resize_to(data["block"], size_x, size_y)
                 if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                     result["blocks"].append(
                         {
@@ -579,8 +581,8 @@ def process_image(
                             + [
                                 {
                                     "type": "resize_to",
-                                    "scale_x": scale_x,
-                                    "scale_y": scale_y,
+                                    "size_x": size_x,
+                                    "size_y": size_y,
                                 }
                             ],
                         }
