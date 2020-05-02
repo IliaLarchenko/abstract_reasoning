@@ -6,6 +6,7 @@ from src.preprocessing import (
     get_color_scheme,
     get_mask_from_block_params,
 )
+import time
 
 
 def initiate_candidates_list(factors, initial_values=None):
@@ -31,20 +32,27 @@ def filter_candidates(
     original_image=None,
     blocks=None,
     blocks_cache=None,
+    max_time=60,
 ):
+    candidates_num = 0
     t_n, t_m = target_image.shape
-    color_scheme = get_color_scheme(original_image)
+    if original_image is not None:
+        color_scheme = get_color_scheme(original_image)
     new_candidates = initiate_candidates_list(factors)
+    start_time = time.time()
     for n_factor, factor in enumerate(factors.copy()):
         for i in range(factor[0]):
             for j in range(factor[1]):
-                if blocks:
+                if blocks is not None:
                     local_candidates = blocks
                 else:
                     local_candidates = candidates[n_factor][i][j]
 
                 for data in local_candidates:
-                    if blocks:
+                    if time.time() - start_time > max_time:
+                        print("stopped")
+                        break
+                    if blocks is not None:
                         array = data["block"]
                         params = data["params"]
                     else:
@@ -92,6 +100,7 @@ def filter_candidates(
                         == target_image[start_n : start_n + n, start_m : start_m + m]
                     ).all():
                         new_candidates[n_factor][i][j].append(params)
+                        candidates_num += 1
 
                 # if there is no candidates for one of the cells the whole factor is invalid
                 if len(new_candidates[n_factor][i][j]) == 0:
@@ -99,7 +108,6 @@ def filter_candidates(
                     break
             if factors[n_factor][0] == 0:
                 break
-
     return factors, new_candidates
 
 
@@ -165,6 +173,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
             blocks=None,
             blocks_cache=sample["processed_train"][k]["block_cache"],
         )
+        # del sample["processed_train"][k]["block_cache"]
 
     answers = []
     for _ in sample["test"]:
@@ -225,9 +234,13 @@ def mask_to_blocks(sample, rotate_target=0):
     target_image = np.rot90(np.array(sample["train"][0]["output"]), rotate_target)
     t_n, t_m = target_image.shape
     candidates = []
+    max_time = 60
+    start_time = time.time()
     for block in sample["processed_train"][0]["blocks"]:
         if t_n == block["block"].shape[0] and t_m == block["block"].shape[1]:
             for mask in sample["processed_train"][0]["masks"]:
+                if time.time() - start_time > max_time:
+                    break
                 if t_n == mask["mask"].shape[0] and t_m == mask["mask"].shape[1]:
                     for color in range(10):
                         if (
@@ -250,6 +263,7 @@ def mask_to_blocks(sample, rotate_target=0):
                                 )
 
     for k in range(1, len(sample["train"])):
+        start_time = time.time()
         original_image = np.array(sample["train"][k]["input"])
         target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
@@ -261,6 +275,8 @@ def mask_to_blocks(sample, rotate_target=0):
             sample["processed_train"][k]["mask_cache"] = {}
 
         for candidate in candidates:
+            if time.time() - start_time > max_time:
+                break
             status, block = get_predict(
                 original_image,
                 candidate["block"],
@@ -346,7 +362,11 @@ def paint_mask(sample, rotate_target=0):
         return 3, None
     t_n, t_m = target_image.shape
     candidates = []
+    max_time = 60
+    start_time = time.time()
     for mask in sample["processed_train"][0]["masks"]:
+        if time.time() - start_time > max_time:
+            break
         if t_n == mask["mask"].shape[0] and t_m == mask["mask"].shape[1]:
             unique = np.unique(target_image[mask["mask"]])
             if len(unique) != 1:
@@ -372,6 +392,7 @@ def paint_mask(sample, rotate_target=0):
                     )
 
     for k in range(1, len(sample["train"])):
+        start_time = time.time()
         original_image = np.array(sample["train"][k]["input"])
         target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
@@ -382,6 +403,8 @@ def paint_mask(sample, rotate_target=0):
             sample["processed_train"][k]["mask_cache"] = {}
 
         for candidate in candidates:
+            if time.time() - start_time > max_time:
+                break
             status, mask = get_mask_from_block_params(
                 original_image,
                 candidate["mask"],
