@@ -3,6 +3,7 @@ from scipy.stats import mode
 from scipy import ndimage
 import json
 import time
+import random
 
 
 def find_grid(image):
@@ -378,7 +379,9 @@ def get_color_scheme(image):
     return result
 
 
-def process_image(image, list_of_processors=None, max_time=120):
+def process_image(
+    image, list_of_processors=None, max_time=120, max_blocks=100000, max_masks=500000
+):
     """processes the original image and returns dict with structured image blocks"""
     if not list_of_processors:
         list_of_processors = []
@@ -672,6 +675,23 @@ def process_image(image, list_of_processors=None, max_time=120):
                             },
                         }
                     )
+    if time.time() - start_time < max_time * 2:
+        for color in result["colors_sorted"][1:]:
+            status, mask = get_mask_from_max_color_coverage(image, color)
+            if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+                for color_dict in result["colors"][color].copy():
+                    result["masks"].append(
+                        {
+                            "mask": mask,
+                            "operation": "coverage",
+                            "params": {"color": color_dict},
+                        }
+                    )
+    random.seed(42)
+    random.shuffle(result["masks"])
+    result["masks"] = result["masks"][:max_masks]
+    random.shuffle(result["blocks"])
+    result["blocks"] = result["blocks"][:max_blocks]
 
     return result
 
@@ -679,7 +699,7 @@ def process_image(image, list_of_processors=None, max_time=120):
 def get_mask_from_block_params(
     image, params, block_cache=None, mask_cache=None, color_scheme=None
 ):
-    if not isinstance(mask_cache, dict):
+    if mask_cache is None:
         mask_cache = {}
     dict_hash = get_dict_hash(params)
     if dict_hash in mask_cache:
@@ -770,6 +790,20 @@ def get_mask_from_block_params(
             mask = np.logical_or(mask1, mask2)
         elif params["operation"] == "xor":
             mask = np.logical_xor(mask1, mask2)
+        mask_cache[dict_hash]["status"] = 0
+        mask_cache[dict_hash]["mask"] = mask
+        return 0, mask
+    elif params["operation"] == "coverage":
+        if not color_scheme:
+            color_scheme = get_color_scheme(image)
+        color_num = get_color(params["params"]["color"], color_scheme["colors"])
+        if color_num < 0:
+            mask_cache[dict_hash]["status"] = 1
+            return 2, None
+        status, mask = get_mask_from_max_color_coverage(image, color_num)
+        if status != 0:
+            mask_cache[dict_hash]["status"] = 6
+            return 6, None
         mask_cache[dict_hash]["status"] = 0
         mask_cache[dict_hash]["mask"] = mask
         return 0, mask
