@@ -293,14 +293,14 @@ def get_color(color_dict, colors):
 
 
 def get_mask_from_block(image, color):
-    if color in np.uint8(np.unique(image, return_counts=False)):
+    if color in np.unique(image, return_counts=False):
         return 0, image == color
     else:
         return 1, None
 
 
 def get_mask_from_max_color_coverage(image, color):
-    if color in np.uint8(np.unique(image, return_counts=False)):
+    if color in np.unique(image, return_counts=False):
         boundaries = find_color_boundaries(image, color)
         result = (image.copy() * 0).astype(bool)
         result[
@@ -311,7 +311,7 @@ def get_mask_from_max_color_coverage(image, color):
         return 1, None
 
 
-def get_color_scheme(image):
+def get_color_scheme(image, target_image=None):
     """processes original image and returns dict color scheme"""
     result = {
         "grid_color": -1,
@@ -322,14 +322,22 @@ def get_color_scheme(image):
 
     # preparing colors info
 
-    unique, counts = np.uint8(np.unique(image, return_counts=True))
+    unique, counts = np.unique(image, return_counts=True)
     colors = [unique[i] for i in np.argsort(counts)]
 
     result["colors_sorted"] = colors
 
-    for color in range(10):
-        # use abs color value - same for any image
-        result["colors"][color].append({"type": "abs", "k": color})
+    if target_image is None:
+        for color in range(10):
+            # use abs color value - same for any image
+            result["colors"][color].append({"type": "abs", "k": color})
+    else:
+        unique_target = np.unique(target_image)
+        # print(unique_target, unique, unique_target + unique, set(unique_target + unique))
+        for color in [int(x) for x in set(list(unique_target) + list(unique))]:
+            # print(set(list(unique_target) + unique))
+            # use abs color value - same for any image
+            result["colors"][color].append({"type": "abs", "k": color})
 
     for k, color in enumerate(colors):
         # use k-th colour (sorted by presence on image)
@@ -380,14 +388,19 @@ def get_color_scheme(image):
 
 
 def process_image(
-    image, list_of_processors=None, max_time=120, max_blocks=100000, max_masks=500000
+    image,
+    list_of_processors=None,
+    max_time=120,
+    max_blocks=10000,
+    max_masks=200000,
+    target_image=None,
 ):
     """processes the original image and returns dict with structured image blocks"""
     if not list_of_processors:
         list_of_processors = []
 
     start_time = time.time()
-    result = get_color_scheme(image)
+    result = get_color_scheme(image, target_image=target_image)
     result["blocks"] = []
 
     # generating blocks
@@ -408,6 +421,8 @@ def process_image(
                 {"block": block, "params": [{"type": "min_block", "full": full}]}
             )
 
+    # print(len(result["blocks"]))
+
     if time.time() - start_time < max_time:
         # adding the max area covered by each color
         for color in result["colors_sorted"]:
@@ -420,7 +435,7 @@ def process_image(
                             "params": [{"type": "color_max", "color": color_dict}],
                         }
                     )
-
+    # print(len(result["blocks"]))
     # adding grid cells
     if time.time() - start_time < max_time:
         if result["grid_color"] > 0:
@@ -440,7 +455,7 @@ def process_image(
                                 ],
                             }
                         )
-
+    # print(len(result["blocks"]))
     # adding halfs of the images
     for side in "lrtb":
         status, block = get_half(image, side=side)
@@ -449,6 +464,7 @@ def process_image(
                 {"block": block, "params": [{"type": "half", "side": side}]}
             )
 
+    # print(len(result["blocks"]))
     main_blocks_num = len(result["blocks"])
 
     if time.time() - start_time < max_time:
@@ -470,7 +486,7 @@ def process_image(
                     "params": [{"type": "voting_corners", "operation": "reflect"}],
                 }
             )
-
+    # print(len(result["blocks"]))
     # # rotate all blocks
     # current_blocks = result["blocks"].copy()
     # for k in range(1, 4):
@@ -493,7 +509,7 @@ def process_image(
                 result["blocks"].append(
                     {"block": block, "params": data["params"] + [{"type": "transpose"}]}
                 )
-
+    # print(len(result["blocks"]))
     # cut edges for all blocks
     # current_blocks = result["blocks"].copy()
     # for l, r, t, b in [
@@ -535,19 +551,21 @@ def process_image(
                     )
     main_blocks_num = len(result["blocks"])
 
-    # # reflect all blocks
-    # current_blocks = result["blocks"].copy()
-    # for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
-    #     if time.time() - start_time < max_time:
-    #         for data in current_blocks:
-    #             status, block = get_reflect(data["block"], side)
-    #             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #                 result["blocks"].append(
-    #                     {
-    #                         "block": block,
-    #                         "params": data["params"] + [{"type": "reflect", "side": side}],
-    #                     }
-    #                 )
+    # print(len(result["blocks"]))
+    # reflect all blocks
+    current_blocks = result["blocks"].copy()
+    for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
+        if time.time() - start_time < max_time:
+            for data in current_blocks:
+                status, block = get_reflect(data["block"], side)
+                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                    result["blocks"].append(
+                        {
+                            "block": block,
+                            "params": data["params"]
+                            + [{"type": "reflect", "side": side}],
+                        }
+                    )
 
     # cut some parts of images
     max_x = image.shape[0]
@@ -580,28 +598,28 @@ def process_image(
                             )
 
     # swap some colors
-    # current_blocks = result["blocks"].copy()
-    # for i, color_1 in enumerate(result["colors_sorted"][:-1]):
-    #     if time.time() - start_time < max_time:
-    #         for color_2 in result["colors_sorted"][i:]:
-    #             for data in current_blocks:
-    #                 status, block = get_color_swap(image, color_1, color_2)
-    #                 if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #                     for color_dict_1 in result["colors"][color_1].copy():
-    #                         for color_dict_2 in result["colors"][color_2].copy():
-    #                             result["blocks"].append(
-    #                                 {
-    #                                     "block": block,
-    #                                     "params": data["params"]
-    #                                     + [
-    #                                         {
-    #                                             "type": "color_swap",
-    #                                             "color_1": color_dict_1,
-    #                                             "color_2": color_dict_2,
-    #                                         }
-    #                                     ],
-    #                                 }
-    #                             )
+    current_blocks = result["blocks"].copy()
+    for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+        if time.time() - start_time < max_time:
+            for color_2 in result["colors_sorted"][i:]:
+                for data in current_blocks:
+                    status, block = get_color_swap(image, color_1, color_2)
+                    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                        for color_dict_1 in result["colors"][color_1].copy():
+                            for color_dict_2 in result["colors"][color_2].copy():
+                                result["blocks"].append(
+                                    {
+                                        "block": block,
+                                        "params": data["params"]
+                                        + [
+                                            {
+                                                "type": "color_swap",
+                                                "color_1": color_dict_1,
+                                                "color_2": color_dict_2,
+                                            }
+                                        ],
+                                    }
+                                )
 
     result["masks"] = []
 
@@ -619,9 +637,12 @@ def process_image(
                                 "params": {
                                     "block": block["params"],
                                     "color": color_dict,
+                                    "color_id": int(color),
                                 },
                             }
                         )
+    # print(len(result["blocks"]))
+    # print(len(result["masks"]))
 
     initial_masks = result["masks"].copy()
     for mask in initial_masks:
@@ -633,11 +654,20 @@ def process_image(
             }
         )
 
+    # print(len(result["masks"]))
+
     for i, mask1 in enumerate(initial_masks[:-1]):
-        if time.time() - start_time < max_time * 2:
+        if time.time() - start_time < max_time * 2 and (
+            (target_image.shape == mask1["mask"].shape)
+            or (target_image.shape == mask1["mask"].T.shape)
+        ):
+            if max_masks * 3 < len(result["masks"]):
+                break
             for mask2 in initial_masks[i + 1 :]:
-                if (mask1["mask"].shape[0] == mask2["mask"].shape[0]) and (
-                    mask1["mask"].shape[1] == mask2["mask"].shape[1]
+                if (
+                    (mask1["mask"].shape[0] == mask2["mask"].shape[0])
+                    and (mask1["mask"].shape[1] == mask2["mask"].shape[1])
+                    and (mask1["params"]["color_id"] != mask2["params"]["color_id"])
                 ):
                     result["masks"].append(
                         {
@@ -675,6 +705,9 @@ def process_image(
                             },
                         }
                     )
+
+    # print(len(result["masks"]))
+
     if time.time() - start_time < max_time * 2:
         for color in result["colors_sorted"][1:]:
             status, mask = get_mask_from_max_color_coverage(image, color)
@@ -687,6 +720,9 @@ def process_image(
                             "params": {"color": color_dict},
                         }
                     )
+
+    # print(len(result["masks"]))
+
     random.seed(42)
     random.shuffle(result["masks"])
     result["masks"] = result["masks"][:max_masks]
@@ -862,7 +898,11 @@ def preprocess_sample(sample):
     sample["processed_train"] = []
 
     original_image = np.array(sample["train"][0]["input"])
-    sample["processed_train"].append(process_image(original_image))
+    target_image = np.array(sample["train"][0]["output"])
+
+    sample["processed_train"].append(
+        process_image(original_image, target_image=target_image)
+    )
 
     for image in sample["train"][1:]:
         original_image = np.array(image["input"])
