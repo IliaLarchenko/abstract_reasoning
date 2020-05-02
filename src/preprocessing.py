@@ -526,7 +526,7 @@ def process_image(image, list_of_processors=None, max_time=120):
                     if max_y - y1 <= min_block_size:
                         continue
                     for y2 in range(y1 + min_block_size, max_y):
-                        status, block = get_cut(data["block"], x1, y1, x2, y2)
+                        status, block = get_cut(image, x1, y1, x2, y2)
                         if status == 0:
                             result["blocks"].append(
                                 {
