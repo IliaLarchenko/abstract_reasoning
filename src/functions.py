@@ -113,7 +113,7 @@ def filter_candidates(
 
 def mosaic(sample, rotate_target=0, intersection=0):
     """ combines all possible combinations of blocks into target image"""
-    target_image = np.rot90(np.array(sample["train"][0]["output"]), rotate_target)
+    target_image = np.rot90(np.uint8(sample["train"][0]["output"]), rotate_target)
     t_n, t_m = target_image.shape
     factors = []
 
@@ -159,8 +159,8 @@ def mosaic(sample, rotate_target=0, intersection=0):
             else:
                 grid_color_list = new_grid_color_list.copy()
 
-        original_image = np.array(sample["train"][k]["input"])
-        target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
+        original_image = np.uint8(sample["train"][k]["input"])
+        target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate_target)
         if "block_cache" not in sample["processed_train"][k]:
             sample["processed_train"][k]["block_cache"] = {}
 
@@ -187,7 +187,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
             factor = factors[final_factor_n]
 
             for test_n, test_data in enumerate(sample["test"]):
-                original_image = np.array(test_data["input"])
+                original_image = np.uint8(test_data["input"])
                 color_scheme = get_color_scheme(original_image)
                 skip = False
                 for i in range(factor[0]):
@@ -231,7 +231,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
 
 
 def mask_to_blocks(sample, rotate_target=0, num_masks=1):
-    target_image = np.rot90(np.array(sample["train"][0]["output"]), rotate_target)
+    target_image = np.rot90(np.uint8(sample["train"][0]["output"]), rotate_target)
     t_n, t_m = target_image.shape
     candidates = []
     max_time = 20
@@ -266,8 +266,8 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
 
     for k in range(1, len(sample["train"])):
         start_time = time.time()
-        original_image = np.array(sample["train"][k]["input"])
-        target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
+        original_image = np.uint8(sample["train"][k]["input"])
+        target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
         new_candidates = []
 
@@ -314,7 +314,7 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
 
     result_generated = False
     for test_n, test_data in enumerate(sample["test"]):
-        original_image = np.array(test_data["input"])
+        original_image = np.uint8(test_data["input"])
 
         if "block_cache" not in sample["test"][test_n]:
             sample["processed_train"][test_n]["block_cache"] = {}
@@ -358,7 +358,7 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
 
 
 def paint_mask(sample, rotate_target=0):
-    target_image = np.rot90(np.array(sample["train"][0]["output"]), rotate_target)
+    target_image = np.rot90(np.uint8(sample["train"][0]["output"]), rotate_target)
     unique = np.unique(target_image)
     if len(unique) > 2:
         return 3, None
@@ -395,8 +395,8 @@ def paint_mask(sample, rotate_target=0):
 
     for k in range(1, len(sample["train"])):
         start_time = time.time()
-        original_image = np.array(sample["train"][k]["input"])
-        target_image = np.rot90(np.array(sample["train"][k]["output"]), rotate_target)
+        original_image = np.uint8(sample["train"][k]["input"])
+        target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
         new_candidates = []
         if "block_cache" not in sample["processed_train"][k]:
@@ -443,7 +443,7 @@ def paint_mask(sample, rotate_target=0):
 
     result_generated = False
     for test_n, test_data in enumerate(sample["test"]):
-        original_image = np.array(test_data["input"])
+        original_image = np.uint8(test_data["input"])
         if "block_cache" not in sample["test"][test_n]:
             sample["processed_train"][test_n]["block_cache"] = {}
         if "mask_cache" not in sample["test"][test_n]:

@@ -157,7 +157,7 @@ def get_resize(image, scale):
             for j in range(size[1]):
                 result[-1].append(image[int(i * scale), int(j * scale)])
 
-        result = np.array(result)
+        result = np.uint8(result)
 
     return 0, result
 
@@ -935,14 +935,14 @@ def preprocess_sample(sample):
     """ make the whole preprocessing for particular sample"""
     sample["processed_train"] = []
 
-    original_image = np.array(sample["train"][0]["input"])
-    target_image = np.array(sample["train"][0]["output"])
+    original_image = np.uint8(sample["train"][0]["input"])
+    target_image = np.uint8(sample["train"][0]["output"])
 
     sample["processed_train"].append(
         process_image(original_image, target_image=target_image)
     )
 
     for image in sample["train"][1:]:
-        original_image = np.array(image["input"])
+        original_image = np.uint8(image["input"])
         sample["processed_train"].append(get_color_scheme(original_image))
     return sample
