@@ -7,6 +7,7 @@ from src.preprocessing import (
     get_mask_from_block_params,
 )
 import time
+import gc
 
 
 def initiate_candidates_list(factors, initial_values=None):
@@ -138,6 +139,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
         original_image=None,
         blocks=sample["processed_train"][0]["blocks"],
     )
+    gc.collect()
 
     # filter them, leave only those that ok for all train samples
     for k in range(1, len(sample["train"])):
@@ -173,7 +175,8 @@ def mosaic(sample, rotate_target=0, intersection=0):
             blocks=None,
             blocks_cache=sample["processed_train"][k]["block_cache"],
         )
-        # del sample["processed_train"][k]["block_cache"]
+        del sample["processed_train"][k]["block_cache"]
+        gc.collect()
 
     answers = []
     for _ in sample["test"]:
@@ -263,6 +266,7 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
                                         "color": color_dict.copy(),
                                     }
                                 )
+    gc.collect()
 
     for k in range(1, len(sample["train"])):
         start_time = time.time()
@@ -304,6 +308,9 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
             if (target_image == block * (1 - mask) + mask * color).all():
                 new_candidates.append(candidate)
         candidates = new_candidates.copy()
+        del sample["processed_train"][k]["mask_cache"]
+        del sample["processed_train"][k]["block_cache"]
+        gc.collect()
 
     if len(candidates) == 0:
         return 1, None
@@ -392,6 +399,7 @@ def paint_mask(sample, rotate_target=0):
                             "color2": color_dict2.copy(),
                         }
                     )
+    gc.collect()
 
     for k in range(1, len(sample["train"])):
         start_time = time.time()
@@ -433,6 +441,9 @@ def paint_mask(sample, rotate_target=0):
             if (target_image == ((1 - mask) * color1 + mask * color2)).all():
                 new_candidates.append(candidate)
         candidates = new_candidates.copy()
+        del sample["processed_train"][k]["mask_cache"]
+        del sample["processed_train"][k]["block_cache"]
+        gc.collect()
 
     if len(candidates) == 0:
         return 1, None
