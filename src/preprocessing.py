@@ -411,9 +411,9 @@ def get_color_scheme(image, target_image=None):
 def process_image(
     image,
     list_of_processors=None,
-    max_time=20,
-    max_blocks=10000,
-    max_masks=100000,
+    max_time=100000,
+    max_blocks=300000,
+    max_masks=500000,
     target_image=None,
 ):
     """processes the original image and returns dict with structured image blocks"""
@@ -429,85 +429,86 @@ def process_image(
     # starting with the original image
     result["blocks"].append({"block": image, "params": []})
 
-    # adding min and max blocks
-    for full in [True, False]:
-        status, block = get_max_block(image, full)
-        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-            result["blocks"].append(
-                {"block": block, "params": [{"type": "max_block", "full": full}]}
-            )
-        status, block = get_min_block(image, full)
-        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-            result["blocks"].append(
-                {"block": block, "params": [{"type": "min_block", "full": full}]}
-            )
-
-    # print(len(result["blocks"]))
-
-    if time.time() - start_time < max_time:
-        # adding the max area covered by each color
-        for color in result["colors_sorted"]:
-            status, block = get_color_max(image, color)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                for color_dict in result["colors"][color].copy():
-                    result["blocks"].append(
-                        {
-                            "block": block,
-                            "params": [{"type": "color_max", "color": color_dict}],
-                        }
-                    )
-    # print(len(result["blocks"]))
-    # adding grid cells
-    if time.time() - start_time < max_time:
-        if result["grid_color"] > 0:
-            for i in range(result["grid_size"][0]):
-                for j in range(result["grid_size"][1]):
-                    status, block = get_grid(image, result["grid_size"], (i, j))
-                    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                        result["blocks"].append(
-                            {
-                                "block": block,
-                                "params": [
-                                    {
-                                        "type": "grid",
-                                        "grid_size": result["grid_size"],
-                                        "cell": [i, j],
-                                    }
-                                ],
-                            }
-                        )
-    # print(len(result["blocks"]))
-    # adding halfs of the images
-    for side in "lrtb":
-        status, block = get_half(image, side=side)
-        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-            result["blocks"].append(
-                {"block": block, "params": [{"type": "half", "side": side}]}
-            )
-
-    # print(len(result["blocks"]))
-    main_blocks_num = len(result["blocks"])
-
-    if time.time() - start_time < max_time:
-        # adding 'voting corners' block
-        status, block = get_voting_corners(image, operation="rotate")
-        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-            result["blocks"].append(
-                {
-                    "block": block,
-                    "params": [{"type": "voting_corners", "operation": "rotate"}],
-                }
-            )
-
-        status, block = get_voting_corners(image, operation="reflect")
-        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-            result["blocks"].append(
-                {
-                    "block": block,
-                    "params": [{"type": "voting_corners", "operation": "reflect"}],
-                }
-            )
-    # print(len(result["blocks"]))
+    # # adding min and max blocks
+    # for full in [True, False]:
+    #     status, block = get_max_block(image, full)
+    #     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #         result["blocks"].append(
+    #             {"block": block, "params": [{"type": "max_block", "full": full}]}
+    #         )
+    #     status, block = get_min_block(image, full)
+    #     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #         result["blocks"].append(
+    #             {"block": block, "params": [{"type": "min_block", "full": full}]}
+    #         )
+    #
+    # # print(len(result["blocks"]))
+    #
+    # if time.time() - start_time < max_time:
+    #     # adding the max area covered by each color
+    #     for color in result["colors_sorted"]:
+    #         status, block = get_color_max(image, color)
+    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #             for color_dict in result["colors"][color].copy():
+    #                 result["blocks"].append(
+    #                     {
+    #                         "block": block,
+    #                         "params": [{"type": "color_max", "color": color_dict}],
+    #                     }
+    #                 )
+    # # print(len(result["blocks"]))
+    # # adding grid cells
+    # if time.time() - start_time < max_time:
+    #     if result["grid_color"] > 0:
+    #         for i in range(result["grid_size"][0]):
+    #             for j in range(result["grid_size"][1]):
+    #                 status, block = get_grid(image, result["grid_size"], (i, j))
+    #                 if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #                     result["blocks"].append(
+    #                         {
+    #                             "block": block,
+    #                             "params": [
+    #                                 {
+    #                                     "type": "grid",
+    #                                     "grid_size": result["grid_size"],
+    #                                     "cell": [i, j],
+    #                                 }
+    #                             ],
+    #                         }
+    #                     )
+    # # print(len(result["blocks"]))
+    # # adding halfs of the images
+    # for side in "lrtb":
+    #     status, block = get_half(image, side=side)
+    #     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #         result["blocks"].append(
+    #             {"block": block, "params": [{"type": "half", "side": side}]}
+    #         )
+    #
+    # # print(len(result["blocks"]))
+    # main_blocks_num = len(result["blocks"])
+    #
+    # if time.time() - start_time < max_time:
+    #     # adding 'voting corners' block
+    #     status, block = get_voting_corners(image, operation="rotate")
+    #     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #         result["blocks"].append(
+    #             {
+    #                 "block": block,
+    #                 "params": [{"type": "voting_corners", "operation": "rotate"}],
+    #             }
+    #         )
+    #
+    #     status, block = get_voting_corners(image, operation="reflect")
+    #     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #         result["blocks"].append(
+    #             {
+    #                 "block": block,
+    #                 "params": [{"type": "voting_corners", "operation": "reflect"}],
+    #             }
+    #         )
+    #
+    #
     # # rotate all blocks
     # current_blocks = result["blocks"].copy()
     # for k in range(1, 4):
@@ -520,252 +521,251 @@ def process_image(
     #                     "params": data["params"] + [{"type": "rotation", "k": k}],
     #                 }
     #             )
-
-    if time.time() - start_time < max_time:
-        # transpose all blocks
-        current_blocks = result["blocks"].copy()
-        for data in current_blocks:
-            status, block = get_transpose(data["block"])
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                result["blocks"].append(
-                    {"block": block, "params": data["params"] + [{"type": "transpose"}]}
-                )
-    # print(len(result["blocks"]))
-    # cut edges for all blocks
-    # current_blocks = result["blocks"].copy()
-    # for l, r, t, b in [
-    #     (1, 1, 1, 1),
-    #     (1, 0, 0, 0),
-    #     (0, 1, 0, 0),
-    #     (0, 0, 1, 0),
-    #     (0, 0, 0, 1),
-    #     (1, 1, 0, 0),
-    #     (1, 0, 0, 1),
-    #     (0, 0, 1, 1),
-    #     (0, 1, 1, 0),
-    # ]:
-    #     if time.time() - start_time < max_time:
+    #
+    # if time.time() - start_time < max_time:
+    #     # transpose all blocks
+    #     current_blocks = result["blocks"].copy()
+    #     for data in current_blocks:
+    #         status, block = get_transpose(data["block"])
+    #         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #             result["blocks"].append(
+    #                 {"block": block, "params": data["params"] + [{"type": "transpose"}]}
+    #             )
+    # # print(len(result["blocks"]))
+    # # cut edges for all blocks
+    # # current_blocks = result["blocks"].copy()
+    # # for l, r, t, b in [
+    # #     (1, 1, 1, 1),
+    # #     (1, 0, 0, 0),
+    # #     (0, 1, 0, 0),
+    # #     (0, 0, 1, 0),
+    # #     (0, 0, 0, 1),
+    # #     (1, 1, 0, 0),
+    # #     (1, 0, 0, 1),
+    # #     (0, 0, 1, 1),
+    # #     (0, 1, 1, 0),
+    # # ]:
+    # #     if time.time() - start_time < max_time:
+    # #         for data in current_blocks:
+    # #             status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
+    # #             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    # #                 result["blocks"].append(
+    # #                     {
+    # #                         "block": block,
+    # #                         "params": data["params"]
+    # #                         + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
+    # #                     }
+    # #                 )
+    #
+    # if time.time() - start_time < max_time:
+    #     # resize all blocks
+    #     current_blocks = result["blocks"].copy()
+    #     for scale in [2, 3, 1 / 2, 1 / 3]:
     #         for data in current_blocks:
-    #             status, block = get_cut_edge(data["block"], l=l, r=r, t=t, b=b)
+    #             status, block = get_resize(data["block"], scale)
     #             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
     #                 result["blocks"].append(
     #                     {
     #                         "block": block,
     #                         "params": data["params"]
-    #                         + [{"type": "cut_edge", "l": l, "r": r, "t": t, "b": b}],
+    #                         + [{"type": "resize", "scale": scale}],
     #                     }
     #                 )
-
-    if time.time() - start_time < max_time:
-        # resize all blocks
-        current_blocks = result["blocks"].copy()
-        for scale in [2, 3, 1 / 2, 1 / 3]:
-            for data in current_blocks:
-                status, block = get_resize(data["block"], scale)
-                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                    result["blocks"].append(
-                        {
-                            "block": block,
-                            "params": data["params"]
-                            + [{"type": "resize", "scale": scale}],
-                        }
-                    )
-        for size_x, size_y in [(2, 2), (3, 3)]:
-            for data in current_blocks:
-                status, block = get_resize_to(data["block"], size_x, size_y)
-                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                    result["blocks"].append(
-                        {
-                            "block": block,
-                            "params": data["params"]
-                            + [
-                                {
-                                    "type": "resize_to",
-                                    "size_x": size_x,
-                                    "size_y": size_y,
-                                }
-                            ],
-                        }
-                    )
-    main_blocks_num = len(result["blocks"])
-
-    # print(len(result["blocks"]))
-    # reflect all blocks
-    current_blocks = result["blocks"].copy()
-    for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
-        if time.time() - start_time < max_time:
-            for data in current_blocks:
-                status, block = get_reflect(data["block"], side)
-                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                    result["blocks"].append(
-                        {
-                            "block": block,
-                            "params": data["params"]
-                            + [{"type": "reflect", "side": side}],
-                        }
-                    )
-
-    # cut some parts of images
-    max_x = image.shape[0]
-    max_y = image.shape[1]
-    min_block_size = 2
-    for x1 in range(0, max_x - min_block_size):
-        if time.time() - start_time < max_time:
-            if max_x - x1 <= min_block_size:
-                continue
-            for x2 in range(x1 + min_block_size, max_x):
-                for y1 in range(0, max_y - min_block_size):
-                    if max_y - y1 <= min_block_size:
-                        continue
-                    for y2 in range(y1 + min_block_size, max_y):
-                        status, block = get_cut(image, x1, y1, x2, y2)
-                        if status == 0:
-                            result["blocks"].append(
-                                {
-                                    "block": block,
-                                    "params": [
-                                        {
-                                            "type": "cut",
-                                            "x1": x1,
-                                            "x2": x2,
-                                            "y1": y1,
-                                            "y2": y2,
-                                        }
-                                    ],
-                                }
-                            )
-
-    # swap some colors
-    current_blocks = result["blocks"].copy()
-    for i, color_1 in enumerate(result["colors_sorted"][:-1]):
-        if time.time() - start_time < max_time:
-            for color_2 in result["colors_sorted"][i:]:
-                for data in current_blocks:
-                    status, block = get_color_swap(image, color_1, color_2)
-                    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                        for color_dict_1 in result["colors"][color_1].copy():
-                            for color_dict_2 in result["colors"][color_2].copy():
-                                result["blocks"].append(
-                                    {
-                                        "block": block,
-                                        "params": data["params"]
-                                        + [
-                                            {
-                                                "type": "color_swap",
-                                                "color_1": color_dict_1,
-                                                "color_2": color_dict_2,
-                                            }
-                                        ],
-                                    }
-                                )
-
-    result["masks"] = []
-
-    # making one mask for each generated block
-    if time.time() - start_time < max_time * 2:
-        for block in result["blocks"][:main_blocks_num]:
-            for color in result["colors_sorted"]:
-                status, mask = get_mask_from_block(block["block"], color)
-                if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-                    for color_dict in result["colors"][color].copy():
-                        result["masks"].append(
-                            {
-                                "mask": mask,
-                                "operation": "none",
-                                "params": {
-                                    "block": block["params"],
-                                    "color": color_dict,
-                                    "color_id": int(color),
-                                },
-                            }
-                        )
-    # print(len(result["blocks"]))
-    # print(len(result["masks"]))
-
-    initial_masks = result["masks"].copy()
-    for mask in initial_masks:
-        result["masks"].append(
-            {
-                "mask": np.logical_not(mask["mask"]),
-                "operation": "not",
-                "params": mask["params"],
-            }
-        )
-
-    # print(len(result["masks"]))
-
-    for i, mask1 in enumerate(initial_masks[:-1]):
-        if time.time() - start_time < max_time * 2 and (
-            (target_image.shape == mask1["mask"].shape)
-            or (target_image.shape == mask1["mask"].T.shape)
-        ):
-            if max_masks * 3 < len(result["masks"]):
-                break
-            for mask2 in initial_masks[i + 1 :]:
-                if (
-                    (mask1["mask"].shape[0] == mask2["mask"].shape[0])
-                    and (mask1["mask"].shape[1] == mask2["mask"].shape[1])
-                    and (mask1["params"]["color_id"] != mask2["params"]["color_id"])
-                ):
-                    result["masks"].append(
-                        {
-                            "mask": np.logical_and(mask1["mask"], mask2["mask"]),
-                            "operation": "and",
-                            "params": {
-                                "block1": mask1["params"]["block"],
-                                "block2": mask2["params"]["block"],
-                                "color1": mask1["params"]["color"],
-                                "color2": mask2["params"]["color"],
-                            },
-                        }
-                    )
-                    result["masks"].append(
-                        {
-                            "mask": np.logical_or(mask1["mask"], mask2["mask"]),
-                            "operation": "or",
-                            "params": {
-                                "block1": mask1["params"]["block"],
-                                "block2": mask2["params"]["block"],
-                                "color1": mask1["params"]["color"],
-                                "color2": mask2["params"]["color"],
-                            },
-                        }
-                    )
-                    result["masks"].append(
-                        {
-                            "mask": np.logical_xor(mask1["mask"], mask2["mask"]),
-                            "operation": "xor",
-                            "params": {
-                                "block1": mask1["params"]["block"],
-                                "block2": mask2["params"]["block"],
-                                "color1": mask1["params"]["color"],
-                                "color2": mask2["params"]["color"],
-                            },
-                        }
-                    )
-
-    # print(len(result["masks"]))
-
-    if time.time() - start_time < max_time * 2:
-        for color in result["colors_sorted"][1:]:
-            status, mask = get_mask_from_max_color_coverage(image, color)
-            if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-                for color_dict in result["colors"][color].copy():
-                    result["masks"].append(
-                        {
-                            "mask": mask,
-                            "operation": "coverage",
-                            "params": {"color": color_dict},
-                        }
-                    )
-
-    # print(len(result["masks"]))
-
-    random.seed(42)
-    random.shuffle(result["masks"])
-    result["masks"] = result["masks"][:max_masks]
-    random.shuffle(result["blocks"])
-    result["blocks"] = result["blocks"][:max_blocks]
+    #     for size_x, size_y in [(2, 2), (3, 3)]:
+    #         for data in current_blocks:
+    #             status, block = get_resize_to(data["block"], size_x, size_y)
+    #             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #                 result["blocks"].append(
+    #                     {
+    #                         "block": block,
+    #                         "params": data["params"]
+    #                         + [
+    #                             {
+    #                                 "type": "resize_to",
+    #                                 "size_x": size_x,
+    #                                 "size_y": size_y,
+    #                             }
+    #                         ],
+    #                     }
+    #                 )
+    # main_blocks_num = len(result["blocks"])
+    #
+    # # reflect all blocks
+    # current_blocks = result["blocks"].copy()
+    # for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
+    #     if time.time() - start_time < max_time:
+    #         for data in current_blocks:
+    #             status, block = get_reflect(data["block"], side)
+    #             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #                 result["blocks"].append(
+    #                     {
+    #                         "block": block,
+    #                         "params": data["params"]
+    #                         + [{"type": "reflect", "side": side}],
+    #                     }
+    #                 )
+    #
+    # # # cut some parts of images
+    # max_x = image.shape[0]
+    # max_y = image.shape[1]
+    # min_block_size = 2
+    # for x1 in range(0, max_x - min_block_size):
+    #     if time.time() - start_time < max_time:
+    #         if max_x - x1 <= min_block_size:
+    #             continue
+    #         for x2 in range(x1 + min_block_size, max_x):
+    #             for y1 in range(0, max_y - min_block_size):
+    #                 if max_y - y1 <= min_block_size:
+    #                     continue
+    #                 for y2 in range(y1 + min_block_size, max_y):
+    #                     status, block = get_cut(image, x1, y1, x2, y2)
+    #                     if status == 0:
+    #                         result["blocks"].append(
+    #                             {
+    #                                 "block": block,
+    #                                 "params": [
+    #                                     {
+    #                                         "type": "cut",
+    #                                         "x1": x1,
+    #                                         "x2": x2,
+    #                                         "y1": y1,
+    #                                         "y2": y2,
+    #                                     }
+    #                                 ],
+    #                             }
+    #                         )
+    #
+    # # swap some colors
+    # current_blocks = result["blocks"].copy()
+    # for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+    #     if time.time() - start_time < max_time:
+    #         for color_2 in result["colors_sorted"][i:]:
+    #             for data in current_blocks:
+    #                 status, block = get_color_swap(image, color_1, color_2)
+    #                 if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #                     for color_dict_1 in result["colors"][color_1].copy():
+    #                         for color_dict_2 in result["colors"][color_2].copy():
+    #                             result["blocks"].append(
+    #                                 {
+    #                                     "block": block,
+    #                                     "params": data["params"]
+    #                                     + [
+    #                                         {
+    #                                             "type": "color_swap",
+    #                                             "color_1": color_dict_1,
+    #                                             "color_2": color_dict_2,
+    #                                         }
+    #                                     ],
+    #                                 }
+    #                             )
+    #
+    # result["masks"] = []
+    #
+    # # making one mask for each generated block
+    # if time.time() - start_time < max_time * 2:
+    #     for block in result["blocks"][:main_blocks_num]:
+    #         for color in result["colors_sorted"]:
+    #             status, mask = get_mask_from_block(block["block"], color)
+    #             if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+    #                 for color_dict in result["colors"][color].copy():
+    #                     result["masks"].append(
+    #                         {
+    #                             "mask": mask,
+    #                             "operation": "none",
+    #                             "params": {
+    #                                 "block": block["params"],
+    #                                 "color": color_dict,
+    #                                 "color_id": int(color),
+    #                             },
+    #                         }
+    #                     )
+    # # print(len(result["blocks"]))
+    # # print(len(result["masks"]))
+    #
+    # initial_masks = result["masks"].copy()
+    # for mask in initial_masks:
+    #     result["masks"].append(
+    #         {
+    #             "mask": np.logical_not(mask["mask"]),
+    #             "operation": "not",
+    #             "params": mask["params"],
+    #         }
+    #     )
+    #
+    # # print(len(result["masks"]))
+    #
+    # for i, mask1 in enumerate(initial_masks[:-1]):
+    #     if time.time() - start_time < max_time * 2 and (
+    #         (target_image.shape == mask1["mask"].shape)
+    #         or (target_image.shape == mask1["mask"].T.shape)
+    #     ):
+    #         if max_masks * 3 < len(result["masks"]):
+    #             break
+    #         for mask2 in initial_masks[i + 1 :]:
+    #             if (
+    #                 (mask1["mask"].shape[0] == mask2["mask"].shape[0])
+    #                 and (mask1["mask"].shape[1] == mask2["mask"].shape[1])
+    #                 and (mask1["params"]["color_id"] != mask2["params"]["color_id"])
+    #             ):
+    #                 result["masks"].append(
+    #                     {
+    #                         "mask": np.logical_and(mask1["mask"], mask2["mask"]),
+    #                         "operation": "and",
+    #                         "params": {
+    #                             "block1": mask1["params"]["block"],
+    #                             "block2": mask2["params"]["block"],
+    #                             "color1": mask1["params"]["color"],
+    #                             "color2": mask2["params"]["color"],
+    #                         },
+    #                     }
+    #                 )
+    #                 result["masks"].append(
+    #                     {
+    #                         "mask": np.logical_or(mask1["mask"], mask2["mask"]),
+    #                         "operation": "or",
+    #                         "params": {
+    #                             "block1": mask1["params"]["block"],
+    #                             "block2": mask2["params"]["block"],
+    #                             "color1": mask1["params"]["color"],
+    #                             "color2": mask2["params"]["color"],
+    #                         },
+    #                     }
+    #                 )
+    #                 result["masks"].append(
+    #                     {
+    #                         "mask": np.logical_xor(mask1["mask"], mask2["mask"]),
+    #                         "operation": "xor",
+    #                         "params": {
+    #                             "block1": mask1["params"]["block"],
+    #                             "block2": mask2["params"]["block"],
+    #                             "color1": mask1["params"]["color"],
+    #                             "color2": mask2["params"]["color"],
+    #                         },
+    #                     }
+    #                 )
+    #
+    # # print(len(result["masks"]))
+    #
+    # if time.time() - start_time < max_time * 2:
+    #     for color in result["colors_sorted"][1:]:
+    #         status, mask = get_mask_from_max_color_coverage(image, color)
+    #         if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+    #             for color_dict in result["colors"][color].copy():
+    #                 result["masks"].append(
+    #                     {
+    #                         "mask": mask,
+    #                         "operation": "coverage",
+    #                         "params": {"color": color_dict},
+    #                     }
+    #                 )
+    #
+    # # print(len(result["masks"]))
+    #
+    # random.seed(42)
+    # random.shuffle(result["masks"])
+    # result["masks"] = result["masks"][:max_masks]
+    # random.shuffle(result["blocks"])
+    # result["blocks"] = result["blocks"][:max_blocks]
 
     return result
 
