@@ -5,6 +5,7 @@ from src.preprocessing import (
     get_color,
     get_color_scheme,
     get_mask_from_block_params,
+    get_dict_hash,
 )
 import time
 import gc
@@ -483,3 +484,141 @@ def paint_mask(sample, rotate_target=0):
         return 0, answers
     else:
         return 2, None
+
+
+def generate_corners(original_image):
+    size = (original_image.shape[0] + 1) // 2, (original_image.shape[1] + 1) // 2
+    # corners
+    corners = []
+    corners.append(original_image[: size[0], : size[0]])
+    corners.append(np.rot90(original_image[: size[0], -size[0] :], 1))
+    corners.append(np.rot90(original_image[-size[0] :, -size[0] :], 2))
+    corners.append(np.rot90(original_image[-size[0] :, : size[0]], 3))
+    return corners
+
+
+def mosaic_reconstruction_check_corner_consistency(corners, color):
+    for i, corner1 in enumerate(corners[:-1]):
+        for corner2 in corners[i + 1 :]:
+            mask = np.logical_and(corner1 != color, corner2 != color)
+            if not (corner1 == corner2)[mask].all():
+                return False
+    return True
+
+
+def mosaic_reconstruction_check_corner(original_image, target_image, color):
+    if not (original_image == target_image)[original_image != color].all():
+        return False
+
+    status, predicted_image = mosaic_reconstruct_corner(original_image, color)
+    if (
+        status != 0
+        or not (
+            predicted_image[: original_image.shape[0], : original_image.shape[1]]
+            == target_image
+        ).all()
+    ):
+        return False
+    else:
+        return True
+
+
+def mosaic_reconstruct_corner(original_image, color):
+    # corners
+    for extention0 in range(10):
+        for extention1 in range(10):
+            if (
+                original_image.shape[0] + extention0
+                != original_image.shape[1] + extention1
+            ):
+                continue
+            new_image = (
+                np.ones(
+                    (
+                        original_image.shape[0] + extention0,
+                        original_image.shape[1] + extention1,
+                    )
+                )
+                * color
+            )
+            new_image[
+                : original_image.shape[0], : original_image.shape[1]
+            ] = original_image
+
+            corners = generate_corners(new_image)
+            if not mosaic_reconstruction_check_corner_consistency(corners, color):
+                continue
+
+            final_corner = corners[0].copy()
+            for i, corner in enumerate(corners[1:]):
+                mask = np.logical_and(final_corner == color, corner != color)
+                final_corner[mask] = corner[mask]
+
+            size = final_corner.shape
+            target_image = new_image.copy()
+            target_image[: size[0], : size[0]] = final_corner
+            target_image[: size[0], -size[0] :] = np.rot90(final_corner, -1)
+            target_image[-size[0] :, -size[0] :] = np.rot90(final_corner, -2)
+            target_image[-size[0] :, : size[0]] = np.rot90(final_corner, -3)
+
+            target_image = target_image[
+                : original_image.shape[0], : original_image.shape[1]
+            ]
+            return 0, target_image
+
+    return 1, None
+
+
+def filter_list_of_dicts(list1, list2):
+    final_list = []
+    for item1 in list1:
+        for item2 in list2:
+            if get_dict_hash(item1) == get_dict_hash(item2):
+                final_list.append(item1)
+    return final_list
+
+
+def mosaic_reconstruction(sample, rotate=0):
+    color_candidates_final = []
+
+    for k in range(len(sample["train"])):
+        color_candidates = []
+        original_image = np.rot90(np.uint8(sample["train"][k]["input"]), rotate)
+        target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate)
+        if original_image.shape != target_image.shape:
+            return 1, None
+        for color_num in range(10):
+            if mosaic_reconstruction_check_corner(
+                original_image, target_image, color_num
+            ):
+                for color_dict in sample["processed_train"][k]["colors"][color_num]:
+                    color_candidates.append(color_dict)
+                if k == 0:
+                    color_candidates_final = color_candidates
+                else:
+                    color_candidates_final = filter_list_of_dicts(
+                        color_candidates, color_candidates_final
+                    )
+                if len(color_candidates_final) == 0:
+                    return 2, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.uint8(test_data["input"])
+        color_scheme = get_color_scheme(original_image)
+        for color_dict in color_candidates_final:
+            color = get_color(color_dict, color_scheme["colors"])
+            status, prediction = mosaic_reconstruct_corner(original_image, color)
+            if status != 0:
+                continue
+            answers[test_n].append(np.rot90(prediction, -rotate))
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 3, None
