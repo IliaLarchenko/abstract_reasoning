@@ -486,14 +486,30 @@ def paint_mask(sample, rotate_target=0):
         return 2, None
 
 
-def generate_corners(original_image):
+def generate_corners(original_image, simetry_type="rotate", block_size=None):
     size = (original_image.shape[0] + 1) // 2, (original_image.shape[1] + 1) // 2
     # corners
     corners = []
-    corners.append(original_image[: size[0], : size[0]])
-    corners.append(np.rot90(original_image[: size[0], -size[0] :], 1))
-    corners.append(np.rot90(original_image[-size[0] :, -size[0] :], 2))
-    corners.append(np.rot90(original_image[-size[0] :, : size[0]], 3))
+    if simetry_type == "rotate":
+        corners.append(original_image[: size[0], : size[1]])
+        corners.append(np.rot90(original_image[: size[0], -size[1] :], 1))
+        corners.append(np.rot90(original_image[-size[0] :, -size[1] :], 2))
+        corners.append(np.rot90(original_image[-size[0] :, : size[1]], 3))
+    elif simetry_type == "reflect":
+        corners.append(original_image[: size[0], : size[1]])
+        corners.append(original_image[: size[0], -size[1] :][:, ::-1])
+        corners.append(original_image[-size[0] :, -size[1] :][::-1, ::-1])
+        corners.append(original_image[-size[0] :, : size[1]][::-1, :])
+    elif simetry_type == "surface":
+        for i in range(original_image.shape[0] // block_size[0]):
+            for j in range(original_image.shape[1] // block_size[1]):
+                corners.append(
+                    original_image[
+                        i * block_size[0] : (i + 1) * block_size[0],
+                        j * block_size[1] : (j + 1) * block_size[1],
+                    ]
+                )
+
     return corners
 
 
@@ -506,67 +522,117 @@ def mosaic_reconstruction_check_corner_consistency(corners, color):
     return True
 
 
-def mosaic_reconstruction_check_corner(original_image, target_image, color):
+def mosaic_reconstruction_check_corner(
+    original_image, target_image, color, simetry_types
+):
     if not (original_image == target_image)[original_image != color].all():
         return False
 
-    status, predicted_image = mosaic_reconstruct_corner(original_image, color)
-    if (
-        status != 0
-        or not (
+    status, predicted_images = mosaic_reconstruct_corner(
+        original_image, color, simetry_types
+    )
+    if status != 0:
+        return False
+    for predicted_image in predicted_images:
+        if (
             predicted_image[: original_image.shape[0], : original_image.shape[1]]
             == target_image
-        ).all()
-    ):
-        return False
-    else:
-        return True
+        ).all():
+            return True
+    return False
 
 
-def mosaic_reconstruct_corner(original_image, color):
+def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
     # corners
-    for extention0 in range(10):
-        for extention1 in range(10):
-            if (
-                original_image.shape[0] + extention0
-                != original_image.shape[1] + extention1
-            ):
-                continue
-            new_image = (
-                np.ones(
-                    (
-                        original_image.shape[0] + extention0,
-                        original_image.shape[1] + extention1,
+    target_images = []
+    extensions = []
+
+    for extension0 in range(10):
+        for extension1 in range(10):
+            for simetry_type in simetry_types:
+                if simetry_type == "rotate" and (
+                    original_image.shape[0] + extension0
+                    != original_image.shape[1] + extension1
+                ):
+                    continue
+                new_image = np.uint8(
+                    np.ones(
+                        (
+                            original_image.shape[0] + extension0,
+                            original_image.shape[1] + extension1,
+                        )
                     )
+                    * color
                 )
-                * color
-            )
-            new_image[
-                : original_image.shape[0], : original_image.shape[1]
-            ] = original_image
+                new_image[
+                    : original_image.shape[0], : original_image.shape[1]
+                ] = original_image
 
-            corners = generate_corners(new_image)
-            if not mosaic_reconstruction_check_corner_consistency(corners, color):
-                continue
+                if simetry_type in ["rotate", "reflect"]:
+                    corners = generate_corners(new_image, simetry_type)
+                    if not mosaic_reconstruction_check_corner_consistency(
+                        corners, color
+                    ):
+                        continue
+                elif simetry_type == "surface":
+                    sizes_found = False
+                    for block_size1 in range(1, 15):
+                        if new_image.shape[0] % block_size1 != 0:
+                            continue
+                        for block_size2 in range(1, 15):
+                            if new_image.shape[1] % block_size2 != 0:
+                                continue
+                            corners = generate_corners(
+                                new_image, simetry_type, (block_size1, block_size2)
+                            )
+                            if not mosaic_reconstruction_check_corner_consistency(
+                                corners, color
+                            ):
+                                continue
+                            else:
+                                sizes_found = True
+                                break
+                        if sizes_found:
+                            break
+                    if not sizes_found:
+                        continue
 
-            final_corner = corners[0].copy()
-            for i, corner in enumerate(corners[1:]):
-                mask = np.logical_and(final_corner == color, corner != color)
-                final_corner[mask] = corner[mask]
+                final_corner = corners[0].copy()
+                for i, corner in enumerate(corners[1:]):
+                    mask = np.logical_and(final_corner == color, corner != color)
+                    final_corner[mask] = corner[mask]
 
-            size = final_corner.shape
-            target_image = new_image.copy()
-            target_image[: size[0], : size[0]] = final_corner
-            target_image[: size[0], -size[0] :] = np.rot90(final_corner, -1)
-            target_image[-size[0] :, -size[0] :] = np.rot90(final_corner, -2)
-            target_image[-size[0] :, : size[0]] = np.rot90(final_corner, -3)
+                size = final_corner.shape
+                target_image = new_image.copy()
+                target_image[: size[0], : size[1]] = final_corner
+                if simetry_type == "rotate":
+                    target_image[: size[0], -size[1] :] = np.rot90(final_corner, -1)
+                    target_image[-size[0] :, -size[1] :] = np.rot90(final_corner, -2)
+                    target_image[-size[0] :, : size[1]] = np.rot90(final_corner, -3)
+                elif simetry_type == "reflect":
+                    target_image[: size[0], -size[1] :] = final_corner[:, ::-1]
+                    target_image[-size[0] :, -size[1] :] = final_corner[::-1, ::-1]
+                    target_image[-size[0] :, : size[1]] = final_corner[::-1, :]
+                elif simetry_type == "surface":
+                    for i in range(new_image.shape[0] // size[0]):
+                        for j in range(new_image.shape[1] // size[1]):
+                            target_image[
+                                i * size[0] : (i + 1) * size[0],
+                                j * size[1] : (j + 1) * size[1],
+                            ] = final_corner
 
-            target_image = target_image[
-                : original_image.shape[0], : original_image.shape[1]
-            ]
-            return 0, target_image
-
-    return 1, None
+                target_image = target_image[
+                    : original_image.shape[0], : original_image.shape[1]
+                ]
+                extensions.append(extension0 + extension1)
+                target_images.append(target_image)
+    if len(target_images) > 0:
+        sorted_target = [
+            x for _, x in sorted(zip(extensions, target_images), key=lambda x: x[0])
+        ]
+        return 0, sorted_target
+    else:
+        return 1, None
 
 
 def filter_list_of_dicts(list1, list2):
@@ -578,7 +644,7 @@ def filter_list_of_dicts(list1, list2):
     return final_list
 
 
-def mosaic_reconstruction(sample, rotate=0):
+def mosaic_reconstruction(sample, rotate=0, simetry_types=None):
     color_candidates_final = []
 
     for k in range(len(sample["train"])):
@@ -589,18 +655,18 @@ def mosaic_reconstruction(sample, rotate=0):
             return 1, None
         for color_num in range(10):
             if mosaic_reconstruction_check_corner(
-                original_image, target_image, color_num
+                original_image, target_image, color_num, simetry_types
             ):
                 for color_dict in sample["processed_train"][k]["colors"][color_num]:
                     color_candidates.append(color_dict)
-                if k == 0:
-                    color_candidates_final = color_candidates
-                else:
-                    color_candidates_final = filter_list_of_dicts(
-                        color_candidates, color_candidates_final
-                    )
-                if len(color_candidates_final) == 0:
-                    return 2, None
+        if k == 0:
+            color_candidates_final = color_candidates
+        else:
+            color_candidates_final = filter_list_of_dicts(
+                color_candidates, color_candidates_final
+            )
+        if len(color_candidates_final) == 0:
+            return 2, None
 
     answers = []
     for _ in sample["test"]:
@@ -612,11 +678,14 @@ def mosaic_reconstruction(sample, rotate=0):
         color_scheme = get_color_scheme(original_image)
         for color_dict in color_candidates_final:
             color = get_color(color_dict, color_scheme["colors"])
-            status, prediction = mosaic_reconstruct_corner(original_image, color)
+            status, predictions = mosaic_reconstruct_corner(
+                np.rot90(original_image, rotate), color, simetry_types
+            )
             if status != 0:
                 continue
-            answers[test_n].append(np.rot90(prediction, -rotate))
-            result_generated = True
+            for prediction in predictions[:1]:
+                answers[test_n].append(np.rot90(prediction, -rotate))
+                result_generated = True
 
     if result_generated:
         return 0, answers
