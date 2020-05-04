@@ -399,6 +399,11 @@ def get_color_scheme(image, target_image=None):
             {"type": "unique", "side": "right"}
         )
 
+    result["colors"][image[0, 0]].append({"type": "corner", "side": "tl"})
+    result["colors"][image[0, -1]].append({"type": "corner", "side": "tr"})
+    result["colors"][image[-1, 0]].append({"type": "corner", "side": "bl"})
+    result["colors"][image[-1, -1]].append({"type": "corner", "side": "br"})
+
     grid_color, grid_size = find_grid(image)
     if grid_color >= 0:
         result["grid_color"] = grid_color
