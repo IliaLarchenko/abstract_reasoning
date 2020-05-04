@@ -404,6 +404,17 @@ def get_color_scheme(image, target_image=None):
     result["colors"][image[-1, 0]].append({"type": "corner", "side": "bl"})
     result["colors"][image[-1, -1]].append({"type": "corner", "side": "br"})
 
+    for k in range(10):
+        mask = image == k
+        is_on_top0 = mask.min(axis=0).any()
+        is_on_top1 = mask.min(axis=1).any()
+        if is_on_top0:
+            result["colors"][k].append({"type": "on_top", "side": "0"})
+        if is_on_top1:
+            result["colors"][k].append({"type": "on_top", "side": "1"})
+        if is_on_top1 or is_on_top0:
+            result["colors"][k].append({"type": "on_top", "side": "any"})
+
     grid_color, grid_size = find_grid(image)
     if grid_color >= 0:
         result["grid_color"] = grid_color
