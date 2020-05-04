@@ -775,6 +775,80 @@ def one_color(sample):
         return 3, None
 
 
+def several_colors_square(sample):
+    color_candidates_final = []
+
+    for k in range(len(sample["train"])):
+        color_candidates = []
+        target_image = np.uint8(sample["train"][k]["output"])
+        if target_image.shape[0] != target_image.shape[1]:
+            return 1, None
+        size = target_image.shape[0]
+        if size > sample["processed_train"][k]["colors_num"]:
+            return 2, None
+
+        size_diff = sample["processed_train"][k]["colors_num"] - size
+        for i in range(size_diff + 1):
+            colors_array = np.zeros((size, size))
+            for j in range(size):
+                colors_array[j:-j] = sample["processed_train"][k]["colors_sorted"][
+                    i + j
+                ]
+            if (colors_array == target_image).all():
+                color_candidates.append(
+                    {"type": "square", "i": i, "direct": 0, "size_diff": size_diff}
+                )
+
+            for j in range(size):
+                colors_array[j:-j] = sample["processed_train"][k]["colors_sorted"][
+                    ::-1
+                ][i + j]
+            if (colors_array == target_image).all():
+                color_candidates.append(
+                    {"type": "square", "i": i, "direct": 1, "size_diff": size_diff}
+                )
+
+        if k == 0:
+            color_candidates_final = color_candidates
+        else:
+            color_candidates_final = filter_list_of_dicts(
+                color_candidates, color_candidates_final
+            )
+        if len(color_candidates_final) == 0:
+            return 2, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.uint8(test_data["input"])
+        color_scheme = get_color_scheme(original_image)
+        for result_dict in color_candidates_final:
+            i = result_dict["i"]
+            rotate = result_dict["rotate"]
+            size = color_scheme["colors_num"] - size_diff
+            prediction = np.zeros((size, size))
+            for j in range(size):
+                if result_dict["direct"] == 0:
+                    prediction[j:-j] = sample["processed_train"][k]["colors_sorted"][
+                        i + j
+                    ]
+                else:
+                    prediction[j:-j] = sample["processed_train"][k]["colors_sorted"][
+                        ::-1
+                    ][i + j]
+
+            answers[test_n].append(prediction)
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 3, None
+
+
 def several_colors(sample):
     color_candidates_final = []
 
