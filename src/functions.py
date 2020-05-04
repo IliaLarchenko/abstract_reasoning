@@ -730,3 +730,46 @@ def mosaic_reconstruction(
         return 0, answers
     else:
         return 3, None
+
+
+## one color case
+
+
+def one_color(sample):
+    color_candidates_final = []
+
+    for k in range(len(sample["train"])):
+        color_candidates = []
+        target_image = np.uint8(sample["train"][k]["output"])
+        if target_image.shape[0] != 1 or target_image.shape[1] != 1:
+            return 1, None
+
+        for color_dict in sample["processed_train"][k]["colors"][target_image[0, 0]]:
+            color_candidates.append(color_dict)
+        if k == 0:
+            color_candidates_final = color_candidates
+        else:
+            color_candidates_final = filter_list_of_dicts(
+                color_candidates, color_candidates_final
+            )
+        if len(color_candidates_final) == 0:
+            return 2, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.uint8(test_data["input"])
+        color_scheme = get_color_scheme(original_image)
+        for color_dict in color_candidates_final:
+            color = get_color(color_dict, color_scheme["colors"])
+            prediction = np.array([[color]])
+            answers[test_n].append(prediction)
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 3, None
