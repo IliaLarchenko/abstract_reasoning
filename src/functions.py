@@ -533,7 +533,10 @@ def mosaic_reconstruction_check_corner(
     )
     if status != 0:
         return False
-
+    temp = (
+        predicted_image[: original_image.shape[0], : original_image.shape[1]]
+        == target_image
+    )
     if (
         predicted_image[: original_image.shape[0], : original_image.shape[1]]
         == target_image
@@ -576,10 +579,10 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
                         continue
                 elif simetry_type == "surface":
                     sizes_found = False
-                    for block_size1 in range(1, 15):
+                    for block_size1 in range(1, min(15, new_image.shape[0] - 1)):
                         if new_image.shape[0] % block_size1 != 0:
                             continue
-                        for block_size2 in range(1, 15):
+                        for block_size2 in range(1, min(15, new_image.shape[1] - 1)):
                             if new_image.shape[1] % block_size2 != 0:
                                 continue
                             corners = generate_corners(
@@ -639,13 +642,48 @@ def filter_list_of_dicts(list1, list2):
     return final_list
 
 
-def mosaic_reconstruction(sample, rotate=0, simetry_types=None):
+def reflect_rotate_roll(
+    image, reflect=(False, False), rotate=0, inverse=False, roll=(0, 0)
+):
+    if inverse:
+        result = np.rot90(image, -rotate).copy()
+    else:
+        result = np.rot90(image, rotate).copy()
+    if reflect[0]:
+        result = result[::-1]
+    if reflect[1]:
+        result = result[:, ::-1]
+    if inverse:
+        result = np.roll(result, -roll[0], axis=0)
+        result = np.roll(result, -roll[1], axis=1)
+    else:
+        result = np.roll(result, roll[0], axis=0)
+        result = np.roll(result, roll[1], axis=1)
+
+    return result
+
+
+def mosaic_reconstruction(
+    sample,
+    rotate=0,
+    simetry_types=None,
+    reflect=(False, False),
+    rotate_target=0,
+    roll=(0, 0),
+):
     color_candidates_final = []
 
     for k in range(len(sample["train"])):
         color_candidates = []
         original_image = np.rot90(np.uint8(sample["train"][k]["input"]), rotate)
         target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate)
+        target_image = reflect_rotate_roll(
+            target_image,
+            reflect=reflect,
+            rotate=rotate_target,
+            roll=roll,
+            inverse=False,
+        )
         if original_image.shape != target_image.shape:
             return 1, None
         for color_num in range(10):
@@ -678,7 +716,13 @@ def mosaic_reconstruction(sample, rotate=0, simetry_types=None):
             )
             if status != 0:
                 continue
-
+            prediction = reflect_rotate_roll(
+                prediction,
+                reflect=reflect,
+                rotate=rotate_target,
+                roll=roll,
+                inverse=True,
+            )
             answers[test_n].append(np.rot90(prediction, -rotate))
             result_generated = True
 
