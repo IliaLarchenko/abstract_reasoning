@@ -347,6 +347,7 @@ def get_color_scheme(image, target_image=None):
     colors = [unique[i] for i in np.argsort(counts)]
 
     result["colors_sorted"] = colors
+    result["colors_num"] = len(colors)
 
     if target_image is None:
         for color in range(10):
