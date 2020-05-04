@@ -528,17 +528,17 @@ def mosaic_reconstruction_check_corner(
     if not (original_image == target_image)[original_image != color].all():
         return False
 
-    status, predicted_images = mosaic_reconstruct_corner(
+    status, predicted_image = mosaic_reconstruct_corner(
         original_image, color, simetry_types
     )
     if status != 0:
         return False
-    for predicted_image in predicted_images:
-        if (
-            predicted_image[: original_image.shape[0], : original_image.shape[1]]
-            == target_image
-        ).all():
-            return True
+
+    if (
+        predicted_image[: original_image.shape[0], : original_image.shape[1]]
+        == target_image
+    ).all():
+        return True
     return False
 
 
@@ -625,12 +625,7 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
                     : original_image.shape[0], : original_image.shape[1]
                 ]
                 extensions.append(extension0 + extension1)
-                target_images.append(target_image)
-    if len(target_images) > 0:
-        sorted_target = [
-            x for _, x in sorted(zip(extensions, target_images), key=lambda x: x[0])
-        ]
-        return 0, sorted_target
+                return 0, target_image
     else:
         return 1, None
 
@@ -678,14 +673,14 @@ def mosaic_reconstruction(sample, rotate=0, simetry_types=None):
         color_scheme = get_color_scheme(original_image)
         for color_dict in color_candidates_final:
             color = get_color(color_dict, color_scheme["colors"])
-            status, predictions = mosaic_reconstruct_corner(
+            status, prediction = mosaic_reconstruct_corner(
                 np.rot90(original_image, rotate), color, simetry_types
             )
             if status != 0:
                 continue
-            for prediction in predictions[:1]:
-                answers[test_n].append(np.rot90(prediction, -rotate))
-                result_generated = True
+
+            answers[test_n].append(np.rot90(prediction, -rotate))
+            result_generated = True
 
     if result_generated:
         return 0, answers
