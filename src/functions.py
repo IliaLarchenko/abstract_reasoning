@@ -34,7 +34,7 @@ def filter_candidates(
     original_image=None,
     blocks=None,
     blocks_cache=None,
-    max_time=20,
+    max_time=300,
 ):
     candidates_num = 0
     t_n, t_m = target_image.shape
@@ -238,7 +238,7 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
     target_image = np.rot90(np.uint8(sample["train"][0]["output"]), rotate_target)
     t_n, t_m = target_image.shape
     candidates = []
-    max_time = 20
+    max_time = 300
     start_time = time.time()
     for block in sample["processed_train"][0]["blocks"]:
         if len(block["params"]) > 0 and block["params"][-1]["type"] == "color_swap":
@@ -372,7 +372,7 @@ def paint_mask(sample, rotate_target=0):
         return 3, None
     t_n, t_m = target_image.shape
     candidates = []
-    max_time = 20
+    max_time = 300
     start_time = time.time()
     for mask in sample["processed_train"][0]["masks"]:
         if time.time() - start_time > max_time:
@@ -624,6 +624,11 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
                 for i, corner in enumerate(corners[1:]):
                     mask = np.logical_and(final_corner == color, corner != color)
                     final_corner[mask] = corner[mask]
+                if (final_corner == color).any() and final_corner.shape[
+                    0
+                ] == final_corner.shape[1]:
+                    mask = final_corner == color
+                    final_corner[mask] = final_corner.T[mask]
 
                 size = final_corner.shape
                 target_image = new_image.copy()
@@ -1022,6 +1027,84 @@ def extract_mosaic_block(
             ]
 
             answers[test_n].append(np.rot90(prediction, -rotate))
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 3, None
+
+
+def apply_pattern(mask, pattern, backgroud_color=0):
+    size = (mask.shape[0] * pattern.shape[0], mask.shape[1] * pattern.shape[1])
+    result = np.ones(size) * backgroud_color
+    for i in range(mask.shape[0]):
+        for j in range(mask.shape[1]):
+            result[i * pattern.shape[0] : (i + 1) * pattern.shape[0]] = pattern
+
+    return result
+
+
+def self_pattern(sample):
+    color_candidates_final = []
+
+    for k in range(len(sample["train"])):
+        color_candidates = []
+        original_image = np.uint8(sample["train"][k]["input"])
+        target_image = np.uint8(sample["train"][k]["output"])
+        if (
+            target_image.shape[0] != original_image.shape[0] ** 2
+            or target_image.shape[0] != original_image.shape[1] ** 2
+        ):
+            return 1, None
+        for color_mask in range(10):
+            if not (original_image == color_mask).any():
+                break
+            for background_color in range(10):
+                if not (target_image == background_color).any():
+                    break
+                predict = apply_pattern(
+                    original_image == color_mask, original_image, background_color
+                )
+                if (predict == target_image).all():
+                    for color_mask_dict in sample["processed_train"][k]["colors"][
+                        color_mask
+                    ]:
+                        for color_background_dict in sample["processed_train"][k][
+                            "colors"
+                        ][background_color]:
+                            color_candidates.append(
+                                {
+                                    "color_mask": color_mask_dict,
+                                    "background_color": color_background_dict,
+                                }
+                            )
+        if k == 0:
+            color_candidates_final = color_candidates
+        else:
+            color_candidates_final = filter_list_of_dicts(
+                color_candidates, color_candidates_final
+            )
+        if len(color_candidates_final) == 0:
+            return 2, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.rot90(np.uint8(test_data["input"]), rotate)
+        color_scheme = get_color_scheme(original_image)
+        for color_dict in color_candidates_final:
+            color_mask = get_color(color_dict["color_mask"], color_scheme["colors"])
+            background_color = get_color(
+                color_dict["background_color"], color_scheme["colors"]
+            )
+            prediction = apply_pattern(
+                original_image == color_mask, original_image, background_color
+            )
+            answers[test_n].append(prediction)
             result_generated = True
 
     if result_generated:
