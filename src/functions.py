@@ -559,9 +559,12 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
     # corners
     target_images = []
     extensions = []
+    if simetry_types is None:
+        simetry_types = ["rotate", "reflect", "surface"]
 
-    for extension0 in range(10):
-        for extension1 in range(10):
+    for extensions_sum in range(20):
+        for extension0 in range(extensions_sum):
+            extension1 = extensions_sum - extension0
             for simetry_type in simetry_types:
                 if simetry_type == "rotate" and (
                     original_image.shape[0] + extension0
@@ -589,10 +592,17 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
                         continue
                 elif simetry_type == "surface":
                     sizes_found = False
-                    for block_size1 in range(1, min(15, new_image.shape[0] - 1)):
-                        if new_image.shape[0] % block_size1 != 0:
-                            continue
-                        for block_size2 in range(1, min(15, new_image.shape[1] - 1)):
+                    for block_sizes_sum in range(
+                        2, min(15, new_image.shape[0] + new_image.shape[0] - 2)
+                    ):
+                        for block_size1 in range(
+                            1, min(block_sizes_sum - 1, new_image.shape[0] - 1)
+                        ):
+                            if new_image.shape[0] % block_size1 != 0:
+                                continue
+                            block_size2 = min(
+                                block_sizes_sum - block_size1, new_image.shape[1] - 1
+                            )
                             if new_image.shape[1] % block_size2 != 0:
                                 continue
                             corners = generate_corners(
@@ -639,8 +649,8 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
                 ]
                 extensions.append(extension0 + extension1)
                 return 0, target_image
-    else:
-        return 1, None
+
+    return 1, None
 
 
 def filter_list_of_dicts(list1, list2):
@@ -925,14 +935,27 @@ def several_colors(sample):
         return 3, None
 
 
-def extract_mosaic_block(sample, rotate=0, simetry_types=None):
+def extract_mosaic_block(
+    sample,
+    rotate=0,
+    simetry_types=None,
+    reflect=(False, False),
+    rotate_target=0,
+    roll=(0, 0),
+):
     color_candidates_final = []
 
     for k in range(len(sample["train"])):
         color_candidates = []
         original_image = np.rot90(np.uint8(sample["train"][k]["input"]), rotate)
         target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate)
-
+        target_image = reflect_rotate_roll(
+            target_image,
+            reflect=reflect,
+            rotate=rotate_target,
+            roll=roll,
+            inverse=False,
+        )
         for color_num in range(10):
             mask = original_image == color_num
             sum0 = mask.sum(0)
@@ -981,6 +1004,13 @@ def extract_mosaic_block(sample, rotate=0, simetry_types=None):
 
             if status != 0:
                 continue
+            prediction = reflect_rotate_roll(
+                prediction,
+                reflect=reflect,
+                rotate=rotate_target,
+                roll=roll,
+                inverse=True,
+            )
             mask = original_image == color
             sum0 = mask.sum(0)
             sum1 = mask.sum(1)
