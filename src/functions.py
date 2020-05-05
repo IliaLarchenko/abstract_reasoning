@@ -1147,3 +1147,148 @@ def self_pattern(sample):
         return 0, answers
     else:
         return 3, None
+
+
+def combine_two_lists(list1, list2):
+    result = list1.copy()
+    for item2 in list2:
+        exist = False
+        for item1 in list1:
+            if (item2 == item1).all():
+                exist = True
+                break
+        if not exist:
+            result.append(item2)
+    return result
+
+
+def intersect_two_lists(list1, list2):
+    result = []
+    for item2 in list2:
+        for item1 in list1:
+            if (item2.shape == item1.shape) and (item2 == item1).all():
+                result.append(item2)
+                break
+    return result
+
+
+def get_patterns(original_image, target_image):
+    pattern_list = []
+    if target_image.shape[0] % original_image.shape[0] != 0:
+        return []
+    if target_image.shape[1] % original_image.shape[1] != 0:
+        return []
+
+    size = (
+        target_image.shape[0] // original_image.shape[0],
+        target_image.shape[1] // original_image.shape[1],
+    )
+    if max(size) == 1:
+        return []
+    for i in range(original_image.shape[0]):
+        for j in range(original_image.shape[1]):
+            current_block = target_image[
+                i * size[0] : (i + 1) * size[0], j * size[1] : (j + 1) * size[1]
+            ]
+            pattern_list = combine_two_lists(pattern_list, [current_block])
+
+    return pattern_list
+
+
+def fixed_pattern(sample):
+    color_candidates_final = []
+    total_patterns = []
+
+    for k in range(len(sample["train"])):
+        original_image = np.uint8(sample["train"][k]["input"])
+        target_image = np.uint8(sample["train"][k]["output"])
+        patterns = get_patterns(original_image, target_image)
+        if k == 0:
+            total_patterns = patterns
+        else:
+            total_patterns = intersect_two_lists(total_patterns, patterns)
+        if len(total_patterns) == 0:
+            return 1, None
+
+    for k in range(len(sample["train"])):
+        color_candidates = []
+        original_image = np.uint8(sample["train"][k]["input"])
+        target_image = np.uint8(sample["train"][k]["output"])
+        for pattern_num, pattern in enumerate(total_patterns):
+            for color_mask in range(10):
+                if not (original_image == color_mask).any():
+                    continue
+                for background_color in range(10):
+                    if not (target_image == background_color).any():
+                        continue
+                    for inverse in [True, False]:
+                        for swap in [True, False]:
+                            if swap:
+                                status, new_image = swap_two_colors(original_image)
+                                if status != 0:
+                                    new_image = original_image
+                            else:
+                                new_image = original_image
+                            predict = apply_pattern(
+                                new_image == color_mask,
+                                pattern,
+                                background_color,
+                                inverse,
+                            )
+                            if (predict == target_image).all():
+                                for color_mask_dict in sample["processed_train"][k][
+                                    "colors"
+                                ][color_mask]:
+                                    for color_background_dict in sample[
+                                        "processed_train"
+                                    ][k]["colors"][background_color]:
+                                        color_candidates.append(
+                                            {
+                                                "color_mask": color_mask_dict,
+                                                "background_color": color_background_dict,
+                                                "inverse": inverse,
+                                                "swap": swap,
+                                                "pattern": pattern_num,
+                                            }
+                                        )
+        if k == 0:
+            color_candidates_final = color_candidates
+        else:
+            color_candidates_final = filter_list_of_dicts(
+                color_candidates, color_candidates_final
+            )
+        if len(color_candidates_final) == 0:
+            return 2, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.uint8(test_data["input"])
+        color_scheme = get_color_scheme(original_image)
+        for color_dict in color_candidates_final:
+            color_mask = get_color(color_dict["color_mask"], color_scheme["colors"])
+            background_color = get_color(
+                color_dict["background_color"], color_scheme["colors"]
+            )
+            if color_dict["swap"]:
+                status, new_image = swap_two_colors(original_image)
+                if status != 0:
+                    new_image = original_image
+            else:
+                new_image = original_image
+            prediction = apply_pattern(
+                new_image == color_mask,
+                total_patterns[color_dict["pattern"]],
+                background_color,
+                color_dict["inverse"],
+            )
+            answers[test_n].append(prediction)
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 3, None
