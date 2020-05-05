@@ -486,7 +486,9 @@ def paint_mask(sample, rotate_target=0):
         return 2, None
 
 
-def generate_corners(original_image, simetry_type="rotate", block_size=None):
+def generate_corners(
+    original_image, simetry_type="rotate", block_size=None, color=None
+):
     size = (original_image.shape[0] + 1) // 2, (original_image.shape[1] + 1) // 2
     # corners
     corners = []
@@ -500,6 +502,14 @@ def generate_corners(original_image, simetry_type="rotate", block_size=None):
         corners.append(original_image[: size[0], -size[1] :][:, ::-1])
         corners.append(original_image[-size[0] :, -size[1] :][::-1, ::-1])
         corners.append(original_image[-size[0] :, : size[1]][::-1, :])
+        if original_image.shape[0] == original_image.shape[1]:
+            mask = np.logical_and(original_image != color, original_image.T != color)
+            if (original_image.T == original_image)[mask].all():
+                corners.append(original_image[: size[0], : size[1]].T)
+                corners.append(original_image[: size[0], -size[1] :][:, ::-1].T)
+                corners.append(original_image[-size[0] :, -size[1] :][::-1, ::-1].T)
+                corners.append(original_image[-size[0] :, : size[1]][::-1, :].T)
+
     elif simetry_type == "surface":
         for i in range(original_image.shape[0] // block_size[0]):
             for j in range(original_image.shape[1] // block_size[1]):
@@ -572,7 +582,7 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
                 ] = original_image
 
                 if simetry_type in ["rotate", "reflect"]:
-                    corners = generate_corners(new_image, simetry_type)
+                    corners = generate_corners(new_image, simetry_type, color=color)
                     if not mosaic_reconstruction_check_corner_consistency(
                         corners, color
                     ):
