@@ -913,3 +913,78 @@ def several_colors(sample):
         return 0, answers
     else:
         return 3, None
+
+
+def extract_mosaic_block(sample, rotate=0, simetry_types=None):
+    color_candidates_final = []
+
+    for k in range(len(sample["train"])):
+        color_candidates = []
+        original_image = np.rot90(np.uint8(sample["train"][k]["input"]), rotate)
+        target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate)
+
+        for color_num in range(10):
+            mask = original_image == color_num
+            sum0 = mask.sum(0)
+            sum1 = mask.sum(1)
+
+            if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
+                continue
+            if target_image.shape[0] != max(sum0) or target_image.shape[1] != max(sum1):
+                continue
+
+            indices0 = np.arange(len(sum1))[sum1 > 0]
+            indices1 = np.arange(len(sum0))[sum0 > 0]
+
+            generated_target_image = original_image.copy()
+            generated_target_image[
+                indices0.min() : indices0.max() + 1, indices1.min() : indices1.max() + 1
+            ] = target_image
+
+            if mosaic_reconstruction_check_corner(
+                original_image, generated_target_image, color_num, simetry_types
+            ):
+                for color_dict in sample["processed_train"][k]["colors"][color_num]:
+                    color_candidates.append(color_dict)
+        if k == 0:
+            color_candidates_final = color_candidates
+        else:
+            color_candidates_final = filter_list_of_dicts(
+                color_candidates, color_candidates_final
+            )
+        if len(color_candidates_final) == 0:
+            return 2, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.rot90(np.uint8(test_data["input"]), rotate)
+        color_scheme = get_color_scheme(original_image)
+        for color_dict in color_candidates_final:
+            color = get_color(color_dict, color_scheme["colors"])
+            status, prediction = mosaic_reconstruct_corner(
+                original_image, color, simetry_types
+            )
+
+            if status != 0:
+                continue
+            mask = original_image == color
+            sum0 = mask.sum(0)
+            sum1 = mask.sum(1)
+            indices0 = np.arange(len(sum1))[sum1 > 0]
+            indices1 = np.arange(len(sum0))[sum0 > 0]
+
+            prediction = prediction[
+                indices0.min() : indices0.max() + 1, indices1.min() : indices1.max() + 1
+            ]
+
+            answers[test_n].append(np.rot90(prediction, -rotate))
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 3, None
