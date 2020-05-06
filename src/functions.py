@@ -1376,3 +1376,85 @@ def fill_inner(sample):
         return 0, answers
     else:
         return 3, None
+
+
+def fill_outer_image(image, background_color, fill_color):
+    result = image.copy()
+    for i in range(1, image.shape[0] - 1):
+        for j in range(1, image.shape[1] - 1):
+            if image[i, j] == fill_color:
+                result[i - 1 : i + 2, j - 1 : j + 2][
+                    np.array(
+                        [[True, True, True], [True, False, True], [True, True, True]]
+                    )
+                ] = background_color
+
+    return result
+
+
+def fill_outer(sample):
+    color_candidates_final = []
+
+    for k in range(len(sample["train"])):
+        color_candidates = []
+        original_image = np.uint8(sample["train"][k]["input"])
+        target_image = np.uint8(sample["train"][k]["output"])
+        if original_image.shape != target_image.shape:
+            return 1, None
+        for background_color in range(10):
+            if not (target_image == background_color).any():
+                continue
+            for fill_color in range(10):
+                if not (target_image == fill_color).any():
+                    continue
+                if not (target_image == original_image)[
+                    np.logical_and(
+                        target_image != background_color, target_image != fill_color
+                    )
+                ].all():
+                    continue
+                predict = fill_outer_image(original_image, background_color, fill_color)
+                if (predict == target_image).all():
+                    for color_fill_dict in sample["processed_train"][k]["colors"][
+                        fill_color
+                    ]:
+                        for color_background_dict in sample["processed_train"][k][
+                            "colors"
+                        ][background_color]:
+                            color_candidates.append(
+                                {
+                                    "fill_color": color_fill_dict,
+                                    "background_color": color_background_dict,
+                                }
+                            )
+        if k == 0:
+            color_candidates_final = color_candidates
+        else:
+            color_candidates_final = filter_list_of_dicts(
+                color_candidates, color_candidates_final
+            )
+        if len(color_candidates_final) == 0:
+            return 2, None
+
+    answers = []
+    for _ in sample["test"]:
+        answers.append([])
+
+    result_generated = False
+    for test_n, test_data in enumerate(sample["test"]):
+        original_image = np.uint8(test_data["input"])
+        color_scheme = get_color_scheme(original_image)
+        for color_dict in color_candidates_final:
+            fill_color = get_color(color_dict["fill_color"], color_scheme["colors"])
+            background_color = get_color(
+                color_dict["background_color"], color_scheme["colors"]
+            )
+
+            predict = fill_outer_image(original_image, background_color, fill_color)
+            answers[test_n].append(predict)
+            result_generated = True
+
+    if result_generated:
+        return 0, answers
+    else:
+        return 3, None
