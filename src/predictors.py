@@ -4,7 +4,7 @@ from src.functions import filter_list_of_dicts
 
 
 class predictor:
-    def init(self, params=None, preprocess_params=None):
+    def __init__(self, params=None, preprocess_params=None):
         self.params = params
         self.preprocess_params = preprocess_params
         self.solution_candidates = []
@@ -112,27 +112,46 @@ class predictor:
             return 3, None
 
 
-class fill_outer(predictor):
-    """fill all pixels around all pixels with particular color with new color"""
+class fill(predictor):
+    """inner fills all pixels around all pixels with particular color with new color
+    outer fills the pixels with fill color if all neighbour colors have background color"""
 
-    def init(self, params=None, preprocess_params=None):
+    def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
+        self.type = params["type"]  # inner or outer
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         result = image.copy()
         for i in range(1, image.shape[0] - 1):
             for j in range(1, image.shape[1] - 1):
-                if image[i, j] == params["fill_color"]:
-                    result[i - 1 : i + 2, j - 1 : j + 2][
-                        np.array(
-                            [
-                                [True, True, True],
-                                [True, False, True],
-                                [True, True, True],
-                            ]
-                        )
-                    ] = params["background_color"]
+                if self.type == "outer":
+                    if image[i, j] == params["fill_color"]:
+                        result[i - 1 : i + 2, j - 1 : j + 2][
+                            np.array(
+                                [
+                                    [True, True, True],
+                                    [True, False, True],
+                                    [True, True, True],
+                                ]
+                            )
+                        ] = params["background_color"]
+                elif self.type == "inner":
+                    if (
+                        image[i - 1 : i + 2, j - 1 : j + 2][
+                            np.array(
+                                [
+                                    [True, True, True],
+                                    [True, False, True],
+                                    [True, True, True],
+                                ]
+                            )
+                        ]
+                        == params["background_color"]
+                    ).all():
+                        result[i, j] = params["fill_color"]
+                else:
+                    return 6, None
 
         return 0, result
 
@@ -165,31 +184,3 @@ class fill_outer(predictor):
                     params,
                 )
         return self.update_solution_candidates(local_candidates, initial)
-
-
-class fill_inner(fill_outer):
-    """fill the pixels with color is all neighbour colors have background color"""
-
-    def init(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
-
-    def predict_output(self, image, params):
-        """ predicts 1 output image given input image and prediction params"""
-        result = image.copy()
-        for i in range(1, image.shape[0] - 1):
-            for j in range(1, image.shape[1] - 1):
-                if (
-                    image[i - 1 : i + 2, j - 1 : j + 2][
-                        np.array(
-                            [
-                                [True, True, True],
-                                [True, False, True],
-                                [True, True, True],
-                            ]
-                        )
-                    ]
-                    == params["background_color"]
-                ).all():
-                    result[i, j] = params["fill_color"]
-
-        return 0, result
