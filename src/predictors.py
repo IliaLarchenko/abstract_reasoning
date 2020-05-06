@@ -164,7 +164,7 @@ class fill_outer(predictor):
                     self.sample["processed_train"][k]["colors"],
                     params,
                 )
-        return update_solution_candidates(self, local_candidates, initial)
+        return self.update_solution_candidates(local_candidates, initial)
 
 
 class fill_inner(predictor):
@@ -199,7 +199,7 @@ class fill_inner(predictor):
         local_candidates = []
         original_image, target_image = self.get_images(k)
         if original_image.shape != target_image.shape:
-            return 4, None
+            return 5, None
         for background_color in range(10):
             if not (original_image == background_color).any():
                 continue
@@ -215,29 +215,12 @@ class fill_inner(predictor):
                     "background_color": background_color,
                     "fill_color": fill_color,
                 }
-                status, prediction = self.predict_output(original_image, params)
-                if status != 0:
-                    continue
-                if (prediction == target_image).all():
-                    for color_fill_dict in self.sample["processed_train"][k]["colors"][
-                        fill_color
-                    ]:
-                        for color_background_dict in self.sample["processed_train"][k][
-                            "colors"
-                        ][background_color]:
-                            local_candidates.append(
-                                {
-                                    "fill_color": color_fill_dict,
-                                    "background_color": color_background_dict,
-                                }
-                            )
-        if initial:
-            self.solution_candidates = local_candidates
-        else:
-            self.solution_candidates = filter_list_of_dicts(
-                local_candidates, self.solution_candidates
-            )
-        if len(self.solution_candidates) == 0:
-            return 5
-        else:
-            return 0
+
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image,
+                    target_image,
+                    self.sample["processed_train"][k]["colors"],
+                    params,
+                )
+
+        return self.update_solution_candidates(local_candidates, initial)
