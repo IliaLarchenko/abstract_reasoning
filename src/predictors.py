@@ -68,50 +68,48 @@ class predictor:
 
         return result
 
+    def update_solution_candidates(self, local_candidates, initial):
+        if initial:
+            self.solution_candidates = local_candidates
+        else:
+            self.solution_candidates = filter_list_of_dicts(
+                local_candidates, self.solution_candidates
+            )
+        if len(self.solution_candidates) == 0:
+            return 4
+        else:
+            return 0
 
-def update_solution_candidates(self, local_candidates, initial):
-    if initial:
-        self.solution_candidates = local_candidates
-    else:
-        self.solution_candidates = filter_list_of_dicts(
-            local_candidates, self.solution_candidates
-        )
-    if len(self.solution_candidates) == 0:
-        return 4
-    else:
-        return 0
+    def __call__(self, sample):
+        """ works like fit_predict"""
+        self.sample = sample
+        status = self.process_full_train()
+        if status != 0:
+            return status, None
 
+        answers = []
+        for _ in self.sample["test"]:
+            answers.append([])
 
-def __call__(self, sample):
-    """ works like fit_predict"""
-    self.sample = sample
-    status = self.process_full_train()
-    if status != 0:
-        return status, None
+        result_generated = False
+        for test_n, test_data in enumerate(self.sample["test"]):
+            original_image = self.get_images(test_n, train=False)
+            color_scheme = get_color_scheme(original_image)
+            for params_dict in self.solution_candidates:
+                status, params = self.retrive_params_values(params_dict, color_scheme)
+                if status != 0:
+                    continue
+                status, prediction = self.predict_output(original_image, params)
+                if status != 0:
+                    continue
 
-    answers = []
-    for _ in self.sample["test"]:
-        answers.append([])
+                answers[test_n].append(prediction)
+                result_generated = True
 
-    result_generated = False
-    for test_n, test_data in enumerate(self.sample["test"]):
-        original_image = self.get_images(test_n, train=False)
-        color_scheme = get_color_scheme(original_image)
-        for params_dict in self.solution_candidates:
-            status, params = self.retrive_params_values(params_dict, color_scheme)
-            if status != 0:
-                continue
-            status, prediction = self.predict_output(original_image, params)
-            if status != 0:
-                continue
-
-            answers[test_n].append(prediction)
-            result_generated = True
-
-    if result_generated:
-        return 0, answers
-    else:
-        return 3, None
+        if result_generated:
+            return 0, answers
+        else:
+            return 3, None
 
 
 class fill_outer(predictor):
