@@ -184,3 +184,11 @@ class fill(predictor):
                     params,
                 )
         return self.update_solution_candidates(local_candidates, initial)
+
+
+# TODO: fixed_pattern + self_pattern
+# TODO: rotate_roll_reflect to class
+# TODO: fill pattern - more general surface type
+# TODO: reconstruct pattern
+# TODO: reconstruct pattern
+# TODO: colors functions
