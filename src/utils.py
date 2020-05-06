@@ -50,6 +50,6 @@ def matrix2answer(array):
     s = "|"
     for i in range(array.shape[0]):
         for j in range(array.shape[1]):
-            s = s + str(array[i, j])
+            s = s + str(int(array[i, j]))
         s = s + "|"
     return str(s)
