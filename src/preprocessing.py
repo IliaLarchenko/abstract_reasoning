@@ -620,116 +620,136 @@ def process_image(
                                 ],
                             )
 
-    # swap some colors
+    # # swap some colors
+    # current_blocks = result["blocks"]["arrays"].copy()
+    # for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+    #     if time.time() - start_time < max_time:
+    #         for color_2 in result["colors_sorted"][i:]:
+    #             for key, data in current_blocks.items():
+    #                 status, block = get_color_swap(data["array"], color_1, color_2)
+    #                 if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #                     for color_dict_1 in result["colors"][color_1].copy():
+    #                         for color_dict_2 in result["colors"][color_2].copy():
+    #                             params_list = [
+    #                                 i
+    #                                 + [
+    #                                     {
+    #                                         "type": "color_swap",
+    #                                         "color_1": color_dict_1,
+    #                                         "color_2": color_dict_2,
+    #                                     }
+    #                                 ]
+    #                                 for i in data["params"]
+    #                             ]
+    #
+    #                     add_block(result["blocks"], block, params_list)
+
+    result["masks"] = {"arrays": {}, "params": {}}
+
+    # making one mask for each generated block
     current_blocks = result["blocks"]["arrays"].copy()
-    for i, color_1 in enumerate(result["colors_sorted"][:-1]):
-        if time.time() - start_time < max_time:
-            for color_2 in result["colors_sorted"][i:]:
-                for key, data in current_blocks.items():
-                    status, block = get_color_swap(data["array"], color_1, color_2)
-                    if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                        for color_dict_1 in result["colors"][color_1].copy():
-                            for color_dict_2 in result["colors"][color_2].copy():
-                                params_list = [
-                                    i
-                                    + [
-                                        {
-                                            "type": "color_swap",
-                                            "color_1": color_dict_1,
-                                            "color_2": color_dict_2,
-                                        }
-                                    ]
-                                    for i in data["params"]
-                                ]
+    if time.time() - start_time < max_time * 2:
+        for key, data in current_blocks.items():
+            for color in result["colors_sorted"]:
+                status, mask = get_mask_from_block(data["array"], color)
+                if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+                    for color_dict in result["colors"][color].copy():
+                        params_list = [
+                            {
+                                "operation": "none",
+                                "params": {
+                                    "block": i,
+                                    "color": color_dict,
+                                    "color_id": int(color),
+                                },
+                            }
+                            for i in data["params"]
+                        ]
+                    add_block(result["masks"], mask, params_list)
 
-                        add_block(result["blocks"], block, params_list)
+    initial_masks = result["masks"]["arrays"].copy()
+    for key, mask in initial_masks.items():
+        add_block(
+            result["masks"],
+            np.logical_not(mask["array"]),
+            {"operation": "not", "params": mask["params"]},
+        )
 
-    # result["masks"] = []
-    #
-    # # making one mask for each generated block
-    # if time.time() - start_time < max_time * 2:
-    #     for block in result["blocks"][:main_blocks_num]:
-    #         for color in result["colors_sorted"]:
-    #             status, mask = get_mask_from_block(block["block"], color)
-    #             if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-    #                 for color_dict in result["colors"][color].copy():
-    #                     result["masks"].append(
-    #                         {
-    #                             "mask": mask,
-    #                             "operation": "none",
-    #                             "params": {
-    #                                 "block": block["params"],
-    #                                 "color": color_dict,
-    #                                 "color_id": int(color),
-    #                             },
-    #                         }
-    #                     )
-    # # print(len(result["blocks"]))
-    # # print(len(result["masks"]))
-    #
-    # initial_masks = result["masks"].copy()
-    # for mask in initial_masks:
-    #     result["masks"].append(
-    #         {
-    #             "mask": np.logical_not(mask["mask"]),
-    #             "operation": "not",
-    #             "params": mask["params"],
-    #         }
-    #     )
-    #
-    # # print(len(result["masks"]))
-    #
-    # for i, mask1 in enumerate(initial_masks[:-1]):
-    #     if time.time() - start_time < max_time * 2 and (
-    #         (target_image.shape == mask1["mask"].shape)
-    #         or (target_image.shape == mask1["mask"].T.shape)
-    #     ):
-    #         if max_masks * 3 < len(result["masks"]):
-    #             break
-    #         for mask2 in initial_masks[i + 1 :]:
-    #             if (
-    #                 (mask1["mask"].shape[0] == mask2["mask"].shape[0])
-    #                 and (mask1["mask"].shape[1] == mask2["mask"].shape[1])
-    #                 and (mask1["params"]["color_id"] != mask2["params"]["color_id"])
-    #             ):
-    #                 result["masks"].append(
-    #                     {
-    #                         "mask": np.logical_and(mask1["mask"], mask2["mask"]),
-    #                         "operation": "and",
-    #                         "params": {
-    #                             "block1": mask1["params"]["block"],
-    #                             "block2": mask2["params"]["block"],
-    #                             "color1": mask1["params"]["color"],
-    #                             "color2": mask2["params"]["color"],
-    #                         },
-    #                     }
-    #                 )
-    #                 result["masks"].append(
-    #                     {
-    #                         "mask": np.logical_or(mask1["mask"], mask2["mask"]),
-    #                         "operation": "or",
-    #                         "params": {
-    #                             "block1": mask1["params"]["block"],
-    #                             "block2": mask2["params"]["block"],
-    #                             "color1": mask1["params"]["color"],
-    #                             "color2": mask2["params"]["color"],
-    #                         },
-    #                     }
-    #                 )
-    #                 result["masks"].append(
-    #                     {
-    #                         "mask": np.logical_xor(mask1["mask"], mask2["mask"]),
-    #                         "operation": "xor",
-    #                         "params": {
-    #                             "block1": mask1["params"]["block"],
-    #                             "block2": mask2["params"]["block"],
-    #                             "color1": mask1["params"]["color"],
-    #                             "color2": mask2["params"]["color"],
-    #                         },
-    #                     }
-    #                 )
-    #
-    # # print(len(result["masks"]))
+    processed = []
+    for key1, mask1 in initial_masks.items():
+        processed.append(key1)
+        if time.time() - start_time < max_time * 2 and (
+            (target_image.shape == mask1["array"].shape)
+            or (target_image.shape == mask1["array"].T.shape)
+        ):
+
+            # if max_masks * 3 < len(result["masks"]):
+            #     break
+            for key2, mask2 in initial_masks.items():
+                if key2 in processed:
+                    continue
+                if (mask1["array"].shape[0] == mask2["array"].shape[0]) and (
+                    mask1["array"].shape[1] == mask2["array"].shape[1]
+                ):
+                    params_list_and = []
+                    params_list_or = []
+                    params_list_xor = []
+                    for param1 in mask1["params"]:
+                        if "block" not in param1:
+                            continue
+                        for param2 in mask2["params"]:
+                            if "block" not in param2:
+                                continue
+                            params_list_and.append(
+                                {
+                                    "operation": "and",
+                                    "params": {
+                                        "block1": param1["params"]["block"],
+                                        "block2": param2["params"]["block"],
+                                        "color1": param1["params"]["color"],
+                                        "color2": param2["params"]["color"],
+                                    },
+                                }
+                            )
+                            params_list_or.append(
+                                {
+                                    "operation": "or",
+                                    "params": {
+                                        "block1": param1["params"]["block"],
+                                        "block2": param2["params"]["block"],
+                                        "color1": param1["params"]["color"],
+                                        "color2": param2["params"]["color"],
+                                    },
+                                }
+                            )
+                            params_list_xor.append(
+                                {
+                                    "operation": "xor",
+                                    "params": {
+                                        "block1": param1["params"]["block"],
+                                        "block2": param2["params"]["block"],
+                                        "color1": param1["params"]["color"],
+                                        "color2": param2["params"]["color"],
+                                    },
+                                }
+                            )
+
+                    add_block(
+                        result["masks"],
+                        np.logical_and(mask1["array"], mask2["array"]),
+                        params_list_and,
+                    )
+                    add_block(
+                        result["masks"],
+                        np.logical_or(mask1["array"], mask2["array"]),
+                        params_list_or,
+                    )
+                    add_block(
+                        result["masks"],
+                        np.logical_xor(mask1["array"], mask2["array"]),
+                        params_list_xor,
+                    )
+
     #
     # if time.time() - start_time < max_time * 2:
     #     for color in result["colors_sorted"][1:]:
