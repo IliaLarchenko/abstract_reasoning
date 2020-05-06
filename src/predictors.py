@@ -77,6 +77,8 @@ class predictor:
 
 
 class fill_outer(predictor):
+    """paint all pixels around particular one with new color"""
+
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         result = image.copy()
