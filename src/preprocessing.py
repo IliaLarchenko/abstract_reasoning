@@ -367,38 +367,92 @@ def get_color_scheme(image, target_image=None):
         # use k-th colour (sorted by presence on image)
         result["colors"][color].append({"type": "max", "k": len(colors) - k - 1})
 
+    unique_side = [False for i in range(10)]
+    unique_corner = [False for i in range(10)]
     # top of the image
     unique, counts = np.uint8(
         np.unique(image[: ((image.shape[0] + 1) // 2)], return_counts=True)
     )
     if len(unique) == len(colors) - 1:
-        result["colors"][[x for x in colors if x not in unique][0]].append(
-            {"type": "unique", "side": "bottom"}
-        )
+        color = [x for x in colors if x not in unique][0]
+        unique_side[color] = True
+        result["colors"][color].append({"type": "unique", "side": "bottom"})
 
     unique, counts = np.uint8(
         np.unique(image[-((image.shape[0] + 1) // 2) :], return_counts=True)
     )
     if len(unique) == len(colors) - 1:
-        result["colors"][[x for x in colors if x not in unique][0]].append(
-            {"type": "unique", "side": "top"}
-        )
+        color = [x for x in colors if x not in unique][0]
+        unique_side[color] = True
+        result["colors"][color].append({"type": "unique", "side": "top"})
 
     unique, counts = np.uint8(
         np.unique(image[:, : -((image.shape[0] + 1) // 2)], return_counts=True)
     )
     if len(unique) == len(colors) - 1:
-        result["colors"][[x for x in colors if x not in unique][0]].append(
-            {"type": "unique", "side": "right"}
-        )
+        color = [x for x in colors if x not in unique][0]
+        unique_side[color] = True
+        result["colors"][color].append({"type": "unique", "side": "right"})
 
     unique, counts = np.uint8(
         np.unique(image[:, ((image.shape[0] + 1) // 2) :], return_counts=True)
     )
     if len(unique) == len(colors) - 1:
-        result["colors"][[x for x in colors if x not in unique][0]].append(
-            {"type": "unique", "side": "left"}
+        color = [x for x in colors if x not in unique][0]
+        unique_side[color] = True
+        result["colors"][color].append({"type": "unique", "side": "left"})
+
+    unique, counts = np.uint8(
+        np.unique(
+            image[-((image.shape[0] + 1) // 2) :, ((image.shape[0] + 1) // 2) :],
+            return_counts=True,
         )
+    )
+    if len(unique) == len(colors) - 1:
+        color = [x for x in colors if x not in unique][0]
+        unique_corner[color] = True
+        result["colors"][color].append({"type": "unique", "side": "tl"})
+
+    unique, counts = np.uint8(
+        np.unique(
+            image[-((image.shape[0] + 1) // 2) :, : -((image.shape[0] + 1) // 2)],
+            return_counts=True,
+        )
+    )
+    if len(unique) == len(colors) - 1:
+        color = [x for x in colors if x not in unique][0]
+        unique_corner[color] = True
+        result["colors"][color].append({"type": "unique", "side": "tr"})
+
+    unique, counts = np.uint8(
+        np.unique(
+            image[: ((image.shape[0] + 1) // 2), ((image.shape[0] + 1) // 2) :],
+            return_counts=True,
+        )
+    )
+    if len(unique) == len(colors) - 1:
+        color = [x for x in colors if x not in unique][0]
+        unique_corner[color] = True
+        result["colors"][color].append({"type": "unique", "side": "bl"})
+
+    unique, counts = np.uint8(
+        np.unique(
+            image[: ((image.shape[0] + 1) // 2), : -((image.shape[0] + 1) // 2)],
+            return_counts=True,
+        )
+    )
+    if len(unique) == len(colors) - 1:
+        color = [x for x in colors if x not in unique][0]
+        unique_corner[color] = True
+        result["colors"][color].append({"type": "unique", "side": "br"})
+
+    for i in range(10):
+        if unique_corner[i]:
+            result["colors"][i].append({"type": "unique", "side": "corner"})
+        if unique_side[i]:
+            result["colors"][i].append({"type": "unique", "side": "side"})
+        if unique_side[i] or unique_corner[i]:
+            result["colors"][i].append({"type": "unique", "side": "any"})
 
     result["colors"][image[0, 0]].append({"type": "corner", "side": "tl"})
     result["colors"][image[0, -1]].append({"type": "corner", "side": "tr"})
