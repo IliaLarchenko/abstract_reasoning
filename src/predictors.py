@@ -167,7 +167,7 @@ class fill_outer(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class fill_inner(predictor):
+class fill_inner(fill_outer):
     """fill the pixels with color is all neighbour colors have background color"""
 
     def init(self, params=None, preprocess_params=None):
@@ -193,34 +193,3 @@ class fill_inner(predictor):
                     result[i, j] = params["fill_color"]
 
         return 0, result
-
-    def process_one_sample(self, k, initial=False):
-        """ processes k train sample and updates self.solution_candidates"""
-        local_candidates = []
-        original_image, target_image = self.get_images(k)
-        if original_image.shape != target_image.shape:
-            return 5, None
-        for background_color in range(10):
-            if not (original_image == background_color).any():
-                continue
-            for fill_color in range(10):
-                if not (target_image == fill_color).any():
-                    continue
-                mask = np.logical_and(
-                    target_image != background_color, target_image != fill_color
-                )
-                if not (target_image == original_image)[mask].all():
-                    continue
-                params = {
-                    "background_color": background_color,
-                    "fill_color": fill_color,
-                }
-
-                local_candidates = local_candidates + self.add_candidates_list(
-                    original_image,
-                    target_image,
-                    self.sample["processed_train"][k]["colors"],
-                    params,
-                )
-
-        return self.update_solution_candidates(local_candidates, initial)
