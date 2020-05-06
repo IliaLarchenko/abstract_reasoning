@@ -954,16 +954,13 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
 
 def preprocess_sample(sample):
     """ make the whole preprocessing for particular sample"""
-    sample["processed_train"] = []
 
     original_image = np.uint8(sample["train"][0]["input"])
     target_image = np.uint8(sample["train"][0]["output"])
 
-    sample["processed_train"].append(
-        process_image(original_image, target_image=target_image)
-    )
+    sample["train"][0].update(process_image(original_image, target_image=target_image))
 
-    for image in sample["train"][1:]:
+    for n, image in enumerate(sample["train"][1:]):
         original_image = np.uint8(image["input"])
-        sample["processed_train"].append(get_color_scheme(original_image))
+        sample["train"][n + 1].update(get_color_scheme(original_image))
     return sample

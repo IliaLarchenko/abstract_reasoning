@@ -180,7 +180,7 @@ class fill(predictor):
                 local_candidates = local_candidates + self.add_candidates_list(
                     original_image,
                     target_image,
-                    self.sample["processed_train"][k]["colors"],
+                    self.sample["train"][k]["colors"],
                     params,
                 )
         return self.update_solution_candidates(local_candidates, initial)

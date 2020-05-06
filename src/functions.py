@@ -124,7 +124,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
         if grid_color < 0:
             return 5, None
         factors = [grid_size]
-        grid_color_list = sample["processed_train"][0]["colors"][grid_color]
+        grid_color_list = sample["train"][0]["colors"][grid_color]
     else:
         for i in range(1, t_n):
             for j in range(1, t_m):
@@ -138,7 +138,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
         intersection=intersection,
         candidates=None,
         original_image=None,
-        blocks=sample["processed_train"][0]["blocks"],
+        blocks=sample["train"][0]["blocks"],
     )
     gc.collect()
 
@@ -152,10 +152,7 @@ def mosaic(sample, rotate_target=0, intersection=0):
                 return 6, None
             new_grid_color_list = []
             for color_dict in grid_color_list:
-                if (
-                    get_color(color_dict, sample["processed_train"][k]["colors"])
-                    == grid_color
-                ):
+                if get_color(color_dict, sample["train"][k]["colors"]) == grid_color:
                     new_grid_color_list.append(color_dict)
             if len(new_grid_color_list) == 0:
                 return 7, None
@@ -164,8 +161,8 @@ def mosaic(sample, rotate_target=0, intersection=0):
 
         original_image = np.uint8(sample["train"][k]["input"])
         target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate_target)
-        if "block_cache" not in sample["processed_train"][k]:
-            sample["processed_train"][k]["block_cache"] = {}
+        if "block_cache" not in sample["train"][k]:
+            sample["train"][k]["block_cache"] = {}
 
         factors, candidates = filter_candidates(
             target_image,
@@ -174,9 +171,9 @@ def mosaic(sample, rotate_target=0, intersection=0):
             candidates=candidates,
             original_image=original_image,
             blocks=None,
-            blocks_cache=sample["processed_train"][k]["block_cache"],
+            blocks_cache=sample["train"][k]["block_cache"],
         )
-        del sample["processed_train"][k]["block_cache"]
+        del sample["train"][k]["block_cache"]
         gc.collect()
 
     answers = []
@@ -240,11 +237,11 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
     candidates = []
     max_time = 300
     start_time = time.time()
-    for block in sample["processed_train"][0]["blocks"]:
+    for block in sample["train"][0]["blocks"]:
         if len(block["params"]) > 0 and block["params"][-1]["type"] == "color_swap":
             continue
         if t_n == block["block"].shape[0] and t_m == block["block"].shape[1]:
-            for mask_num, mask in enumerate(sample["processed_train"][0]["masks"]):
+            for mask_num, mask in enumerate(sample["train"][0]["masks"]):
                 if time.time() - start_time > max_time:
                     break
                 if t_n == mask["mask"].shape[0] and t_m == mask["mask"].shape[1]:
@@ -254,7 +251,7 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
                             == block["block"] * (1 - mask["mask"])
                             + mask["mask"] * color
                         ).all():
-                            for color_dict in sample["processed_train"][0]["colors"][
+                            for color_dict in sample["train"][0]["colors"][
                                 color
                             ].copy():
                                 candidates.append(
@@ -276,10 +273,10 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
         t_n, t_m = target_image.shape
         new_candidates = []
 
-        if "block_cache" not in sample["processed_train"][k]:
-            sample["processed_train"][k]["block_cache"] = {}
-        if "mask_cache" not in sample["processed_train"][k]:
-            sample["processed_train"][k]["mask_cache"] = {}
+        if "block_cache" not in sample["train"][k]:
+            sample["train"][k]["block_cache"] = {}
+        if "mask_cache" not in sample["train"][k]:
+            sample["train"][k]["mask_cache"] = {}
 
         for candidate in candidates:
             if time.time() - start_time > max_time:
@@ -287,30 +284,28 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
             status, block = get_predict(
                 original_image,
                 candidate["block"],
-                sample["processed_train"][k]["block_cache"],
-                color_scheme=sample["processed_train"][k],
+                sample["train"][k]["block_cache"],
+                color_scheme=sample["train"][k],
             )
             if status != 0 or block.shape[0] != t_n or block.shape[1] != t_m:
                 continue
             status, mask = get_mask_from_block_params(
                 original_image,
                 candidate["mask"],
-                block_cache=sample["processed_train"][k]["block_cache"],
-                color_scheme=sample["processed_train"][k],
-                mask_cache=sample["processed_train"][k]["mask_cache"],
+                block_cache=sample["train"][k]["block_cache"],
+                color_scheme=sample["train"][k],
+                mask_cache=sample["train"][k]["mask_cache"],
             )
             if status != 0 or mask.shape[0] != t_n or mask.shape[1] != t_m:
                 continue
-            color = get_color(
-                candidate["color"], sample["processed_train"][k]["colors"]
-            )
+            color = get_color(candidate["color"], sample["train"][k]["colors"])
             if color < 0:
                 continue
             if (target_image == block * (1 - mask) + mask * color).all():
                 new_candidates.append(candidate)
         candidates = new_candidates.copy()
-        del sample["processed_train"][k]["mask_cache"]
-        del sample["processed_train"][k]["block_cache"]
+        del sample["train"][k]["mask_cache"]
+        del sample["train"][k]["block_cache"]
         gc.collect()
 
     if len(candidates) == 0:
@@ -325,9 +320,9 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
         original_image = np.uint8(test_data["input"])
 
         if "block_cache" not in sample["test"][test_n]:
-            sample["processed_train"][test_n]["block_cache"] = {}
+            sample["train"][test_n]["block_cache"] = {}
         if "mask_cache" not in sample["test"][test_n]:
-            sample["processed_train"][test_n]["mask_cache"] = {}
+            sample["train"][test_n]["mask_cache"] = {}
 
         color_scheme = get_color_scheme(original_image)
         for candidate in candidates:
@@ -335,7 +330,7 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
                 original_image,
                 candidate["block"],
                 color_scheme=color_scheme,
-                block_cache=sample["processed_train"][test_n]["block_cache"],
+                block_cache=sample["train"][test_n]["block_cache"],
             )
             if status != 0:
                 continue
@@ -343,8 +338,8 @@ def mask_to_blocks(sample, rotate_target=0, num_masks=1):
                 original_image,
                 candidate["mask"],
                 color_scheme=color_scheme,
-                block_cache=sample["processed_train"][test_n]["block_cache"],
-                mask_cache=sample["processed_train"][test_n]["mask_cache"],
+                block_cache=sample["train"][test_n]["block_cache"],
+                mask_cache=sample["train"][test_n]["mask_cache"],
             )
             if (
                 status != 0
@@ -374,7 +369,7 @@ def paint_mask(sample, rotate_target=0):
     candidates = []
     max_time = 300
     start_time = time.time()
-    for mask in sample["processed_train"][0]["masks"]:
+    for mask in sample["train"][0]["masks"]:
         if time.time() - start_time > max_time:
             break
         if t_n == mask["mask"].shape[0] and t_m == mask["mask"].shape[1]:
@@ -386,10 +381,8 @@ def paint_mask(sample, rotate_target=0):
             if len(unique) != 1:
                 continue
             color1 = unique[0]
-            for color_dict1 in sample["processed_train"][0]["colors"][color1].copy():
-                for color_dict2 in sample["processed_train"][0]["colors"][
-                    color2
-                ].copy():
+            for color_dict1 in sample["train"][0]["colors"][color1].copy():
+                for color_dict2 in sample["train"][0]["colors"][color2].copy():
                     candidates.append(
                         {
                             "mask": {
@@ -408,10 +401,10 @@ def paint_mask(sample, rotate_target=0):
         target_image = np.rot90(np.uint8(sample["train"][k]["output"]), rotate_target)
         t_n, t_m = target_image.shape
         new_candidates = []
-        if "block_cache" not in sample["processed_train"][k]:
-            sample["processed_train"][k]["block_cache"] = {}
-        if "mask_cache" not in sample["processed_train"][k]:
-            sample["processed_train"][k]["mask_cache"] = {}
+        if "block_cache" not in sample["train"][k]:
+            sample["train"][k]["block_cache"] = {}
+        if "mask_cache" not in sample["train"][k]:
+            sample["train"][k]["mask_cache"] = {}
 
         for candidate in candidates:
             if time.time() - start_time > max_time:
@@ -419,18 +412,14 @@ def paint_mask(sample, rotate_target=0):
             status, mask = get_mask_from_block_params(
                 original_image,
                 candidate["mask"],
-                block_cache=sample["processed_train"][k]["block_cache"],
-                color_scheme=sample["processed_train"][k],
-                mask_cache=sample["processed_train"][k]["mask_cache"],
+                block_cache=sample["train"][k]["block_cache"],
+                color_scheme=sample["train"][k],
+                mask_cache=sample["train"][k]["mask_cache"],
             )
             if status != 0 or mask.shape[0] != t_n or mask.shape[1] != t_m:
                 continue
-            color1 = get_color(
-                candidate["color1"], sample["processed_train"][k]["colors"]
-            )
-            color2 = get_color(
-                candidate["color2"], sample["processed_train"][k]["colors"]
-            )
+            color1 = get_color(candidate["color1"], sample["train"][k]["colors"])
+            color2 = get_color(candidate["color2"], sample["train"][k]["colors"])
 
             if color1 < 0 or color2 < 0:
                 continue
@@ -442,8 +431,8 @@ def paint_mask(sample, rotate_target=0):
             if (target_image == ((1 - mask) * color1 + mask * color2)).all():
                 new_candidates.append(candidate)
         candidates = new_candidates.copy()
-        del sample["processed_train"][k]["mask_cache"]
-        del sample["processed_train"][k]["block_cache"]
+        del sample["train"][k]["mask_cache"]
+        del sample["train"][k]["block_cache"]
         gc.collect()
 
     if len(candidates) == 0:
@@ -457,17 +446,17 @@ def paint_mask(sample, rotate_target=0):
     for test_n, test_data in enumerate(sample["test"]):
         original_image = np.uint8(test_data["input"])
         if "block_cache" not in sample["test"][test_n]:
-            sample["processed_train"][test_n]["block_cache"] = {}
+            sample["train"][test_n]["block_cache"] = {}
         if "mask_cache" not in sample["test"][test_n]:
-            sample["processed_train"][test_n]["mask_cache"] = {}
+            sample["train"][test_n]["mask_cache"] = {}
         color_scheme = get_color_scheme(original_image)
         for candidate in candidates:
             status, mask = get_mask_from_block_params(
                 original_image,
                 candidate["mask"],
                 color_scheme=color_scheme,
-                block_cache=sample["processed_train"][test_n]["block_cache"],
-                mask_cache=sample["processed_train"][test_n]["mask_cache"],
+                block_cache=sample["train"][test_n]["block_cache"],
+                mask_cache=sample["train"][test_n]["mask_cache"],
             )
             if status != 0:
                 continue
@@ -715,7 +704,7 @@ def mosaic_reconstruction(
             if mosaic_reconstruction_check_corner(
                 original_image, target_image, color_num, simetry_types
             ):
-                for color_dict in sample["processed_train"][k]["colors"][color_num]:
+                for color_dict in sample["train"][k]["colors"][color_num]:
                     color_candidates.append(color_dict)
         if k == 0:
             color_candidates_final = color_candidates
@@ -769,7 +758,7 @@ def one_color(sample):
         if target_image.shape[0] != 1 or target_image.shape[1] != 1:
             return 1, None
 
-        for color_dict in sample["processed_train"][k]["colors"][target_image[0, 0]]:
+        for color_dict in sample["train"][k]["colors"][target_image[0, 0]]:
             color_candidates.append(color_dict)
         if k == 0:
             color_candidates_final = color_candidates
@@ -809,25 +798,21 @@ def several_colors_square(sample):
         if target_image.shape[0] != target_image.shape[1]:
             return 1, None
         size = target_image.shape[0]
-        if size > sample["processed_train"][k]["colors_num"]:
+        if size > sample["train"][k]["colors_num"]:
             return 2, None
 
-        size_diff = sample["processed_train"][k]["colors_num"] - size
+        size_diff = sample["train"][k]["colors_num"] - size
         for i in range(size_diff + 1):
             colors_array = np.zeros((size, size))
             for j in range(size):
-                colors_array[j:-j] = sample["processed_train"][k]["colors_sorted"][
-                    i + j
-                ]
+                colors_array[j:-j] = sample["train"][k]["colors_sorted"][i + j]
             if (colors_array == target_image).all():
                 color_candidates.append(
                     {"type": "square", "i": i, "direct": 0, "size_diff": size_diff}
                 )
 
             for j in range(size):
-                colors_array[j:-j] = sample["processed_train"][k]["colors_sorted"][
-                    ::-1
-                ][i + j]
+                colors_array[j:-j] = sample["train"][k]["colors_sorted"][::-1][i + j]
             if (colors_array == target_image).all():
                 color_candidates.append(
                     {"type": "square", "i": i, "direct": 1, "size_diff": size_diff}
@@ -857,13 +842,9 @@ def several_colors_square(sample):
             prediction = np.zeros((size, size))
             for j in range(size):
                 if result_dict["direct"] == 0:
-                    prediction[j:-j] = sample["processed_train"][k]["colors_sorted"][
-                        i + j
-                    ]
+                    prediction[j:-j] = sample["train"][k]["colors_sorted"][i + j]
                 else:
-                    prediction[j:-j] = sample["processed_train"][k]["colors_sorted"][
-                        ::-1
-                    ][i + j]
+                    prediction[j:-j] = sample["train"][k]["colors_sorted"][::-1][i + j]
 
             answers[test_n].append(prediction)
             result_generated = True
@@ -883,16 +864,14 @@ def several_colors(sample):
         if target_image.shape[0] != 1 and target_image.shape[1] != 1:
             return 1, None
         size = target_image.shape[0] * target_image.shape[1]
-        if size > sample["processed_train"][k]["colors_num"]:
+        if size > sample["train"][k]["colors_num"]:
             return 2, None
 
-        size_diff = sample["processed_train"][k]["colors_num"] - size
+        size_diff = sample["train"][k]["colors_num"] - size
         for i in range(size_diff + 1):
             for rotate in range(4):
                 colors_array = np.rot90(
-                    np.array(
-                        [sample["processed_train"][k]["colors_sorted"][i : i + size]]
-                    ),
+                    np.array([sample["train"][k]["colors_sorted"][i : i + size]]),
                     rotate,
                 )
                 if (colors_array.shape == target_image.shape) and (
@@ -982,7 +961,7 @@ def extract_mosaic_block(
             if mosaic_reconstruction_check_corner(
                 original_image, generated_target_image, color_num, simetry_types
             ):
-                for color_dict in sample["processed_train"][k]["colors"][color_num]:
+                for color_dict in sample["train"][k]["colors"][color_num]:
                     color_candidates.append(color_dict)
         if k == 0:
             color_candidates_final = color_candidates
@@ -1092,12 +1071,12 @@ def self_pattern(sample):
                             inverse,
                         )
                         if (predict == target_image).all():
-                            for color_mask_dict in sample["processed_train"][k][
-                                "colors"
-                            ][color_mask]:
-                                for color_background_dict in sample["processed_train"][
-                                    k
-                                ]["colors"][background_color]:
+                            for color_mask_dict in sample["train"][k]["colors"][
+                                color_mask
+                            ]:
+                                for color_background_dict in sample["train"][k][
+                                    "colors"
+                                ][background_color]:
                                     color_candidates.append(
                                         {
                                             "color_mask": color_mask_dict,
@@ -1236,12 +1215,12 @@ def fixed_pattern(sample):
                                 inverse,
                             )
                             if (predict == target_image).all():
-                                for color_mask_dict in sample["processed_train"][k][
-                                    "colors"
-                                ][color_mask]:
-                                    for color_background_dict in sample[
-                                        "processed_train"
-                                    ][k]["colors"][background_color]:
+                                for color_mask_dict in sample["train"][k]["colors"][
+                                    color_mask
+                                ]:
+                                    for color_background_dict in sample["train"][k][
+                                        "colors"
+                                    ][background_color]:
                                         color_candidates.append(
                                             {
                                                 "color_mask": color_mask_dict,
