@@ -333,13 +333,13 @@ def get_mask_from_max_color_coverage(image, color):
 
 
 def add_unique_colors(image, result, colors=None):
+    """adds information about colors unique for some parts of the image"""
     if colors is None:
         colors = np.unique(image)
 
     unique_side = [False for i in range(10)]
     unique_corner = [False for i in range(10)]
 
-    # top of the image
     half_size = (((image.shape[0] + 1) // 2), ((image.shape[1] + 1) // 2))
     for (image_part, side, unique_list) in [
         (image[: half_size[0]], "bottom", unique_side),
@@ -403,11 +403,13 @@ def get_color_scheme(image, target_image=None):
 
     add_unique_colors(image, result, colors=None)
 
+    # colors in the corners of images
     result["colors"][image[0, 0]].append({"type": "corner", "side": "tl"})
     result["colors"][image[0, -1]].append({"type": "corner", "side": "tr"})
     result["colors"][image[-1, 0]].append({"type": "corner", "side": "bl"})
     result["colors"][image[-1, -1]].append({"type": "corner", "side": "br"})
 
+    # colors that are on top of other and have full vertical on horizontal line
     for k in range(10):
         mask = image == k
         is_on_top0 = mask.min(axis=0).any()
