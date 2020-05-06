@@ -430,6 +430,23 @@ def get_color_scheme(image, target_image=None):
     return result
 
 
+def add_block(target_dict, block):
+    image = block["block"]
+    params = block["params"]
+    params_hash = get_dict_hash(params)
+    # TODO: try tostring
+    array_hash = hash(params_hash)
+    if array_hash not in target_dict["arrays"]:
+        target_dict["arrays"][array_hash] = {"array": image, "params": []}
+
+    target_dict["arrays"][array_hash]["params"].append(params)
+    target_dict["params"][params_hash] = array_hash
+
+
+def get_original(image):
+    return 0, image
+
+
 def process_image(
     image,
     list_of_processors=None,
@@ -444,28 +461,22 @@ def process_image(
 
     start_time = time.time()
     result = get_color_scheme(image, target_image=target_image)
-    result["blocks"] = []
+    result["blocks"] = {"arrays": {}, "params": {}}
 
     # generating blocks
 
     # starting with the original image
-    result["blocks"].append({"block": image, "params": []})
+    add_block(result["blocks"], {"block": image, "params": [{"type": "original"}]})
 
-    # # adding min and max blocks
-    # for full in [True, False]:
-    #     status, block = get_max_block(image, full)
-    #     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #         result["blocks"].append(
-    #             {"block": block, "params": [{"type": "max_block", "full": full}]}
-    #         )
-    #     status, block = get_min_block(image, full)
-    #     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #         result["blocks"].append(
-    #             {"block": block, "params": [{"type": "min_block", "full": full}]}
-    #         )
-    #
-    # # print(len(result["blocks"]))
-    #
+    # adding min and max blocks
+    for full in [True, False]:
+        status, block = get_max_block(image, full)
+        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+            add_block(
+                result["blocks"],
+                {"block": block, "params": [{"type": "max_block", "full": full}]},
+            )
+
     # if time.time() - start_time < max_time:
     #     # adding the max area covered by each color
     #     for color in result["colors_sorted"]:
@@ -910,45 +921,39 @@ def get_dict_hash(d):
 
 def get_predict(image, transforms, block_cache=None, color_scheme=None):
     """ applies the list of transforms to the image"""
-    i = 0
-    add_new_transforms = False
-    if isinstance(block_cache, dict):
-        current_node = block_cache
-        for transform in transforms:
-            dict_hash = get_dict_hash(transform)
-            if dict_hash in current_node:
-                current_node = current_node[dict_hash]
-                if current_node["status"] != 0:
-                    return 2, None
-                image = current_node["block"]
-                i += 1
-            else:
-                add_new_transforms = True
-                break
+    params_hash = get_dict_hash(transforms)
+    if params_hash in block_cache["params"]:
+        if block_cache["params"][params_hash] in None:
+            return 1, None
+        else:
+            return 0, block_cache["arrays"][block_cache["params"][params_hash]]["array"]
+
     if not color_scheme:
         color_scheme = get_color_scheme(image)
-    if add_new_transforms:
-        for transform in transforms[i:]:
-            function = globals()["get_" + transform["type"]]
-            params = transform.copy()
-            params.pop("type")
-            for color_name in ["color", "color_1", "color_2"]:
-                if color_name in params:
-                    params[color_name] = get_color(
-                        params[color_name], color_scheme["colors"]
-                    )
-            status, image = function(image, **params)
-            dict_hash = get_dict_hash(transform)
-            if status != 0:
-                current_node[dict_hash] = {}
-                current_node[dict_hash]["status"] = 1
-                return 1, None
-            else:
-                current_node[dict_hash] = {}
-                current_node = current_node[dict_hash]
-                current_node["status"] = 0
-                current_node["block"] = image
 
+    if len(transforms) > 1:
+        status, previous_image = get_predict(
+            image, transforms[:-1], block_cache=block_cache, color_scheme=color_scheme
+        )
+        if status != 0:
+            return status, None
+    else:
+        previous_image = image
+
+    transform = transforms[-1]
+    function = globals()["get_" + transform["type"]]
+    params = transform.copy()
+    params.pop("type")
+    for color_name in ["color", "color_1", "color_2"]:
+        if color_name in params:
+            params[color_name] = get_color(params[color_name], color_scheme["colors"])
+    status, image = function(image, **params)
+
+    if status != 0:
+        block_cache["params"][params_hash] = None
+        return 1, None
+
+    add_block(block_cache, {"block": image, "params": transforms})
     return 0, image
 
 
