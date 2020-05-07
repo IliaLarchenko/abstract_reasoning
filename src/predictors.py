@@ -2,6 +2,7 @@ import numpy as np
 from src.preprocessing import get_color, get_color_scheme
 from src.functions import filter_list_of_dicts
 from src.preprocessing import find_grid, get_predict
+import itertools
 
 
 class predictor:
@@ -84,28 +85,41 @@ class predictor:
     def __call__(self, sample):
         """ works like fit_predict"""
         self.sample = sample
-        status = self.process_full_train()
-        if status != 0:
-            return status, None
+        self.initial_train = list(sample["train"]).copy()
+
+        if "skip_train" in self.params:
+            skip_train = min(len(sample["train"]) - 2, self.params["skip_train"])
+            train_len = len(self.initial_train) - skip_train
+        else:
+            train_len = len(self.initial_train)
 
         answers = []
         for _ in self.sample["test"]:
             answers.append([])
-
         result_generated = False
-        for test_n, test_data in enumerate(self.sample["test"]):
-            original_image = self.get_images(test_n, train=False)
-            color_scheme = get_color_scheme(original_image)
-            for params_dict in self.solution_candidates:
-                status, params = self.retrive_params_values(params_dict, color_scheme)
-                if status != 0:
-                    continue
-                status, prediction = self.predict_output(original_image, params)
-                if status != 0:
-                    continue
 
-                answers[test_n].append(prediction)
-                result_generated = True
+        all_subsets = list(itertools.combinations(self.initial_train, train_len))
+        for subset in all_subsets:
+            self.sample["train"] = subset
+            status = self.process_full_train()
+            if status != 0:
+                return status, None
+
+            for test_n, test_data in enumerate(self.sample["test"]):
+                original_image = self.get_images(test_n, train=False)
+                color_scheme = get_color_scheme(original_image)
+                for params_dict in self.solution_candidates:
+                    status, params = self.retrive_params_values(
+                        params_dict, color_scheme
+                    )
+                    if status != 0:
+                        continue
+                    status, prediction = self.predict_output(original_image, params)
+                    if status != 0:
+                        continue
+
+                    answers[test_n].append(prediction)
+                    result_generated = True
 
         if result_generated:
             return 0, answers
@@ -120,6 +134,10 @@ class fill(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
         self.type = params["type"]  # inner or outer
+        if "pattern" in params:
+            self.pattern = params["pattern"]
+        else:
+            self.pattern = [[True, True, True], [True, False, True], [True, True, True]]
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -129,25 +147,11 @@ class fill(predictor):
                 if self.type == "outer":
                     if image[i, j] == params["fill_color"]:
                         result[i - 1 : i + 2, j - 1 : j + 2][
-                            np.array(
-                                [
-                                    [True, True, True],
-                                    [True, False, True],
-                                    [True, True, True],
-                                ]
-                            )
+                            np.array(self.pattern)
                         ] = params["background_color"]
                 elif self.type == "inner":
                     if (
-                        image[i - 1 : i + 2, j - 1 : j + 2][
-                            np.array(
-                                [
-                                    [True, True, True],
-                                    [True, False, True],
-                                    [True, True, True],
-                                ]
-                            )
-                        ]
+                        image[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
                         == params["background_color"]
                     ).all():
                         result[i, j] = params["fill_color"]
