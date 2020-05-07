@@ -3,10 +3,10 @@ from src.predictors import *
 from src.preprocessing import *
 
 
-def check(predictor_class, params, file_path, DATA_PATH):
+def check(predictor_class, params, file_path, DATA_PATH, preprocessing_params):
     with open(os.path.join(DATA_PATH, file_path), "r") as file:
         sample = json.load(file)
-    sample = preprocess_sample(sample)
+    sample = preprocess_sample(sample, params=preprocessing_params)
 
     predictor = predictor_class(params=params)
 
@@ -27,12 +27,23 @@ def check(predictor_class, params, file_path, DATA_PATH):
 
 
 def test_predictor():
-    for id, predictor_class, params, file_path, DATA_PATH in [
-        (1, fill, {"type": "outer"}, "4258a5f9.json", "data/training"),
-        (2, fill, {"type": "inner"}, "bb43febb.json", "data/training"),
-        (3, puzzle, {"intersection": 0}, "a416b8f3.json", "data/training"),
-        (4, puzzle, {"intersection": 0}, "59341089.json", "data/evaluation"),
+    for id, predictor_class, params, file_path, DATA_PATH, preprocessing_params in [
+        (1, fill, {"type": "outer"}, "4258a5f9.json", "data/training", None),
+        (2, fill, {"type": "inner"}, "bb43febb.json", "data/training", None),
+        (3, puzzle, {"intersection": 0}, "a416b8f3.json", "data/training", None),
+        (4, puzzle, {"intersection": 0}, "59341089.json", "data/evaluation", None),
+        (5, puzzle, {"intersection": 0}, "25ff71a9.json", "data/training", None),
+        (6, puzzle, {"intersection": 0}, "e9afcf9a.json", "data/training", None),
+        (
+            7,
+            puzzle,
+            {"intersection": 0},
+            "66e6c45b.json",
+            "data/evaluation",
+            ["initial", "min_max_blocks", "rotate", "cut_edges", "resize"],
+        ),
     ]:
         assert (
-            check(predictor_class, params, file_path, DATA_PATH) == True
+            check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
+            == True
         ), f"Error in {id}"
