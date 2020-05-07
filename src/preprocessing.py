@@ -495,11 +495,13 @@ def process_image(
                             result["blocks"],
                             block,
                             [
-                                {
-                                    "type": "grid",
-                                    "grid_size": result["grid_size"],
-                                    "cell": [i, j],
-                                }
+                                [
+                                    {
+                                        "type": "grid",
+                                        "grid_size": result["grid_size"],
+                                        "cell": [i, j],
+                                    }
+                                ]
                             ],
                         )
 
