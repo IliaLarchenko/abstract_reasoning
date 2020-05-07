@@ -58,39 +58,6 @@ def get_color_max(image, color):
         return 1, None
 
 
-def get_voting_corners(image, operation="rotate"):
-    # Producing new image with 1/4 of initial size
-    # by stacking of 4 rotated or reflected coners
-    # and choosing the most popular color for each pixel
-    # (restores symmetrical images with noise)"
-    if operation not in ["rotate", "reflect"]:
-        return 1, None
-    if operation == "rotate":
-        if image.shape[0] != image.shape[1]:
-            return 2, None
-        size = (image.shape[0] + 1) // 2
-        voters = np.stack(
-            [
-                image[:size, :size],
-                np.rot90(image[:size, -size:], k=1),
-                np.rot90(image[-size:, -size:], k=2),
-                np.rot90(image[-size:, :size], k=3),
-            ]
-        )
-
-    if operation == "reflect":
-        sizes = ((image.shape[0] + 1) // 2, (image.shape[1] + 1) // 2)
-        voters = np.stack(
-            [
-                image[: sizes[0], : sizes[1]],
-                image[: sizes[0], -sizes[1] :][:, ::-1],
-                image[-sizes[0] :, -sizes[1] :][::-1, ::-1],
-                image[-sizes[0] :, : sizes[1]][::-1, :],
-            ]
-        )
-    return 0, mode(voters, axis=0).mode[0]
-
-
 def get_grid(image, grid_size, cell):
     """ returns the particular cell form the image with grid"""
     if cell[0] >= grid_size[0] or cell[1] >= grid_size[1]:
