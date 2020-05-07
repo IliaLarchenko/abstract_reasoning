@@ -999,7 +999,7 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
             params[color_name] = get_color(params[color_name], color_scheme["colors"])
     status, result = function(previous_image, **params)
 
-    if status != 0:
+    if status != 0 or len(result) == 0 or len(result[0]) == 0:
         block_cache["params"][params_hash] = None
         return 1, None
 
