@@ -1,6 +1,11 @@
 import numpy as np
 from src.preprocessing import get_color, get_color_scheme
-from src.functions import filter_list_of_dicts
+from src.functions import (
+    filter_list_of_dicts,
+    combine_two_lists,
+    intersect_two_lists,
+    swap_two_colors,
+)
 from src.preprocessing import find_grid, get_predict
 import itertools
 
@@ -10,10 +15,10 @@ class predictor:
         self.params = params
         self.preprocess_params = preprocess_params
         self.solution_candidates = []
-        if "rrr_input" in params:
+        if self.params is not None and "rrr_input" in params:
             self.rrr_input = params["rrr_input"]
         else:
-            self.rrr_input = False
+            self.rrr_input = True
 
     def retrive_params_values(self, params, color_scheme):
         new_params = {}
@@ -27,15 +32,15 @@ class predictor:
         return 0, new_params
 
     def reflect_rotate_roll(self, image, inverse=False):
-        if "reflect" in self.params:
+        if self.params is not None and "reflect" in self.params:
             reflect = self.params["reflect"]
         else:
             reflect = (False, False)
-        if "rotate" in self.params:
+        if self.params is not None and "rotate" in self.params:
             rotate = self.params["rotate"]
         else:
             rotate = 0
-        if "roll" in self.params:
+        if self.params is not None and "roll" in self.params:
             roll = self.params["roll"]
         else:
             roll = (0, 0)
@@ -63,17 +68,23 @@ class predictor:
 
     def get_images(self, k, train=True):
         if train:
-            original_image = self.reflect_rotate_roll(
-                np.uint8(self.sample["train"][k]["input"])
-            )
+            if self.rrr_input:
+                original_image = self.reflect_rotate_roll(
+                    np.uint8(self.sample["train"][k]["input"])
+                )
+            else:
+                original_image = np.uint8(self.sample["train"][k]["input"])
             target_image = self.reflect_rotate_roll(
                 np.uint8(self.sample["train"][k]["output"])
             )
             return original_image, target_image
         else:
-            original_image = self.reflect_rotate_roll(
-                np.uint8(self.sample["test"][k]["input"])
-            )
+            if self.rrr_input:
+                original_image = self.reflect_rotate_roll(
+                    np.uint8(self.sample["test"][k]["input"])
+                )
+            else:
+                original_image = np.uint8(self.sample["test"][k]["input"])
             return original_image
 
     def process_prediction(self, image):
@@ -82,6 +93,9 @@ class predictor:
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         return 1, None
+
+    def init_call(self):
+        pass
 
     def process_one_sample(self, k, initial=False):
         """ processes k train sample and updates self.solution_candidates"""
@@ -133,9 +147,10 @@ class predictor:
     def __call__(self, sample):
         """ works like fit_predict"""
         self.sample = sample
+        self.init_call()
         self.initial_train = list(sample["train"]).copy()
 
-        if "skip_train" in self.params:
+        if self.params is not None and "skip_train" in self.params:
             skip_train = min(len(sample["train"]) - 2, self.params["skip_train"])
             train_len = len(self.initial_train) - skip_train
         else:
@@ -481,8 +496,129 @@ class puzzle(predictor):
             return 3, None
 
 
+class pattern(predictor):
+    """inner fills all pixels around all pixels with particular color with new color
+    outer fills the pixels with fill color if all neighbour colors have background color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+        # self.type = params["type"]
+
+    def get_patterns(self, original_image, target_image):
+        pattern_list = []
+        if target_image.shape[0] % original_image.shape[0] != 0:
+            self.try_self = False
+            return []
+        if target_image.shape[1] % original_image.shape[1] != 0:
+            self.try_self = False
+            return []
+
+        size = [
+            target_image.shape[0] // original_image.shape[0],
+            target_image.shape[1] // original_image.shape[1],
+        ]
+
+        if size[0] != original_image.shape[0] or size[1] != original_image.shape[1]:
+            self.try_self = False
+
+        if max(size) == 1:
+            return []
+        for i in range(original_image.shape[0]):
+            for j in range(original_image.shape[1]):
+                current_block = target_image[
+                    i * size[0] : (i + 1) * size[0], j * size[1] : (j + 1) * size[1]
+                ]
+                pattern_list = combine_two_lists(pattern_list, [current_block])
+
+        return pattern_list
+
+    def init_call(self):
+        self.try_self = True
+        for k in range(len(self.sample["train"])):
+            original_image, target_image = self.get_images(k)
+            patterns = self.get_patterns(original_image, target_image)
+            if k == 0:
+                self.all_patterns = patterns
+            else:
+                self.all_patterns = intersect_two_lists(self.all_patterns, patterns)
+        if self.try_self:
+            self.additional_patterns = ["self", "processed"]
+        else:
+            self.additional_patterns = []
+
+    def predict_output(self, image, params):
+        if params["swap"]:
+            status, new_image = swap_two_colors(image)
+            if status != 0:
+                new_image = image
+        else:
+            new_image = image
+        mask = new_image == params["mask_color"]
+        if params["pattern_num"] == "self":
+            pattern = image
+        elif params["pattern_num"] == "processed":
+            pattern = new_image
+        else:
+            pattern = self.all_patterns[params["pattern_num"]]
+
+        size = (mask.shape[0] * pattern.shape[0], mask.shape[1] * pattern.shape[1])
+        result = np.ones(size) * params["background_color"]
+        for i in range(mask.shape[0]):
+            for j in range(mask.shape[1]):
+                if mask[i, j] != params["inverse"]:
+                    result[
+                        i * pattern.shape[0] : (i + 1) * pattern.shape[0],
+                        j * pattern.shape[1] : (j + 1) * pattern.shape[1],
+                    ] = pattern
+
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if len(self.all_patterns) + len(self.additional_patterns) == 0:
+            return 6
+
+        for pattern_num in (
+            list(range(len(self.all_patterns))) + self.additional_patterns
+        ):
+            for mask_color in range(10):
+                if not (original_image == mask_color).any():
+                    continue
+                for background_color in range(10):
+                    if not (target_image == background_color).any():
+                        continue
+                    for inverse in [True, False]:
+                        for swap in [True, False]:
+                            params = {
+                                "pattern_num": pattern_num,
+                                "mask_color": mask_color,
+                                "background_color": background_color,
+                                "inverse": inverse,
+                                "swap": swap,
+                            }
+
+                            status, predict = self.predict_output(
+                                original_image, params
+                            )
+
+                            if status == 0 and (predict == target_image).all():
+                                local_candidates = (
+                                    local_candidates
+                                    + self.add_candidates_list(
+                                        original_image,
+                                        target_image,
+                                        self.sample["train"][k]["colors"],
+                                        params,
+                                    )
+                                )
+
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 # TODO: fixed_pattern + self_pattern
-# TODO: rotate_roll_reflect to class
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern
 # TODO: reconstruct pattern
