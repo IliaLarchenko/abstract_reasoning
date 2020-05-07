@@ -448,7 +448,7 @@ def get_original(image):
 
 
 def process_image(
-    image, max_time=120, max_blocks=50000, target_image=None, params=None
+    image, max_time=120, max_blocks=70000, target_image=None, params=None
 ):
     """processes the original image and returns dict with structured image blocks"""
 

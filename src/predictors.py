@@ -202,7 +202,7 @@ class puzzle(predictor):
         if self.intersection < 0:
             grid_color, grid_size = find_grid(target_image)
             if grid_color < 0:
-                return 5, None
+                return factors, []
             factors = [grid_size]
             grid_color_list = self.sample["train"][0]["colors"][grid_color]
         else:
@@ -374,9 +374,9 @@ class puzzle(predictor):
         return
 
     def process_full_train(self):
-        original_image, target_image = self.get_images(0)
 
         for k in range(len(self.sample["train"])):
+            original_image, target_image = self.get_images(k)
             if k == 0:
                 self.factors, self.grid_color_list = self.initiate_factors(target_image)
             else:
