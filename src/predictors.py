@@ -206,8 +206,8 @@ class puzzle(predictor):
             factors = [grid_size]
             grid_color_list = self.sample["train"][0]["colors"][grid_color]
         else:
-            for i in range(1, t_n):
-                for j in range(1, t_m):
+            for i in range(1, t_n + 1):
+                for j in range(1, t_m + 1):
                     if (t_n - self.intersection) % i == 0 and (
                         t_m - self.intersection
                     ) % j == 0:
@@ -269,7 +269,7 @@ class puzzle(predictor):
 
     def process_one_sample(self, k, initial=False):
         """ processes k train sample and updates self.solution_candidates"""
-        local_candidates = []
+
         original_image, target_image = self.get_images(k)
 
         candidates_num = 0
@@ -332,7 +332,7 @@ class puzzle(predictor):
                             and (
                                 m
                                 == target_image[
-                                    start_n : start_n + n, start_m : j * start_m + m
+                                    start_n : start_n + n, start_m : start_m + m
                                 ].shape[1]
                             )
                         ):

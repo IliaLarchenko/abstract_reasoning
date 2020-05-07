@@ -448,7 +448,7 @@ def get_original(image):
 
 
 def process_image(
-    image, max_time=120, max_blocks=70000, target_image=None, params=None
+    image, max_time=120, max_blocks=40000, target_image=None, params=None
 ):
     """processes the original image and returns dict with structured image blocks"""
 
@@ -997,14 +997,14 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
     for color_name in ["color", "color_1", "color_2"]:
         if color_name in params:
             params[color_name] = get_color(params[color_name], color_scheme["colors"])
-    status, image = function(image, **params)
+    status, result = function(previous_image, **params)
 
     if status != 0:
         block_cache["params"][params_hash] = None
         return 1, None
 
-    add_block(block_cache, image, transforms)
-    return 0, image
+    add_block(block_cache, result, transforms)
+    return 0, result
 
 
 def preprocess_sample(sample, params=None):
