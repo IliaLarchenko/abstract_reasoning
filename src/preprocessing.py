@@ -447,9 +447,10 @@ def get_original(image):
     return 0, image
 
 
-def process_image(image, max_time=120, target_image=None, params=None):
+def process_image(
+    image, max_time=120, max_blocks=50000, target_image=None, params=None
+):
     """processes the original image and returns dict with structured image blocks"""
-    start_time = time.time()
 
     all_params = [
         "initial",
@@ -466,13 +467,14 @@ def process_image(image, max_time=120, target_image=None, params=None):
         "swap_colors",
         "initial_masks",
         "additional_masks",
-        "covarage_masks",
+        "coverage_masks",
     ]
 
     if not params:
         params = all_params
 
     if "initial" in params:
+        # print("initial")
         result = get_color_scheme(image, target_image=target_image)
         result["blocks"] = {"arrays": {}, "params": {}}
 
@@ -481,8 +483,14 @@ def process_image(image, max_time=120, target_image=None, params=None):
         # starting with the original image
         add_block(result["blocks"], image, [[{"type": "original"}]])
 
+    start_time = time.time()
     # adding min and max blocks
-    if ("min_max_blocks" in params) and (time.time() - start_time < max_time):
+    if (
+        ("min_max_blocks" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("min_max_blocks")
         for full in [True, False]:
             status, block = get_max_block(image, full)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
@@ -492,6 +500,7 @@ def process_image(image, max_time=120, target_image=None, params=None):
 
     # adding the max area covered by each color
     if ("max_area_covered" in params) and (time.time() - start_time < max_time):
+        # print("max_area_covered")
         for color in result["colors_sorted"]:
             status, block = get_color_max(image, color)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
@@ -501,7 +510,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                 add_block(result["blocks"], block, params_list)
 
     # adding grid cells
-    if ("grid_cells" in params) and (time.time() - start_time < max_time):
+    if (
+        ("grid_cells" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("grid_cells")
         if result["grid_color"] > 0:
             for i in range(result["grid_size"][0]):
                 for j in range(result["grid_size"][1]):
@@ -522,7 +536,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                         )
 
     # adding halves of the images
-    if ("halves" in params) and (time.time() - start_time < max_time):
+    if (
+        ("halves" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("halves")
         for side in "lrtb":
             status, block = get_half(image, side=side)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
@@ -532,7 +551,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
     main_blocks_num = len(result["blocks"])
 
     # rotate all blocks
-    if ("rotate" in params) and (time.time() - start_time < max_time):
+    if (
+        ("rotate" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("rotate")
         current_blocks = result["blocks"]["arrays"].copy()
         for k in range(1, 4):
             for key, data in current_blocks.items():
@@ -544,7 +568,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                     add_block(result["blocks"], block, params_list)
 
     # transpose all blocks
-    if ("transpose" in params) and (time.time() - start_time < max_time):
+    if (
+        ("transpose" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("transpose")
         current_blocks = result["blocks"]["arrays"].copy()
         for key, data in current_blocks.items():
             status, block = get_transpose(data["array"])
@@ -553,7 +582,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                 add_block(result["blocks"], block, params_list)
 
     # cut edges for all blocks
-    if ("cut_edges" in params) and (time.time() - start_time < max_time):
+    if (
+        ("cut_edges" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("cut_edges")
         current_blocks = result["blocks"]["arrays"].copy()
         for l, r, t, b in [
             (1, 1, 1, 1),
@@ -577,7 +611,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                         add_block(result["blocks"], block, params_list)
 
     # resize all blocks
-    if ("resize" in params) and (time.time() - start_time < max_time):
+    if (
+        ("resize" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("resize")
         current_blocks = result["blocks"]["arrays"].copy()
         for scale in [2, 3, 1 / 2, 1 / 3]:
             for key, data in current_blocks.items():
@@ -599,7 +638,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                     add_block(result["blocks"], block, params_list)
 
     # reflect all blocks
-    if ("reflect" in params) and (time.time() - start_time < max_time):
+    if (
+        ("reflect" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("reflect")
         current_blocks = result["blocks"]["arrays"].copy()
         for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
             if time.time() - start_time < max_time:
@@ -613,7 +657,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                         add_block(result["blocks"], block, params_list)
 
     # cut some parts of images
-    if ("cut_parts" in params) and (time.time() - start_time < max_time):
+    if (
+        ("cut_parts" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("cut_parts")
         max_x = image.shape[0]
         max_y = image.shape[1]
         min_block_size = 2
@@ -649,6 +698,7 @@ def process_image(image, max_time=120, target_image=None, params=None):
     # making one mask for each generated block
     current_blocks = result["blocks"]["arrays"].copy()
     if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("initial_masks")
         for key, data in current_blocks.items():
             for color in result["colors_sorted"]:
                 status, mask = get_mask_from_block(data["array"], color)
@@ -676,7 +726,8 @@ def process_image(image, max_time=120, target_image=None, params=None):
             )
 
     processed = []
-    if ("addiditional_masks" in params) and (time.time() - start_time < max_time * 2):
+    if ("additional_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("additional_masks")
         for key1, mask1 in initial_masks.items():
             processed.append(key1)
             if time.time() - start_time < max_time * 2 and (
@@ -751,8 +802,9 @@ def process_image(image, max_time=120, target_image=None, params=None):
                             params_list_xor,
                         )
 
-    # covarage_masks
-    if ("covarage_masks" in params) and (time.time() - start_time < max_time * 2):
+    # coverage_masks
+    if ("coverage_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("coverage_masks")
         for color in result["colors_sorted"][1:]:
             status, mask = get_mask_from_max_color_coverage(image, color)
             if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
@@ -764,7 +816,12 @@ def process_image(image, max_time=120, target_image=None, params=None):
                 add_block(result["masks"], mask, params_list)
 
     # swap some colors
-    if ("swap_colors" in params) and (time.time() - start_time < max_time):
+    if (
+        ("swap_colors" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("swap_colors")
         current_blocks = result["blocks"]["arrays"].copy()
         for i, color_1 in enumerate(result["colors_sorted"][:-1]):
             if time.time() - start_time < max_time:
@@ -787,6 +844,11 @@ def process_image(image, max_time=120, target_image=None, params=None):
                                     ]
 
                             add_block(result["blocks"], block, params_list)
+
+    if time.time() - start_time > max_time:
+        print("Time is over")
+    if len(result["blocks"]["arrays"]) >= max_blocks:
+        print("Max number of blocks exceeded")
     return result
 
 
@@ -911,7 +973,7 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
     """ applies the list of transforms to the image"""
     params_hash = get_dict_hash(transforms)
     if params_hash in block_cache["params"]:
-        if block_cache["params"][params_hash] in None:
+        if block_cache["params"][params_hash] is None:
             return 1, None
         else:
             return 0, block_cache["arrays"][block_cache["params"][params_hash]]["array"]
@@ -957,5 +1019,10 @@ def preprocess_sample(sample, params=None):
 
     for n, image in enumerate(sample["train"][1:]):
         original_image = np.uint8(image["input"])
-        sample["train"][n + 1].update(get_color_scheme(original_image))
+        sample["train"][n + 1].update(process_image(original_image, params=["initial"]))
+
+    for n, image in enumerate(sample["test"]):
+        original_image = np.uint8(image["input"])
+        sample["test"][n].update(process_image(original_image, params=["initial"]))
+
     return sample
