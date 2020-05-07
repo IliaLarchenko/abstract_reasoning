@@ -618,7 +618,7 @@ class pattern(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-# TODO: fixed_pattern + self_pattern
+# TODO: mask to block and 2-3 masks
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern
 # TODO: reconstruct pattern
