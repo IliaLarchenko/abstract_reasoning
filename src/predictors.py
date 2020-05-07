@@ -10,6 +10,10 @@ class predictor:
         self.params = params
         self.preprocess_params = preprocess_params
         self.solution_candidates = []
+        if "rrr_input" in params:
+            self.rrr_input = params["rrr_input"]
+        else:
+            self.rrr_input = False
 
     def retrive_params_values(self, params, color_scheme):
         new_params = {}
@@ -22,14 +26,58 @@ class predictor:
                 new_params[k] = v
         return 0, new_params
 
+    def reflect_rotate_roll(self, image, inverse=False):
+        if "reflect" in self.params:
+            reflect = self.params["reflect"]
+        else:
+            reflect = (False, False)
+        if "rotate" in self.params:
+            rotate = self.params["rotate"]
+        else:
+            rotate = 0
+        if "roll" in self.params:
+            roll = self.params["roll"]
+        else:
+            roll = (0, 0)
+
+        result = image.copy()
+
+        if inverse:
+            if reflect[0]:
+                result = result[::-1]
+            if reflect[1]:
+                result = result[:, ::-1]
+            result = np.rot90(result, -rotate)
+            result = np.roll(result, -roll[1], axis=1)
+            result = np.roll(result, -roll[0], axis=0)
+        else:
+            result = np.roll(result, roll[0], axis=0)
+            result = np.roll(result, roll[1], axis=1)
+            result = np.rot90(result, rotate)
+            if reflect[1]:
+                result = result[:, ::-1]
+            if reflect[0]:
+                result = result[::-1]
+
+        return result
+
     def get_images(self, k, train=True):
         if train:
-            original_image = np.uint8(self.sample["train"][k]["input"])
-            target_image = np.uint8(self.sample["train"][k]["output"])
+            original_image = self.reflect_rotate_roll(
+                np.uint8(self.sample["train"][k]["input"])
+            )
+            target_image = self.reflect_rotate_roll(
+                np.uint8(self.sample["train"][k]["output"])
+            )
             return original_image, target_image
         else:
-            original_image = np.uint8(self.sample["test"][k]["input"])
+            original_image = self.reflect_rotate_roll(
+                np.uint8(self.sample["test"][k]["input"])
+            )
             return original_image
+
+    def process_prediction(self, image):
+        return self.reflect_rotate_roll(image, inverse=True)
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -118,7 +166,7 @@ class predictor:
                     if status != 0:
                         continue
 
-                    answers[test_n].append(prediction)
+                    answers[test_n].append(self.process_prediction(prediction))
                     result_generated = True
 
         if result_generated:
@@ -424,7 +472,7 @@ class puzzle(predictor):
                         self.sample["test"][test_n]["blocks"],
                     )
                     if status == 0:
-                        answers[test_n].append(prediction)
+                        answers[test_n].append(self.process_prediction(prediction))
                         result_generated = True
 
         if result_generated:
