@@ -31,6 +31,7 @@ def test_predictor():
         (1, fill, {"type": "outer"}, "4258a5f9.json", "data/training"),
         (2, fill, {"type": "inner"}, "bb43febb.json", "data/training"),
         (3, puzzle, {"intersection": 0}, "a416b8f3.json", "data/training"),
+        (4, puzzle, {"intersection": 0}, "59341089.json", "data/evaluation"),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH) == True
