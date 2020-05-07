@@ -15,7 +15,7 @@ def check(predictor_class, params, file_path, DATA_PATH):
         for i in range(len(answer)):
             test_solved = False
             for j in range(min(len(answer[i]), 3)):
-                result = (answer[i][j] == np.uint8(sample["test"][i]["input"])).all()
+                result = (answer[i][j] == np.uint8(sample["test"][i]["output"])).all()
                 if result:
                     test_solved = True
                     break
