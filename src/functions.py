@@ -1,7 +1,6 @@
 import numpy as np
 from src.preprocessing import (
     get_predict,
-    find_grid,
     get_color,
     get_color_scheme,
     get_mask_from_block_params,
