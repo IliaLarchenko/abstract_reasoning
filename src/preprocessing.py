@@ -644,31 +644,6 @@ def process_image(image, max_time=120, target_image=None, params=None):
                                     ],
                                 )
 
-    # swap some colors
-    if ("swap_colors" in params) and (time.time() - start_time < max_time):
-        current_blocks = result["blocks"]["arrays"].copy()
-        for i, color_1 in enumerate(result["colors_sorted"][:-1]):
-            if time.time() - start_time < max_time:
-                for color_2 in result["colors_sorted"][i:]:
-                    for key, data in current_blocks.items():
-                        status, block = get_color_swap(data["array"], color_1, color_2)
-                        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                            for color_dict_1 in result["colors"][color_1].copy():
-                                for color_dict_2 in result["colors"][color_2].copy():
-                                    params_list = [
-                                        i
-                                        + [
-                                            {
-                                                "type": "color_swap",
-                                                "color_1": color_dict_1,
-                                                "color_2": color_dict_2,
-                                            }
-                                        ]
-                                        for i in data["params"]
-                                    ]
-
-                            add_block(result["blocks"], block, params_list)
-
     result["masks"] = {"arrays": {}, "params": {}}
 
     # making one mask for each generated block
@@ -788,6 +763,30 @@ def process_image(image, max_time=120, target_image=None, params=None):
                     ]
                 add_block(result["masks"], mask, params_list)
 
+    # swap some colors
+    if ("swap_colors" in params) and (time.time() - start_time < max_time):
+        current_blocks = result["blocks"]["arrays"].copy()
+        for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+            if time.time() - start_time < max_time:
+                for color_2 in result["colors_sorted"][i:]:
+                    for key, data in current_blocks.items():
+                        status, block = get_color_swap(data["array"], color_1, color_2)
+                        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                            for color_dict_1 in result["colors"][color_1].copy():
+                                for color_dict_2 in result["colors"][color_2].copy():
+                                    params_list = [
+                                        i
+                                        + [
+                                            {
+                                                "type": "color_swap",
+                                                "color_1": color_dict_1,
+                                                "color_2": color_dict_2,
+                                            }
+                                        ]
+                                        for i in data["params"]
+                                    ]
+
+                            add_block(result["blocks"], block, params_list)
     return result
 
 
@@ -946,13 +945,15 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
     return 0, image
 
 
-def preprocess_sample(sample):
+def preprocess_sample(sample, params=None):
     """ make the whole preprocessing for particular sample"""
 
     original_image = np.uint8(sample["train"][0]["input"])
     target_image = np.uint8(sample["train"][0]["output"])
 
-    sample["train"][0].update(process_image(original_image, target_image=target_image))
+    sample["train"][0].update(
+        process_image(original_image, target_image=target_image, params=params)
+    )
 
     for n, image in enumerate(sample["train"][1:]):
         original_image = np.uint8(image["input"])
