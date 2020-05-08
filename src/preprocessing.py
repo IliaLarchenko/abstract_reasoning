@@ -670,18 +670,18 @@ def process_image(
             for color in result["colors_sorted"]:
                 status, mask = get_mask_from_block(data["array"], color)
                 if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-                    for color_dict in result["colors"][color].copy():
-                        params_list = [
-                            {
-                                "operation": "none",
-                                "params": {
-                                    "block": i,
-                                    "color": color_dict,
-                                    "color_id": int(color),
-                                },
-                            }
-                            for i in data["params"]
-                        ]
+                    params_list = [
+                        {
+                            "operation": "none",
+                            "params": {
+                                "block": i,
+                                "color": color_dict,
+                                "color_id": int(color),
+                            },
+                        }
+                        for i in data["params"]
+                        for color_dict in result["colors"][color]
+                    ]
                     add_block(result["masks"], mask, params_list)
 
         initial_masks = result["masks"]["arrays"].copy()
@@ -689,7 +689,10 @@ def process_image(
             add_block(
                 result["masks"],
                 np.logical_not(mask["array"]),
-                {"operation": "not", "params": mask["params"]},
+                [
+                    {"operation": "not", "params": param["params"]}
+                    for param in mask["params"]
+                ],
             )
 
     processed = []
@@ -714,42 +717,23 @@ def process_image(
                         params_list_or = []
                         params_list_xor = []
                         for param1 in mask1["params"]:
-                            if "block" not in param1:
-                                continue
                             for param2 in mask2["params"]:
-                                if "block" not in param2:
-                                    continue
                                 params_list_and.append(
                                     {
                                         "operation": "and",
-                                        "params": {
-                                            "block1": param1["params"]["block"],
-                                            "block2": param2["params"]["block"],
-                                            "color1": param1["params"]["color"],
-                                            "color2": param2["params"]["color"],
-                                        },
+                                        "params": {"mask1": param1, "mask2": param2},
                                     }
                                 )
                                 params_list_or.append(
                                     {
                                         "operation": "or",
-                                        "params": {
-                                            "block1": param1["params"]["block"],
-                                            "block2": param2["params"]["block"],
-                                            "color1": param1["params"]["color"],
-                                            "color2": param2["params"]["color"],
-                                        },
+                                        "params": {"mask1": param1, "mask2": param2},
                                     }
                                 )
                                 params_list_xor.append(
                                     {
                                         "operation": "xor",
-                                        "params": {
-                                            "block1": param1["params"]["block"],
-                                            "block2": param2["params"]["block"],
-                                            "color1": param1["params"]["color"],
-                                            "color2": param2["params"]["color"],
-                                        },
+                                        "params": {"mask1": param1, "mask2": param2},
                                     }
                                 )
 
@@ -822,36 +806,35 @@ def process_image(
 def get_mask_from_block_params(
     image, params, block_cache=None, mask_cache=None, color_scheme=None
 ):
+
     if mask_cache is None:
-        mask_cache = {}
+        mask_cache = {{"arrays": {}, "params": {}}}
     dict_hash = get_dict_hash(params)
     if dict_hash in mask_cache:
-        if mask_cache[dict_hash]["status"] == 0:
-            return 0, mask_cache[dict_hash]["mask"]
+        mask = mask_cache["arrays"][mask_cache["params"][dict_hash]]["array"]
+        if len(mask) == 0:
+            return 1, None
         else:
-            return mask_cache[dict_hash]["status"], None
-    else:
-        mask_cache[dict_hash] = {}
+            return 0, mask
 
     if params["operation"] == "none":
         status, block = get_predict(
             image, params["params"]["block"], block_cache, color_scheme
         )
         if status != 0:
-            mask_cache[dict_hash]["status"] = 1
+            add_block(mask_cache, np.array([[]]), [params])
             return 1, None
         if not color_scheme:
             color_scheme = get_color_scheme(image)
         color_num = get_color(params["params"]["color"], color_scheme["colors"])
         if color_num < 0:
-            mask_cache[dict_hash]["status"] = 1
+            add_block(mask_cache, np.array([[]]), [params])
             return 2, None
         status, mask = get_mask_from_block(block, color_num)
         if status != 0:
-            mask_cache[dict_hash]["status"] = 6
+            add_block(mask_cache, np.array([[]]), [params])
             return 6, None
-        mask_cache[dict_hash]["status"] = 0
-        mask_cache[dict_hash]["mask"] = mask
+        add_block(mask_cache, mask, [params])
         return 0, mask
     elif params["operation"] == "not":
         new_params = params.copy()
@@ -864,19 +847,13 @@ def get_mask_from_block_params(
             mask_cache=mask_cache,
         )
         if status != 0:
-            mask_cache[dict_hash]["status"] = 3
+            add_block(mask_cache, np.array([[]]), [params])
             return 3, None
-        mask_cache[dict_hash]["status"] = 0
-        mask_cache[dict_hash]["mask"] = mask
-        return 0, np.logical_not(mask)
+        mask = np.logical_not(mask)
+        add_block(mask_cache, mask, [params])
+        return 0, mask
     elif params["operation"] in ["and", "or", "xor"]:
-        new_params = {
-            "operation": "none",
-            "params": {
-                "block": params["params"]["block1"],
-                "color": params["params"]["color1"],
-            },
-        }
+        new_params = params["params"]["mask1"]
         status, mask1 = get_mask_from_block_params(
             image,
             new_params,
@@ -885,15 +862,9 @@ def get_mask_from_block_params(
             mask_cache=mask_cache,
         )
         if status != 0:
-            mask_cache[dict_hash]["status"] = 4
+            add_block(mask_cache, np.array([[]]), [params])
             return 4, None
-        new_params = {
-            "operation": "none",
-            "params": {
-                "block": params["params"]["block2"],
-                "color": params["params"]["color2"],
-            },
-        }
+        new_params = params["params"]["mask2"]
         status, mask2 = get_mask_from_block_params(
             image,
             new_params,
@@ -902,10 +873,10 @@ def get_mask_from_block_params(
             mask_cache=mask_cache,
         )
         if status != 0:
-            mask_cache[dict_hash]["status"] = 5
+            add_block(mask_cache, np.array([[]]), [params])
             return 5, None
         if mask1.shape[0] != mask2.shape[0] or mask1.shape[1] != mask2.shape[1]:
-            mask_cache[dict_hash]["status"] = 6
+            add_block(mask_cache, np.array([[]]), [params])
             return 6, None
         if params["operation"] == "and":
             mask = np.logical_and(mask1, mask2)
@@ -913,22 +884,20 @@ def get_mask_from_block_params(
             mask = np.logical_or(mask1, mask2)
         elif params["operation"] == "xor":
             mask = np.logical_xor(mask1, mask2)
-        mask_cache[dict_hash]["status"] = 0
-        mask_cache[dict_hash]["mask"] = mask
+        add_block(mask_cache, mask, [params])
         return 0, mask
     elif params["operation"] == "coverage":
         if not color_scheme:
             color_scheme = get_color_scheme(image)
         color_num = get_color(params["params"]["color"], color_scheme["colors"])
         if color_num < 0:
-            mask_cache[dict_hash]["status"] = 1
+            add_block(mask_cache, np.array([[]]), [params])
             return 2, None
         status, mask = get_mask_from_max_color_coverage(image, color_num)
         if status != 0:
-            mask_cache[dict_hash]["status"] = 6
+            add_block(mask_cache, np.array([[]]), [params])
             return 6, None
-        mask_cache[dict_hash]["status"] = 0
-        mask_cache[dict_hash]["mask"] = mask
+        add_block(mask_cache, mask, [params])
         return 0, mask
 
 

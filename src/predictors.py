@@ -6,7 +6,7 @@ from src.functions import (
     intersect_two_lists,
     swap_two_colors,
 )
-from src.preprocessing import find_grid, get_predict
+from src.preprocessing import find_grid, get_predict, get_mask_from_block_params
 import itertools
 
 
@@ -616,6 +616,220 @@ class pattern(predictor):
                                 )
 
         return self.update_solution_candidates(local_candidates, initial)
+
+
+class mask_to_block(predictor):
+    """applies several masks to block"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+        if params is not None and "mask_num" in params:
+            self.mask_num = params["mask_num"]
+        else:
+            self.mask_num = 1
+
+    def apply_mask(self, image, mask, color):
+        if image.shape != mask.shape:
+            return 1, None
+        result = image.copy()
+        result[mask] = color
+        return 0, result
+
+    def predict_output(self, image, params):
+        status, block = get_predict(
+            image,
+            params["block"],
+            block_cache=params["block_cache"],
+            color_scheme=params["color_scheme"],
+        )
+
+        if status != 0:
+            return status, None
+        result = block
+
+        for mask_param, color_param in zip(params["masks"], params["colors"]):
+            status, mask = get_mask_from_block_params(
+                image,
+                mask_param,
+                block_cache=params["block_cache"],
+                mask_cache=params["mask_cache"],
+                color_scheme=params["color_scheme"],
+            )
+            if status != 0:
+                return status, None
+            color = get_color(color_param, params["color_scheme"]["colors"])
+            if color < 0:
+                return 6, None
+            status, result = self.apply_mask(result, mask, color)
+            if status != 0:
+                return status, None
+
+        return 0, result
+
+    def find_mask_color(self, target, mask, ignore_mask):
+        visible_mask = np.logical_and(np.logical_not(ignore_mask), mask)
+        if not (visible_mask).any():
+            return -1
+        visible_part = target[visible_mask]
+        colors = np.unique(visible_part)
+        if len(colors) == 1:
+            return colors[0]
+        else:
+            return -1
+
+    def add_block(self, target_image, ignore_mask, k):
+        results = []
+        for block_hash, block in self.sample["train"][k]["blocks"]["arrays"].items():
+            # print(ignore_mask)
+            if (block["array"].shape == target_image.shape) and (
+                block["array"][np.logical_not(ignore_mask)]
+                == target_image[np.logical_not(ignore_mask)]
+            ).all():
+                results.append(block_hash)
+
+        if len(results) == 0:
+            return 1, None
+        else:
+            return 0, results
+
+    def generate_result(self, target_image, masks, colors, ignore_mask, k):
+        if len(masks) == self.mask_num:
+            status, blocks = self.add_block(target_image, ignore_mask, k)
+            if status != 0:
+                return 8, None
+            result = [
+                {"block": block, "masks": masks, "colors": colors} for block in blocks
+            ]
+            return 0, result
+
+        result = []
+        for mask_hash, mask in self.sample["train"][k]["masks"]["arrays"].items():
+            if mask_hash in masks:
+                continue
+            if mask["array"].shape != target_image.shape:
+                continue
+            color = self.find_mask_color(target_image, mask["array"], ignore_mask)
+            if color < 0:
+                continue
+            new_ignore_mask = np.logical_or(mask["array"], ignore_mask)
+            status, new_results = self.generate_result(
+                target_image, [mask_hash] + masks, [color] + colors, new_ignore_mask, k
+            )
+            if status != 0:
+                continue
+            result = result + new_results
+
+        if len(result) < 0:
+            return 9, None
+        else:
+            return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+
+        candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if initial:
+            ignore_mask = np.zeros_like(target_image, dtype=bool)
+            status, candidates = self.generate_result(
+                target_image, [], [], ignore_mask, k
+            )
+            if status != 0:
+                return status
+            candidates = [
+                {"block": block_params, "masks": x["masks"], "colors": x["colors"]}
+                for x in candidates
+                for block_params in self.sample["train"][k]["blocks"]["arrays"][
+                    x["block"]
+                ]["params"]
+            ]
+            for i in range(self.mask_num):
+                candidates = [
+                    {
+                        "block": x["block"],
+                        "masks": [
+                            x["masks"][j] if j != i else mask_param
+                            for j in range(self.mask_num)
+                        ],
+                        "colors": [
+                            x["colors"][j] if j != i else color_param
+                            for j in range(self.mask_num)
+                        ],
+                    }
+                    for x in candidates
+                    for mask_param in self.sample["train"][k]["masks"]["arrays"][
+                        x["masks"][i]
+                    ]["params"]
+                    for color_param in self.sample["train"][k]["colors"][x["colors"][i]]
+                ]
+
+        else:
+            for candidate in self.solution_candidates:
+                params = candidate.copy()
+                params["block_cache"] = self.sample["train"][k]["blocks"]
+                params["mask_cache"] = self.sample["train"][k]["masks"]
+                params["color_scheme"] = self.sample["train"][k]
+
+                status, prediction = self.predict_output(original_image, params)
+                if status != 0:
+                    continue
+                if (
+                    prediction.shape == target_image.shape
+                    and (prediction == target_image).all()
+                ):
+                    candidates.append(candidate)
+
+        self.solution_candidates = candidates
+        if len(self.solution_candidates) == 0:
+            return 10
+
+        return 0
+
+    def __call__(self, sample):
+        """ works like fit_predict"""
+        self.sample = sample
+        self.init_call()
+        self.initial_train = list(sample["train"]).copy()
+
+        if self.params is not None and "skip_train" in self.params:
+            skip_train = min(len(sample["train"]) - 2, self.params["skip_train"])
+            train_len = len(self.initial_train) - skip_train
+        else:
+            train_len = len(self.initial_train)
+
+        answers = []
+        for _ in self.sample["test"]:
+            answers.append([])
+        result_generated = False
+
+        all_subsets = list(itertools.combinations(self.initial_train, train_len))
+        for subset in all_subsets:
+            self.sample["train"] = subset
+            status = self.process_full_train()
+            if status != 0:
+                return status, None
+
+            for test_n, test_data in enumerate(self.sample["test"]):
+                original_image = self.get_images(test_n, train=False)
+                color_scheme = get_color_scheme(original_image)
+                for params_dict in self.solution_candidates:
+                    params = params_dict.copy()
+                    params["block_cache"] = self.sample["test"][test_n]["blocks"]
+                    params["mask_cache"] = self.sample["test"][test_n]["masks"]
+                    params["color_scheme"] = color_scheme
+
+                    status, prediction = self.predict_output(original_image, params)
+                    if status != 0:
+                        continue
+
+                    answers[test_n].append(self.process_prediction(prediction))
+                    result_generated = True
+
+        if result_generated:
+            return 0, answers
+        else:
+            return 3, None
 
 
 # TODO: mask to block and 2-3 masks
