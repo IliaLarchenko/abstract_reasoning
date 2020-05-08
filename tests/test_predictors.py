@@ -6,8 +6,8 @@ from src.preprocessing import *
 def check(predictor_class, params, file_path, DATA_PATH, preprocessing_params):
     with open(os.path.join(DATA_PATH, file_path), "r") as file:
         sample = json.load(file)
-    sample = preprocess_sample(sample, params=preprocessing_params)
 
+    sample = preprocess_sample(sample, params=preprocessing_params)
     predictor = predictor_class(params=params)
 
     result, answer = predictor(sample)
@@ -44,6 +44,38 @@ def test_predictor():
         ),
         (8, pattern, None, "ad7e01d0.json", "data/evaluation", ["initial"]),
         (9, pattern, None, "5b6cbef5.json", "data/evaluation", ["initial"]),
+        (
+            10,
+            mask_to_block,
+            None,
+            "195ba7dc.json",
+            "data/evaluation",
+            ["initial", "grid_cells", "initial_masks", "additional_masks"],
+        ),
+        (
+            11,
+            mask_to_block,
+            {"mask_num": 2},
+            "cf98881b.json",
+            "data/training",
+            ["initial", "max_area_covered", "grid_cells", "halves", "initial_masks"],
+        ),
+        (
+            12,
+            mask_to_block,
+            {"mask_num": 2},
+            "ce039d91.json",
+            "data/evaluation",
+            [
+                "initial",
+                "max_area_covered",
+                "grid_cells",
+                "halves",
+                "rotate",
+                "transpose",
+                "initial_masks",
+            ],
+        ),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
