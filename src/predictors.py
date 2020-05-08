@@ -1,11 +1,12 @@
 import numpy as np
-from src.preprocessing import get_color, get_color_scheme
+from src.preprocessing import get_color, get_color_scheme, get_dict_hash
 from src.functions import (
     filter_list_of_dicts,
     combine_two_lists,
     intersect_two_lists,
     swap_two_colors,
 )
+import random
 from src.preprocessing import find_grid, get_predict, get_mask_from_block_params
 import itertools
 
@@ -94,8 +95,33 @@ class predictor:
         """ predicts 1 output image given input image and prediction params"""
         return 1, None
 
+    def filter_colors(self):
+        for i in range(10):
+            list_of_colors = [
+                get_dict_hash(color_dict)
+                for color_dict in self.sample["train"][0]["colors"][i]
+            ]
+            for color_scheme in self.sample["train"][1:]:
+                new_set = set(
+                    [
+                        get_dict_hash(color_dict)
+                        for color_dict in color_scheme["colors"][i]
+                    ]
+                )
+                list_of_colors = [x for x in list_of_colors if x in new_set]
+                if len(list_of_colors) == 0:
+                    break
+            if len(list_of_colors) > 1:
+                colors_to_delete = list_of_colors[1:]
+
+                for color_scheme in self.sample["train"]:
+                    for color_dict in color_scheme["colors"][i].copy():
+                        if get_dict_hash(color_dict) in colors_to_delete:
+                            color_scheme["colors"][i].remove(color_dict)
+        return
+
     def init_call(self):
-        pass
+        self.filter_colors()
 
     def process_one_sample(self, k, initial=False):
         """ processes k train sample and updates self.solution_candidates"""
@@ -810,6 +836,9 @@ class mask_to_block(predictor):
             if status != 0:
                 return status, None
 
+            random.shuffle(self.solution_candidates)
+            self.solution_candidates = self.solution_candidates[:200]
+            print(len(self.solution_candidates))
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
                 color_scheme = get_color_scheme(original_image)
