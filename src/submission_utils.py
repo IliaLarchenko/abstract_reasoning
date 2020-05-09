@@ -44,7 +44,7 @@ def process_file(
                     if str_answer not in answers:
                         if show_results and k < 3:
                             plt.matshow(
-                                answer[0][k],
+                                answer[j][k],
                                 cmap="Set3",
                                 norm=mpl.colors.Normalize(vmin=0, vmax=9),
                             )
