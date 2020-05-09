@@ -196,7 +196,7 @@ class predictor:
 
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
-                color_scheme = get_color_scheme(original_image)
+                color_scheme = self.sample["test"][test_n]
                 for params_dict in self.solution_candidates:
                     status, params = self.retrive_params_values(
                         params_dict, color_scheme
@@ -367,7 +367,7 @@ class puzzle(predictor):
 
         candidates_num = 0
         t_n, t_m = target_image.shape
-        color_scheme = get_color_scheme(original_image)
+        color_scheme = self.sample["train"][k]
         new_candidates = self.initiate_candidates_list()
         for n_factor, factor in enumerate(self.factors.copy()):
             for i in range(factor[0]):
@@ -502,7 +502,7 @@ class puzzle(predictor):
         result_generated = False
         for test_n, test_data in enumerate(self.sample["test"]):
             original_image = self.get_images(test_n, train=False)
-            color_scheme = get_color_scheme(original_image)
+            color_scheme = self.sample["test"][test_n]
             for n_factor, factor in enumerate(self.factors):
                 if factor[0] > 0 and factor[1] > 0:
                     status, prediction = self.predict_output(
@@ -841,7 +841,7 @@ class mask_to_block(predictor):
             print(len(self.solution_candidates))
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
-                color_scheme = get_color_scheme(original_image)
+                color_scheme = self.sample["test"][test_n]
                 for params_dict in self.solution_candidates:
                     params = params_dict.copy()
                     params["block_cache"] = self.sample["test"][test_n]["blocks"]

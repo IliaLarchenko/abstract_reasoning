@@ -337,7 +337,7 @@ def add_unique_colors(image, result, colors=None):
     return
 
 
-def get_color_scheme(image, target_image=None):
+def get_color_scheme(image, target_image=None, params=None):
     """processes original image and returns dict color scheme"""
     result = {
         "grid_color": -1,
@@ -345,6 +345,9 @@ def get_color_scheme(image, target_image=None):
         "colors_sorted": [],
         "grid_size": [1, 1],
     }
+
+    if params is None:
+        params = ["coverage", "unique", "corners", "top", "grid"]
 
     # preparing colors info
 
@@ -364,37 +367,42 @@ def get_color_scheme(image, target_image=None):
             # use abs color value - same for any image
             result["colors"][color].append({"type": "abs", "k": color})
 
-    for k, color in enumerate(colors):
-        # use k-th colour (sorted by presence on image)
-        result["colors"][color].append({"type": "min", "k": k})
-        # use k-th colour (sorted by presence on image)
-        result["colors"][color].append({"type": "max", "k": len(colors) - k - 1})
+    if "coverage" in params:
+        for k, color in enumerate(colors):
+            # use k-th colour (sorted by presence on image)
+            result["colors"][color].append({"type": "min", "k": k})
+            # use k-th colour (sorted by presence on image)
+            result["colors"][color].append({"type": "max", "k": len(colors) - k - 1})
 
-    add_unique_colors(image, result, colors=None)
+    if "unique" in params:
+        add_unique_colors(image, result, colors=None)
 
-    # colors in the corners of images
-    result["colors"][image[0, 0]].append({"type": "corner", "side": "tl"})
-    result["colors"][image[0, -1]].append({"type": "corner", "side": "tr"})
-    result["colors"][image[-1, 0]].append({"type": "corner", "side": "bl"})
-    result["colors"][image[-1, -1]].append({"type": "corner", "side": "br"})
+    if "corners" in params:
+        # colors in the corners of images
+        result["colors"][image[0, 0]].append({"type": "corner", "side": "tl"})
+        result["colors"][image[0, -1]].append({"type": "corner", "side": "tr"})
+        result["colors"][image[-1, 0]].append({"type": "corner", "side": "bl"})
+        result["colors"][image[-1, -1]].append({"type": "corner", "side": "br"})
 
-    # colors that are on top of other and have full vertical on horizontal line
-    for k in range(10):
-        mask = image == k
-        is_on_top0 = mask.min(axis=0).any()
-        is_on_top1 = mask.min(axis=1).any()
-        if is_on_top0:
-            result["colors"][k].append({"type": "on_top", "side": "0"})
-        if is_on_top1:
-            result["colors"][k].append({"type": "on_top", "side": "1"})
-        if is_on_top1 or is_on_top0:
-            result["colors"][k].append({"type": "on_top", "side": "any"})
+    if "top" in params:
+        # colors that are on top of other and have full vertical on horizontal line
+        for k in range(10):
+            mask = image == k
+            is_on_top0 = mask.min(axis=0).any()
+            is_on_top1 = mask.min(axis=1).any()
+            if is_on_top0:
+                result["colors"][k].append({"type": "on_top", "side": "0"})
+            if is_on_top1:
+                result["colors"][k].append({"type": "on_top", "side": "1"})
+            if is_on_top1 or is_on_top0:
+                result["colors"][k].append({"type": "on_top", "side": "any"})
 
-    grid_color, grid_size = find_grid(image)
-    if grid_color >= 0:
-        result["grid_color"] = grid_color
-        result["grid_size"] = grid_size
-        result["colors"][grid_color].append({"type": "grid"})
+    if "grid" in params:
+        grid_color, grid_size = find_grid(image)
+        if grid_color >= 0:
+            result["grid_color"] = grid_color
+            result["grid_size"] = grid_size
+            result["colors"][grid_color].append({"type": "grid"})
 
     return result
 
@@ -415,7 +423,13 @@ def get_original(image):
 
 
 def process_image(
-    image, max_time=180, max_blocks=50000, target_image=None, params=None
+    image,
+    max_time=30,
+    max_blocks=10000,
+    max_masks=1000,
+    target_image=None,
+    params=None,
+    color_params=None,
 ):
     """processes the original image and returns dict with structured image blocks"""
 
@@ -442,7 +456,7 @@ def process_image(
 
     if "initial" in params:
         # print("initial")
-        result = get_color_scheme(image, target_image=target_image)
+        result = get_color_scheme(image, target_image=target_image, params=color_params)
         result["blocks"] = {"arrays": {}, "params": {}}
 
         # generating blocks
@@ -943,22 +957,31 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
     return 0, result
 
 
-def preprocess_sample(sample, params=None):
+def preprocess_sample(sample, params=None, color_params=None):
     """ make the whole preprocessing for particular sample"""
 
     original_image = np.uint8(sample["train"][0]["input"])
     target_image = np.uint8(sample["train"][0]["output"])
 
     sample["train"][0].update(
-        process_image(original_image, target_image=target_image, params=params)
+        process_image(
+            original_image,
+            target_image=target_image,
+            params=params,
+            color_params=color_params,
+        )
     )
 
     for n, image in enumerate(sample["train"][1:]):
         original_image = np.uint8(image["input"])
-        sample["train"][n + 1].update(process_image(original_image, params=["initial"]))
+        sample["train"][n + 1].update(
+            process_image(original_image, params=["initial"]), color_params=color_params
+        )
 
     for n, image in enumerate(sample["test"]):
         original_image = np.uint8(image["input"])
-        sample["test"][n].update(process_image(original_image, params=["initial"]))
+        sample["test"][n].update(
+            process_image(original_image, params=["initial"]), color_params=color_params
+        )
 
     return sample
