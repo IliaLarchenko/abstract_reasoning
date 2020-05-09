@@ -84,6 +84,21 @@ def get_half(image, side):
         return 0, image[: (image.shape[0]) // 2, :]
 
 
+def get_corner(image, side):
+    """ returns the half of the image"""
+    if side not in ["tl", "tr", "bl", "br"]:
+        return 1, None
+    size = (image.shape[0]) // 2, (image.shape[1]) // 2
+    if side == "tl":
+        return 0, image[size[0] :, -size[1] :]
+    if side == "tr":
+        return 0, image[size[0] :, : size[1]]
+    if side == "bl":
+        return 0, image[: -size[0], : size[1]]
+    if side == "br":
+        return 0, image[: -size[0], -size[1] :]
+
+
 def get_rotation(image, k):
     return 0, np.rot90(image, k)
 
@@ -439,7 +454,7 @@ def process_image(
         "max_area_covered",
         "grid_cells",
         "halves",
-        "rotate",
+        "corners" "rotate",
         "transpose",
         "cut_edges",
         "resize",
@@ -527,6 +542,18 @@ def process_image(
             status, block = get_half(image, side=side)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                 add_block(result["blocks"], block, [[{"type": "half", "side": side}]])
+
+    # adding halves of the images
+    if (
+        ("corners" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("halves")
+        for side in ["tl", "tr", "bl", "br"]:
+            status, block = get_corner(image, side=side)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                add_block(result["blocks"], block, [[{"type": "corner", "side": side}]])
 
     # TODO: main_blocks!!!
     main_blocks_num = len(result["blocks"])
