@@ -2,6 +2,7 @@ import json
 import multiprocessing
 import os
 import time
+import pandas as pd
 
 from src.preprocessing import preprocess_sample
 from src.utils import show_sample, matrix2answer
@@ -29,32 +30,33 @@ def process_file(
     sample = preprocess_sample(
         sample, params=preprocess_params, color_params=color_params
     )
-    answers = []
 
     for predictor in predictors:
         result, answer = predictor(sample)
         if result == 0:
             if show_results:
                 show_sample(sample)
-            for j in range(len(answer[0])):
-                if not matrix2answer(answer[0][j]) in answers:
-                    if show_results and j < 3:
-                        plt.matshow(
-                            answer[0][j],
-                            cmap="Set3",
-                            norm=mpl.colors.Normalize(vmin=0, vmax=9),
-                        )
-                        plt.show()
-                        print(file_path, matrix2answer(answer[0][j]))
-                    answers = set(list(answers) + [matrix2answer(answer[0][j])])
+
             for j in range(len(answer)):
+                answers = set([])
                 for k in range(len(answer[j])):
-                    submission_list.append(
-                        {
-                            "output_id": file_path[:-5] + "_" + str(j),
-                            "output": matrix2answer(answer[j][k]),
-                        }
-                    )
+                    str_answer = matrix2answer(answer[j][k])
+                    if str_answer not in answers:
+                        if show_results and k < 3:
+                            plt.matshow(
+                                answer[0][k],
+                                cmap="Set3",
+                                norm=mpl.colors.Normalize(vmin=0, vmax=9),
+                            )
+                            plt.show()
+                            print(file_path, str_answer)
+                        answers.add(str_answer)
+                        submission_list.append(
+                            {
+                                "output_id": file_path[:-5] + "_" + str(j),
+                                "output": str_answer,
+                            }
+                        )
 
             if break_after_answer:
                 break
@@ -76,7 +78,7 @@ def run_parallel(
     process_list = []
     timing_list = []
 
-    queue = multiprocessing.Queue()
+    queue = multiprocessing.Queue(10000)
     func = partial(
         process_file,
         PATH=PATH,
@@ -89,8 +91,10 @@ def run_parallel(
     )
 
     with tqdm(total=len(files_list)) as pbar:
+        num_finished_previous = 0
         try:
             while True:
+
                 num_finished = 0
                 for process, start_time in zip(process_list, timing_list):
                     if process.is_alive():
@@ -105,7 +109,7 @@ def run_parallel(
 
                 if num_finished == len(files_list):
                     pbar.reset()
-                    pbar.update(num_finished)
+                    pbar.update(len(files_list))
                     time.sleep(0.1)
                     break
                 elif len(process_list) - num_finished < processes and len(
@@ -117,8 +121,10 @@ def run_parallel(
                     process_list.append(p)
                     timing_list.append(time.time())
                     p.start()
-                pbar.reset()
-                pbar.update(num_finished)
+                pbar.update(num_finished - num_finished_previous)
+                num_finished_previous = num_finished
+                print(f"num_finished: {num_finished}, total_num: {len(process_list)}")
+                time.sleep(1)
         except KeyboardInterrupt:
             for process in process_list:
                 process.terminate()
@@ -133,3 +139,32 @@ def run_parallel(
     while not queue.empty():
         result = result + queue.get()
     return result
+
+
+def generate_submission(
+    predictions_list, sample_submission_path="data/sample_submission.csv"
+):
+    submission = pd.read_csv(sample_submission_path).to_dict("records")
+
+    initial_ids = set([data["output_id"] for data in submission])
+    new_submission = []
+
+    ids = set([data["output_id"] for data in predictions_list])
+    for output_id in ids:
+        predicts = list(
+            set(
+                [
+                    data["output"]
+                    for data in predictions_list
+                    if data["output_id"] == output_id
+                ]
+            )
+        )
+        output = " ".join(predicts[:3])
+        new_submission.append({"output_id": output_id, "output": output})
+
+    for output_id in initial_ids:
+        if not output_id in ids:
+            new_submission.append({"output_id": output_id, "output": ""})
+
+    return pd.DataFrame(new_submission)

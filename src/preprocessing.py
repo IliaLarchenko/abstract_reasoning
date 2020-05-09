@@ -439,7 +439,7 @@ def get_original(image):
 
 def process_image(
     image,
-    max_time=30,
+    max_time=120,
     max_blocks=10000,
     max_masks=1000,
     target_image=None,

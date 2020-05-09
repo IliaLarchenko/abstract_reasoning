@@ -837,7 +837,7 @@ class mask_to_block(predictor):
                 return status, None
 
             random.shuffle(self.solution_candidates)
-            self.solution_candidates = self.solution_candidates[:200]
+            self.solution_candidates = self.solution_candidates[:300]
             print(len(self.solution_candidates))
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
