@@ -725,7 +725,8 @@ def process_image(
                     ]
                     add_block(result["masks"], mask, params_list)
 
-        initial_masks = result["masks"]["arrays"].copy()
+    initial_masks = result["masks"]["arrays"].copy()
+    if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
         for key, mask in initial_masks.items():
             add_block(
                 result["masks"],

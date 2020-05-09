@@ -108,8 +108,7 @@ def run_parallel(
                         num_finished += 1
 
                 if num_finished == len(files_list):
-                    pbar.reset()
-                    pbar.update(len(files_list))
+                    pbar.update(len(files_list) - num_finished_previous)
                     time.sleep(0.1)
                     break
                 elif len(process_list) - num_finished < processes and len(
@@ -123,8 +122,8 @@ def run_parallel(
                     p.start()
                 pbar.update(num_finished - num_finished_previous)
                 num_finished_previous = num_finished
-                print(f"num_finished: {num_finished}, total_num: {len(process_list)}")
-                time.sleep(1)
+                # print(f"num_finished: {num_finished}, total_num: {len(process_list)}")
+                time.sleep(0.1)
         except KeyboardInterrupt:
             for process in process_list:
                 process.terminate()
