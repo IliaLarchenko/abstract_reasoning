@@ -1,14 +1,11 @@
 import json
+import multiprocessing
 import os
 
 from src.preprocessing import preprocess_sample
 from src.utils import show_sample, matrix2answer
 import matplotlib as mpl
 from matplotlib import pyplot as plt
-
-from pebble import ProcessPool
-from pebble.common import ProcessExpired
-from concurrent.futures import TimeoutError
 
 from tqdm.notebook import tqdm
 from functools import partial
@@ -21,6 +18,7 @@ def process_file(
     preprocess_params=None,
     show_results=True,
     break_after_answer=False,
+    queue=None,
 ):
     with open(os.path.join(PATH, file_path), "r") as file:
         sample = json.load(file)
@@ -56,9 +54,11 @@ def process_file(
 
             if break_after_answer:
                 break
+    if queue is not None:
+        queue.put(submission_list)
 
 
-def pebble_run(
+def run_parallel(
     files_list,
     PATH,
     predictors,
@@ -66,8 +66,12 @@ def pebble_run(
     show_results=True,
     break_after_answer=False,
     processes=20,
-    timeout=100,
+    timeout=10,
 ):
+    process_list = []
+    timing_list = []
+
+    queue = multiprocessing.Queue()
     func = partial(
         process_file,
         PATH=PATH,
@@ -75,23 +79,51 @@ def pebble_run(
         preprocess_params=preprocess_params,
         show_results=show_results,
         break_after_answer=break_after_answer,
+        queue=queue,
     )
 
-    with ProcessPool(processes) as pool:
-        with tqdm(total=len(files_list)) as pbar:
-            future = pool.map(func, files_list, timeout=timeout)
-            iterator = future.result()
-
+    with tqdm(total=len(files_list)) as pbar:
+        try:
             while True:
-                try:
-                    result = next(iterator)
-                except StopIteration:
+                num_finished = 0
+                for process, start_time in zip(process_list, timing_list):
+                    if process.is_alive():
+                        if time.time() - start_time > timeout:
+                            process.terminate()
+                            process.join(0.1)
+                            print("Time out. The process is killed.")
+                            num_finished += 1
+
+                    else:
+                        num_finished += 1
+
+                if num_finished == len(files_list):
+                    pbar.reset()
+                    pbar.update(num_finished)
+                    time.sleep(0.1)
                     break
-                except TimeoutError as error:
-                    print("function took longer than %d seconds" % error.args[1])
-                except KeyboardInterrupt:
-                    print("got Ctrl+C")
-                except ProcessExpired:
-                    print("Exited with error")
-                finally:
-                    pbar.update()
+                elif len(process_list) - num_finished < processes and len(
+                    process_list
+                ) < len(files_list):
+                    p = multiprocessing.Process(
+                        target=func, args=(files_list[len(process_list)],)
+                    )
+                    process_list.append(p)
+                    timing_list.append(time.time())
+                    p.start()
+                pbar.reset()
+                pbar.update(num_finished)
+        except KeyboardInterrupt:
+            for process in process_list:
+                process.terminate()
+                process.join(0.1)
+            print("Got Ctrl+C")
+        except Exception as error:
+            for process in process_list:
+                process.terminate()
+                process.join(0.1)
+            print(f"Function raised {error}")
+    result = []
+    while not queue.empty():
+        result = result + queue.get()
+    return result
