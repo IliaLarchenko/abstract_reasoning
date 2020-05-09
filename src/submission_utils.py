@@ -17,6 +17,7 @@ def process_file(
     PATH,
     predictors,
     preprocess_params=None,
+    color_params=None,
     show_results=True,
     break_after_answer=False,
     queue=None,
@@ -25,7 +26,9 @@ def process_file(
         sample = json.load(file)
 
     submission_list = []
-    sample = preprocess_sample(sample, params=preprocess_params)
+    sample = preprocess_sample(
+        sample, params=preprocess_params, color_params=color_params
+    )
     answers = []
 
     for predictor in predictors:
@@ -64,6 +67,7 @@ def run_parallel(
     PATH,
     predictors,
     preprocess_params=None,
+    color_params=None,
     show_results=True,
     break_after_answer=False,
     processes=20,
@@ -78,6 +82,7 @@ def run_parallel(
         PATH=PATH,
         predictors=predictors,
         preprocess_params=preprocess_params,
+        color_params=color_params,
         show_results=show_results,
         break_after_answer=break_after_answer,
         queue=queue,
