@@ -205,7 +205,7 @@ def combine_submission_files(
         answer = " ".join(o[:3]).strip()
         while answer.find("  ") > 0:
             answer = answer.replace("  ", " ")
-        merge_output.append(o)
+        merge_output.append(answer)
     submission["output"] = merge_output
     submission["output"] = submission["output"].astype(str)
     return submission
