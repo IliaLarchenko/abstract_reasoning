@@ -124,6 +124,7 @@ def test_predictor():
             "data/training",
             ["initial", "block_with_side_colors"],
         ),
+        (20, colors, {}, "f8b3ba0a.json", "data/training", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
