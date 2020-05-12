@@ -344,6 +344,10 @@ def get_mask_from_block(image, color):
         return 1, None
 
 
+def get_background(image, color):
+    return 0, np.uint8(np.ones_like(image) * color)
+
+
 def get_mask_from_max_color_coverage(image, color):
     if color in np.unique(image, return_counts=False):
         boundaries = find_color_boundaries(image, color)
@@ -490,6 +494,7 @@ def process_image(
 
     all_params = [
         "initial",
+        "background",
         "min_max_blocks",
         "max_area_covered",
         "grid_cells",
@@ -534,6 +539,17 @@ def process_image(
                 add_block(
                     result["blocks"], block, [[{"type": "max_block", "full": full}]]
                 )
+
+    # adding the max area covered by each color
+    if ("background" in params) and (time.time() - start_time < max_time):
+        # print("background")
+        for color in result["colors_sorted"]:
+            status, block = get_background(image, color)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                params_list = []
+                for color_dict in result["colors"][color].copy():
+                    params_list.append([{"type": "background", "color": color_dict}])
+                add_block(result["blocks"], block, params_list)
 
     # adding the max area covered by each color
     if ("max_area_covered" in params) and (time.time() - start_time < max_time):
