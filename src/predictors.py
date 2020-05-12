@@ -1048,7 +1048,16 @@ class colors(predictor):
     def predict_output(self, image, params):
         if params["type"] == "one":
             return 0, np.array([[params["color"]]])
-
+        if params["type"] == "mono_vert":
+            num = (image == params["color"]).sum()
+            if num <= 0:
+                return 7, 0
+            return 0, np.array([[params["color"]] * num])
+        if params["type"] == "mono_hor":
+            num = (image == params["color"]).sum()
+            if num <= 0:
+                return 7, 0
+            return 0, np.array([[params["color"] * num]])
         return 9, None
 
     def process_one_sample(self, k, initial=False):
@@ -1058,6 +1067,16 @@ class colors(predictor):
 
         if target_image.shape[0] == 1 and target_image.shape[1] == 1:
             params = {"type": "one", "color": int(target_image[0, 0])}
+            local_candidates = local_candidates + self.add_candidates_list(
+                original_image, target_image, self.sample["train"][k]["colors"], params
+            )
+        if target_image.shape[0] == 1:
+            params = {"type": "mono_vert", "color": int(target_image[0, 0])}
+            local_candidates = local_candidates + self.add_candidates_list(
+                original_image, target_image, self.sample["train"][k]["colors"], params
+            )
+        if target_image.shape[1] == 1:
+            params = {"type": "mono_hor", "color": int(target_image[0, 0])}
             local_candidates = local_candidates + self.add_candidates_list(
                 original_image, target_image, self.sample["train"][k]["colors"], params
             )
