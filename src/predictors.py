@@ -142,7 +142,11 @@ class predictor:
 
     def add_candidates_list(self, image, target_image, colors, params):
         status, prediction = self.predict_output(image, params)
-        if status != 0 or not (prediction == target_image).all():
+        if (
+            status != 0
+            or prediction.shape != target_image.shape
+            or not (prediction == target_image).all()
+        ):
             return []
 
         result = [params.copy()]
@@ -1030,6 +1034,45 @@ class pattern_from_blocks(pattern):
 
                 if status == 0 and (predict == target_image).all():
                     local_candidates.append(candidate)
+
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+class colors(predictor):
+    """returns colors as answers"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+        # self.type = params["type"]
+
+    def predict_output(self, image, params):
+        if params["type"] == "one":
+            return 0, np.array([[params["color"]]])
+
+        return 9, None
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if target_image.shape[0] == 1 and target_image.shape[1] == 1:
+            params = {"type": "one", "color": int(target_image[0, 0])}
+            local_candidates = local_candidates + self.add_candidates_list(
+                original_image, target_image, self.sample["train"][k]["colors"], params
+            )
+
+        # else:
+        #     for candidate in self.solution_candidates:
+        #         if candidate['type'] == 'one':
+        #             if target_image.shape[0] != 1 or target_image.shape[1] != 1:
+        #                 continue
+        #         local_candidates = local_candidates + self.add_candidates_list(
+        #             original_image,
+        #             target_image,
+        #             self.sample["train"][k]["colors"],
+        #             candidate,
+        #         )
 
         return self.update_solution_candidates(local_candidates, initial)
 
