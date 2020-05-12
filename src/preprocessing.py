@@ -351,6 +351,34 @@ def get_block_with_side_colors(image, block_type="min"):
         return 1, None
 
 
+def get_block_with_side_colors_count(image, block_type="min"):
+    structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    masks, n_masks = ndimage.label(image, structure=structure)
+    # sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
+
+    if n_masks == 0:
+        return 2, None
+
+    unique_nums = []
+    for i in range(1, n_masks + 1):
+        unique, counts = np.unique(image[masks == i], return_counts=True)
+        unique_nums.append(min(counts))
+
+    if block_type == "min":
+        n = np.argmin(unique_nums) + 1
+    else:
+        n = np.argmax(unique_nums) + 1
+
+    boundaries = find_color_boundaries(masks, n)
+    if boundaries:
+        return (
+            0,
+            image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1],
+        )
+    else:
+        return 1, None
+
+
 def get_color(color_dict, colors):
     """ retrive the absolute number corresponding a color set by color_dict"""
     for i, color in enumerate(colors):
@@ -583,8 +611,23 @@ def process_image(
                     block,
                     [[{"type": "block_with_side_colors", "block_type": block_type}]],
                 )
+        for block_type in ["min", "max"]:
+            status, block = get_block_with_side_colors_count(image, block_type)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                add_block(
+                    result["blocks"],
+                    block,
+                    [
+                        [
+                            {
+                                "type": "block_with_side_colors_count",
+                                "block_type": block_type,
+                            }
+                        ]
+                    ],
+                )
 
-    # adding the max area covered by each color
+    # adding background
     if ("background" in params) and (time.time() - start_time < max_time):
         # print("background")
         for color in result["colors_sorted"]:
@@ -644,7 +687,7 @@ def process_image(
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                 add_block(result["blocks"], block, [[{"type": "half", "side": side}]])
 
-    # adding halves of the images
+    # adding corners of the images
     if (
         ("corners" in params)
         and (time.time() - start_time < max_time)
