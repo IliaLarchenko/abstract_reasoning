@@ -140,7 +140,13 @@ class predictor:
 
         return 0
 
-    def add_candidates_list(self, image, target_image, colors, params):
+    def add_candidates_list(self, image, target_image, color_scheme, params):
+        old_params = params.copy()
+        params = params.copy()
+        params["color_scheme"] = color_scheme
+        params["blocks_cashe"] = color_scheme["blocks"]
+        params["masks_scheme"] = color_scheme["masks"]
+
         status, prediction = self.predict_output(image, params)
         if (
             status != 0
@@ -149,13 +155,13 @@ class predictor:
         ):
             return []
 
-        result = [params.copy()]
+        result = [old_params.copy()]
         for k, v in params.copy().items():
             if k[-5:] == "color":
                 temp_result = result.copy()
                 result = []
                 for dict in temp_result:
-                    for color_dict in colors[v]:
+                    for color_dict in color_scheme["colors"][v]:
                         temp_dict = dict.copy()
                         temp_dict[k] = color_dict
                         result.append(temp_dict)
@@ -318,10 +324,7 @@ class fill(predictor):
                 }
 
                 local_candidates = local_candidates + self.add_candidates_list(
-                    original_image,
-                    target_image,
-                    self.sample["train"][k]["colors"],
-                    params,
+                    original_image, target_image, self.sample["train"][k], params
                 )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -681,7 +684,7 @@ class pattern(predictor):
                                     + self.add_candidates_list(
                                         original_image,
                                         target_image,
-                                        self.sample["train"][k]["colors"],
+                                        self.sample["train"][k],
                                         params,
                                     )
                                 )
@@ -1058,6 +1061,18 @@ class colors(predictor):
             if num <= 0:
                 return 7, 0
             return 0, np.array([[params["color"] * num]])
+        if params["type"] == "several_linear":
+            colors_array = np.rot90(
+                np.array(
+                    [
+                        params["color_scheme"]["colors_sorted"][
+                            params["i"] : params["i"] + params["size"]
+                        ]
+                    ]
+                ),
+                params["rotate"],
+            )
+            return 0, colors_array
         return 9, None
 
     def process_one_sample(self, k, initial=False):
@@ -1068,30 +1083,36 @@ class colors(predictor):
         if target_image.shape[0] == 1 and target_image.shape[1] == 1:
             params = {"type": "one", "color": int(target_image[0, 0])}
             local_candidates = local_candidates + self.add_candidates_list(
-                original_image, target_image, self.sample["train"][k]["colors"], params
+                original_image, target_image, self.sample["train"][k], params
             )
         if target_image.shape[0] == 1:
             params = {"type": "mono_vert", "color": int(target_image[0, 0])}
             local_candidates = local_candidates + self.add_candidates_list(
-                original_image, target_image, self.sample["train"][k]["colors"], params
+                original_image, target_image, self.sample["train"][k], params
             )
         if target_image.shape[1] == 1:
             params = {"type": "mono_hor", "color": int(target_image[0, 0])}
             local_candidates = local_candidates + self.add_candidates_list(
-                original_image, target_image, self.sample["train"][k]["colors"], params
+                original_image, target_image, self.sample["train"][k], params
             )
-
-        # else:
-        #     for candidate in self.solution_candidates:
-        #         if candidate['type'] == 'one':
-        #             if target_image.shape[0] != 1 or target_image.shape[1] != 1:
-        #                 continue
-        #         local_candidates = local_candidates + self.add_candidates_list(
-        #             original_image,
-        #             target_image,
-        #             self.sample["train"][k]["colors"],
-        #             candidate,
-        #         )
+        if target_image.shape[0] == 1 or target_image.shape[1] == 1:
+            size = target_image.shape[0] * target_image.shape[1]
+            if not (size > self.sample["train"][k]["colors_num"]):
+                size_diff = self.sample["train"][k]["colors_num"] - size
+                for i in range(size_diff + 1):
+                    for rotate in range(4):
+                        params = {
+                            "type": "several_linear",
+                            "i": i,
+                            "rotate": rotate,
+                            "size": size,
+                        }
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
 
         return self.update_solution_candidates(local_candidates, initial)
 

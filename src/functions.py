@@ -525,49 +525,6 @@ def mosaic_reconstruction(
         return 3, None
 
 
-## one color case
-
-
-def one_color(sample):
-    color_candidates_final = []
-
-    for k in range(len(sample["train"])):
-        color_candidates = []
-        target_image = np.uint8(sample["train"][k]["output"])
-        if target_image.shape[0] != 1 or target_image.shape[1] != 1:
-            return 1, None
-
-        for color_dict in sample["train"][k]["colors"][target_image[0, 0]]:
-            color_candidates.append(color_dict)
-        if k == 0:
-            color_candidates_final = color_candidates
-        else:
-            color_candidates_final = filter_list_of_dicts(
-                color_candidates, color_candidates_final
-            )
-        if len(color_candidates_final) == 0:
-            return 2, None
-
-    answers = []
-    for _ in sample["test"]:
-        answers.append([])
-
-    result_generated = False
-    for test_n, test_data in enumerate(sample["test"]):
-        original_image = np.uint8(test_data["input"])
-        color_scheme = get_color_scheme(original_image)
-        for color_dict in color_candidates_final:
-            color = get_color(color_dict, color_scheme["colors"])
-            prediction = np.array([[color]])
-            answers[test_n].append(prediction)
-            result_generated = True
-
-    if result_generated:
-        return 0, answers
-    else:
-        return 3, None
-
-
 def several_colors_square(sample):
     color_candidates_final = []
 
@@ -625,70 +582,6 @@ def several_colors_square(sample):
                 else:
                     prediction[j:-j] = sample["train"][k]["colors_sorted"][::-1][i + j]
 
-            answers[test_n].append(prediction)
-            result_generated = True
-
-    if result_generated:
-        return 0, answers
-    else:
-        return 3, None
-
-
-def several_colors(sample):
-    color_candidates_final = []
-
-    for k in range(len(sample["train"])):
-        color_candidates = []
-        target_image = np.uint8(sample["train"][k]["output"])
-        if target_image.shape[0] != 1 and target_image.shape[1] != 1:
-            return 1, None
-        size = target_image.shape[0] * target_image.shape[1]
-        if size > sample["train"][k]["colors_num"]:
-            return 2, None
-
-        size_diff = sample["train"][k]["colors_num"] - size
-        for i in range(size_diff + 1):
-            for rotate in range(4):
-                colors_array = np.rot90(
-                    np.array([sample["train"][k]["colors_sorted"][i : i + size]]),
-                    rotate,
-                )
-                if (colors_array.shape == target_image.shape) and (
-                    colors_array == target_image
-                ).all():
-                    color_candidates.append(
-                        {
-                            "type": "linear",
-                            "i": i,
-                            "rotate": rotate,
-                            "size_diff": size_diff,
-                        }
-                    )
-
-        if k == 0:
-            color_candidates_final = color_candidates
-        else:
-            color_candidates_final = filter_list_of_dicts(
-                color_candidates, color_candidates_final
-            )
-        if len(color_candidates_final) == 0:
-            return 2, None
-
-    answers = []
-    for _ in sample["test"]:
-        answers.append([])
-
-    result_generated = False
-    for test_n, test_data in enumerate(sample["test"]):
-        original_image = np.uint8(test_data["input"])
-        color_scheme = get_color_scheme(original_image)
-        for result_dict in color_candidates_final:
-            i = result_dict["i"]
-            rotate = result_dict["rotate"]
-            size = color_scheme["colors_num"] - size_diff
-            prediction = np.rot90(
-                np.array([color_scheme["colors_sorted"][i : i + size]]), rotate
-            )
             answers[test_n].append(prediction)
             result_generated = True
 
