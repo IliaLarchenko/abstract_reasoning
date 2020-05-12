@@ -192,7 +192,7 @@ class predictor:
             self.sample["train"] = subset
             status = self.process_full_train()
             if status != 0:
-                return status, None
+                continue
 
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
@@ -267,6 +267,24 @@ class fill(predictor):
                         == params["background_color"]
                     ).any():
                         result[i - 1, j - 1] = params["fill_color"]
+                elif self.type == "full":
+                    if (
+                        i - 1 + self.pattern.shape[0] > image.shape[0]
+                        or j - 1 + self.pattern.shape[1] > image.shape[1]
+                    ):
+                        continue
+                    if (
+                        image[
+                            i - 1 : i - 1 + self.pattern.shape[0],
+                            j - 1 : j - 1 + self.pattern.shape[1],
+                        ][np.array(self.pattern)]
+                        == params["background_color"]
+                    ).all():
+                        result[
+                            i - 1 : i - 1 + self.pattern.shape[0],
+                            j - 1 : j - 1 + self.pattern.shape[1],
+                        ][np.array(self.pattern)] = params["fill_color"]
+
                 else:
                     return 6, None
         if self.type == "outer":
