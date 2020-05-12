@@ -234,28 +234,43 @@ class fill(predictor):
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         result = image.copy()
-        for i in range(1, image.shape[0] - 1):
-            for j in range(1, image.shape[1] - 1):
+        image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
+        image_with_borders[1:-1, 1:-1] = image
+        for i in range(1, image_with_borders.shape[0] - 1):
+            for j in range(1, image_with_borders.shape[1] - 1):
                 if self.type == "outer":
-                    if image[i, j] == params["fill_color"]:
-                        result[i - 1 : i + 2, j - 1 : j + 2][
+                    if image[i - 1, j - 1] == params["fill_color"]:
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                             np.array(self.pattern)
                         ] = params["background_color"]
                 elif self.type == "inner":
                     if (
-                        image[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                            np.array(self.pattern)
+                        ]
                         == params["background_color"]
                     ).all():
-                        result[i, j] = params["fill_color"]
+                        result[i - 1, j - 1] = params["fill_color"]
                 elif self.type == "inner_ignore_background":
                     if (
-                        image[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                            np.array(self.pattern)
+                        ]
                         != params["background_color"]
                     ).all():
-                        result[i, j] = params["fill_color"]
+                        result[i - 1, j - 1] = params["fill_color"]
+                elif self.type == "isolated":
+                    if not (
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                            np.array(self.pattern)
+                        ]
+                        == params["background_color"]
+                    ).any():
+                        result[i - 1, j - 1] = params["fill_color"]
                 else:
                     return 6, None
-
+        if self.type == "outer":
+            result = image_with_borders[1:-1, 1:-1]
         return 0, result
 
     def process_one_sample(self, k, initial=False):
