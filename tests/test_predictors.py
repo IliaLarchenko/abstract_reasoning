@@ -106,6 +106,8 @@ def test_predictor():
             ["initial", "grid_cells", "resize", "initial_masks"],
         ),
         (15, fill, {"type": "isolated"}, "42a50994.json", "data/training", ["initial"]),
+        (16, colors, {}, "d631b094.json", "data/training", ["initial"]),
+        (17, colors, {}, "1a2e2828.json", "data/evaluation", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
