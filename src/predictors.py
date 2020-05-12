@@ -203,6 +203,9 @@ class predictor:
                     )
                     if status != 0:
                         continue
+                    params["block_cache"] = self.sample["test"][test_n]["blocks"]
+                    params["mask_cache"] = self.sample["test"][test_n]["masks"]
+                    params["color_scheme"] = self.sample["test"][test_n]
                     status, prediction = self.predict_output(original_image, params)
                     if status != 0:
                         continue
@@ -865,63 +868,27 @@ class pattern_from_blocks(pattern):
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
-        # self.type = params["type"]
 
-    # def get_patterns(self, original_image, target_image):
-    #     pattern_list = []
-    #     if target_image.shape[0] % original_image.shape[0] != 0:
-    #         self.try_self = False
-    #         return []
-    #     if target_image.shape[1] % original_image.shape[1] != 0:
-    #         self.try_self = False
-    #         return []
-    #
-    #     size = [
-    #         target_image.shape[0] // original_image.shape[0],
-    #         target_image.shape[1] // original_image.shape[1],
-    #     ]
-    #
-    #     if size[0] != original_image.shape[0] or size[1] != original_image.shape[1]:
-    #         self.try_self = False
-    #
-    #     if max(size) == 1:
-    #         return []
-    #     for i in range(original_image.shape[0]):
-    #         for j in range(original_image.shape[1]):
-    #             current_block = target_image[
-    #                 i * size[0] : (i + 1) * size[0], j * size[1] : (j + 1) * size[1]
-    #             ]
-    #             pattern_list = combine_two_lists(pattern_list, [current_block])
-    #
-    #     return pattern_list
-
-    # def init_call(self):
-    #     for k in range(len(self.sample["train"])):
-    #         original_image, target_image = self.get_images(k)
-    #         patterns = self.get_patterns(original_image, target_image)
-    #         if k == 0:
-    #             self.all_patterns = patterns
-    #         else:
-    #             self.all_patterns = intersect_two_lists(self.all_patterns, patterns)
-    #     if self.try_self:
-    #         self.additional_patterns = ["self", "processed"]
-    #     else:
-    #         self.additional_patterns = []
-
-    def predict_output(self, image, params):
-        pattern = get_predict(
-            image,
-            params["pattern"],
-            block_cache=params["block_cache"],
-            color_scheme=params["color_scheme"],
-        )
-        mask = get_mask_from_block_params(
-            image,
-            params["mask"],
-            block_cache=params["block_cache"],
-            mask_cache=params["mask_cache"],
-            color_scheme=params["color_scheme"],
-        )
+    def predict_output(self, image, params, pattern=None, mask=None):
+        if pattern is None:
+            status, pattern = get_predict(
+                image,
+                params["pattern"],
+                block_cache=params["block_cache"],
+                color_scheme=params["color_scheme"],
+            )
+            if status != 0:
+                return 1, None
+        if mask is None:
+            status, mask = get_mask_from_block_params(
+                image,
+                params["mask"],
+                block_cache=params["block_cache"],
+                mask_cache=params["mask_cache"],
+                color_scheme=params["color_scheme"],
+            )
+            if status != 0:
+                return 2, None
 
         size = (mask.shape[0] * pattern.shape[0], mask.shape[1] * pattern.shape[1])
         result = np.ones(size) * params["background_color"]
@@ -940,42 +907,90 @@ class pattern_from_blocks(pattern):
         local_candidates = []
         original_image, target_image = self.get_images(k)
 
-        if len(self.all_patterns) + len(self.additional_patterns) == 0:
-            return 6
-
-        for pattern_num in (
-            list(range(len(self.all_patterns))) + self.additional_patterns
-        ):
-            for mask_color in range(10):
-                if not (original_image == mask_color).any():
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                pattern = block["array"]
+                if (
+                    target_image.shape[0] % pattern.shape[0] != 0
+                    or target_image.shape[1] % pattern.shape[1] != 0
+                ):
                     continue
-                for background_color in range(10):
-                    if not (target_image == background_color).any():
+                for _, mask_path in self.sample["train"][k]["masks"]["arrays"].items():
+                    mask = mask_path["array"]
+                    if (
+                        target_image.shape[0] != pattern.shape[0] * mask.shape[0]
+                        or target_image.shape[1] != pattern.shape[1] * mask.shape[1]
+                    ):
                         continue
-                    for inverse in [True, False]:
-                        for swap in [True, False]:
-                            params = {
-                                "pattern_num": pattern_num,
-                                "mask_color": mask_color,
-                                "background_color": background_color,
-                                "inverse": inverse,
-                                "swap": swap,
-                            }
+                    for background_color in range(10):
+                        if not (target_image == background_color).any():
+                            continue
+                        params = {"background_color": background_color}
 
-                            status, predict = self.predict_output(
-                                original_image, params
-                            )
+                        status, predict = self.predict_output(
+                            original_image, params, pattern=pattern, mask=mask
+                        )
 
-                            if status == 0 and (predict == target_image).all():
-                                local_candidates = (
-                                    local_candidates
-                                    + self.add_candidates_list(
-                                        original_image,
-                                        target_image,
-                                        self.sample["train"][k]["colors"],
-                                        params,
-                                    )
-                                )
+                        if status == 0 and (predict == target_image).all():
+                            for pattern_params in block["params"]:
+                                for mask_params in mask_path["params"]:
+                                    for color_dict in self.sample["train"][k]["colors"][
+                                        background_color
+                                    ]:
+                                        params = {
+                                            "background_color": color_dict,
+                                            "mask": mask_params,
+                                            "pattern": pattern_params,
+                                        }
+                                        local_candidates.append(params)
+
+        else:
+            block_cache = self.sample["train"][k]["blocks"]
+            mask_cache = self.sample["train"][k]["masks"]
+            color_scheme = self.sample["train"][k]
+
+            for candidate in self.solution_candidates:
+                status, pattern = get_predict(
+                    original_image,
+                    candidate["pattern"],
+                    block_cache=block_cache,
+                    color_scheme=color_scheme,
+                )
+                if status != 0:
+                    continue
+                if (
+                    target_image.shape[0] % pattern.shape[0] != 0
+                    or target_image.shape[1] % pattern.shape[1] != 0
+                ):
+                    continue
+
+                status, mask = get_mask_from_block_params(
+                    original_image,
+                    candidate["mask"],
+                    block_cache=block_cache,
+                    mask_cache=mask_cache,
+                    color_scheme=color_scheme,
+                )
+                if status != 0:
+                    continue
+                if (
+                    target_image.shape[0] != pattern.shape[0] * mask.shape[0]
+                    or target_image.shape[1] != pattern.shape[1] * mask.shape[1]
+                ):
+                    continue
+                background_color = get_color(
+                    candidate["background_color"], color_scheme["colors"]
+                )
+                if not (target_image == background_color).any():
+                    continue
+                params = {"background_color": background_color}
+
+                status, predict = self.predict_output(
+                    original_image, params, pattern=pattern, mask=mask
+                )
+
+                if status == 0 and (predict == target_image).all():
+                    local_candidates.append(candidate)
 
         return self.update_solution_candidates(local_candidates, initial)
 
