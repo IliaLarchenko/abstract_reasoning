@@ -108,6 +108,22 @@ def test_predictor():
         (15, fill, {"type": "isolated"}, "42a50994.json", "data/training", ["initial"]),
         (16, colors, {}, "d631b094.json", "data/training", ["initial"]),
         (17, colors, {}, "1a2e2828.json", "data/evaluation", ["initial"]),
+        (
+            18,
+            puzzle,
+            {"intersection": 0},
+            "9a4bb226.json",
+            "data/evaluation",
+            ["initial", "block_with_side_colors"],
+        ),
+        (
+            19,
+            puzzle,
+            {"intersection": 0},
+            "8efcae92.json",
+            "data/training",
+            ["initial", "block_with_side_colors"],
+        ),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
