@@ -72,16 +72,26 @@ def get_grid(image, grid_size, cell):
 
 def get_half(image, side):
     """ returns the half of the image"""
-    if side not in "lrtb":
+    if side not in ["l", "r", "t", "b", "long1", "long2"]:
         return 1, None
     if side == "l":
         return 0, image[:, : (image.shape[1]) // 2]
-    if side == "r":
+    elif side == "r":
         return 0, image[:, -((image.shape[1]) // 2) :]
-    if side == "b":
+    elif side == "b":
         return 0, image[-((image.shape[0]) // 2) :, :]
-    if side == "t":
+    elif side == "t":
         return 0, image[: (image.shape[0]) // 2, :]
+    elif side == "long1":
+        if image.shape[0] >= image.shape[1]:
+            return get_half(image, "t")
+        else:
+            return get_half(image, "l")
+    elif side == "long2":
+        if image.shape[0] >= image.shape[1]:
+            return get_half(image, "b")
+        else:
+            return get_half(image, "r")
 
 
 def get_corner(image, side):
@@ -258,6 +268,36 @@ def get_min_block(image, full=True):
         )
     else:
         return 1, None
+
+
+def get_min_block_mask(image, full=True):
+    if full:
+        structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    else:
+        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+    masks, n_masks = ndimage.label(image, structure=structure)
+    sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
+
+    if n_masks == 0:
+        return 2, None
+
+    min_n = np.argmin(sizes) + 1
+    return 0, masks == min_n
+
+
+def get_max_block_mask(image, full=True):
+    if full:
+        structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    else:
+        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+    masks, n_masks = ndimage.label(image, structure=structure)
+    sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
+
+    if n_masks == 0:
+        return 2, None
+
+    min_n = np.argmax(sizes) + 1
+    return 0, masks == min_n
 
 
 def get_max_block(image, full=True):
@@ -464,6 +504,7 @@ def process_image(
         "initial_masks",
         "additional_masks",
         "coverage_masks",
+        "min_max_masks",
     ]
 
     if not params:
@@ -538,7 +579,7 @@ def process_image(
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
         # print("halves")
-        for side in "lrtb":
+        for side in ["l", "r", "t", "b", "long1", "long2"]:
             status, block = get_half(image, side=side)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                 add_block(result["blocks"], block, [[{"type": "half", "side": side}]])
@@ -801,12 +842,23 @@ def process_image(
         for color in result["colors_sorted"][1:]:
             status, mask = get_mask_from_max_color_coverage(image, color)
             if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-                for color_dict in result["colors"][color].copy():
-                    params_list = [
-                        {"operation": "coverage", "params": {"color": color_dict}}
-                        for i in data["params"]
-                    ]
+                params_list = [
+                    {"operation": "coverage", "params": {"color": color_dict}}
+                    for color_dict in result["colors"][color].copy()
+                ]
                 add_block(result["masks"], mask, params_list)
+
+    # coverage_masks
+    if ("min_max_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("min_max_masks")
+        status, mask = get_min_block_mask(image)
+        if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+            params_list = [{"operation": "min_block"}]
+            add_block(result["masks"], mask, params_list)
+        status, mask = get_max_block_mask(image)
+        if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+            params_list = [{"operation": "max_block"}]
+            add_block(result["masks"], mask, params_list)
 
     # swap some colors
     if (
@@ -936,6 +988,20 @@ def get_mask_from_block_params(
             add_block(mask_cache, np.array([[]]), [params])
             return 2, None
         status, mask = get_mask_from_max_color_coverage(image, color_num)
+        if status != 0:
+            add_block(mask_cache, np.array([[]]), [params])
+            return 6, None
+        add_block(mask_cache, mask, [params])
+        return 0, mask
+    elif params["operation"] == "min_block":
+        status, mask = get_min_block_mask(image)
+        if status != 0:
+            add_block(mask_cache, np.array([[]]), [params])
+            return 6, None
+        add_block(mask_cache, mask, [params])
+        return 0, mask
+    elif params["operation"] == "max_block":
+        status, mask = get_max_block_mask(image)
         if status != 0:
             add_block(mask_cache, np.array([[]]), [params])
             return 6, None
