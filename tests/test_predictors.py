@@ -97,6 +97,14 @@ def test_predictor():
             "data/training",
             ["initial", "grid_cells", "initial_masks"],
         ),
+        (
+            14,
+            pattern_from_blocks,
+            {},
+            "b4a43f3b.json",
+            "data/evaluation",
+            ["initial", "grid_cells", "resize", "initial_masks"],
+        ),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
