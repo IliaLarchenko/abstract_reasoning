@@ -247,6 +247,12 @@ class fill(predictor):
                         == params["background_color"]
                     ).all():
                         result[i, j] = params["fill_color"]
+                elif self.type == "inner_ignore_background":
+                    if (
+                        image[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                        != params["background_color"]
+                    ).all():
+                        result[i, j] = params["fill_color"]
                 else:
                     return 6, None
 
