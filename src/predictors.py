@@ -1073,6 +1073,26 @@ class colors(predictor):
                 params["rotate"],
             )
             return 0, colors_array
+
+        if params["type"] == "square":
+            colors_array = np.zeros((params["size"] * 2 + 1, params["size"] * 2 + 1))
+            if (
+                len(params["color_scheme"]["colors_sorted"])
+                < params["i"] + params["size"]
+            ):
+                return 6, None
+            if params["direct"] == 0:
+                for j in range(params["size"]):
+                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][
+                        params["i"] + j
+                    ]
+            else:
+                for j in range(params["size"]):
+                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][::-1][
+                        params["i"] + j
+                    ]
+            return 0, colors_array
+
         return 9, None
 
     def process_one_sample(self, k, initial=False):
@@ -1105,6 +1125,24 @@ class colors(predictor):
                             "type": "several_linear",
                             "i": i,
                             "rotate": rotate,
+                            "size": size,
+                        }
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
+        if target_image.shape[0] == target_image.shape[1]:
+            size = target_image.shape[0] // 2
+            if not (size > self.sample["train"][k]["colors_num"]):
+                size_diff = self.sample["train"][k]["colors_num"] - size
+                for i in range(size_diff + 1):
+                    for direct in range(2):
+                        params = {
+                            "type": "square",
+                            "i": i,
+                            "direct": direct,
                             "size": size,
                         }
                         local_candidates = local_candidates + self.add_candidates_list(
