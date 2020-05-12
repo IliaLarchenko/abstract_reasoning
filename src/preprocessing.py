@@ -482,6 +482,9 @@ def get_color_scheme(image, target_image=None, params=None):
             # use abs color value - same for any image
             result["colors"][color].append({"type": "abs", "k": color})
 
+    if len(colors) == 2 and 0 in colors:
+        result["colors"][[x for x in colors if x != 0][0]].append({"type": "none_zero"})
+
     if "coverage" in params:
         for k, color in enumerate(colors):
             # use k-th colour (sorted by presence on image)
