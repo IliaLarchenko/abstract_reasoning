@@ -559,7 +559,8 @@ def process_image(
         "max_area_covered",
         "grid_cells",
         "halves",
-        "corners" "rotate",
+        "corners",
+        "rotate",
         "transpose",
         "cut_edges",
         "resize",
@@ -1153,7 +1154,7 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
         block_cache["params"][params_hash] = None
         return 1, None
 
-    add_block(block_cache, result, transforms)
+    add_block(block_cache, result, [transforms])
     return 0, result
 
 
