@@ -1193,15 +1193,21 @@ class gravity(predictor):
         """ predicts 1 output image given input image and prediction params"""
         result = np.rot90(image.copy(), params["rotate"])
 
+        steps = params["steps"]
+        if steps == "all":
+            steps = 10000
         color = params["color"]
         proceed = True
-        while proceed:
+        step = 0
+        while proceed and step < steps:
+            step = 1
             proceed = False
             for i in range(1, result.shape[0]):
                 for j in range(0, result.shape[1]):
                     if result[-i, j] == color and result[-i - 1, j] != color:
                         result[-i, j] = result[-i - 1, j]
-                        result[-i - 1, j] = color
+                        if not params["fill"]:
+                            result[-i - 1, j] = color
                         proceed = True
 
         return 0, np.rot90(result, -params["rotate"])
@@ -1216,11 +1222,21 @@ class gravity(predictor):
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for rotate in range(0, 4):
-                params = {"color": color, "rotate": rotate}
+                for steps in range(max(original_image.shape)):
+                    for fill in [True, False]:
+                        params = {
+                            "color": color,
+                            "rotate": rotate,
+                            "steps": steps,
+                            "fill": fill,
+                        }
 
-                local_candidates = local_candidates + self.add_candidates_list(
-                    original_image, target_image, self.sample["train"][k], params
-                )
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
         return self.update_solution_candidates(local_candidates, initial)
 
 
