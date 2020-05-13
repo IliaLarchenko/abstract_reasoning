@@ -797,7 +797,7 @@ class mask_to_block(predictor):
                 continue
             result = result + new_results
 
-        if len(result) < 0:
+        if len(result) <= 0:
             return 9, None
         else:
             return 0, result
