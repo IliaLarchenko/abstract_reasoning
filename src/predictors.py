@@ -919,7 +919,7 @@ class pattern_from_blocks(pattern):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def predict_output(self, image, params, pattern=None, mask=None):
+    def predict_output(self, image, params, pattern=None, mask=None, target_image=None):
         if pattern is None:
             status, pattern = get_predict(
                 image,
@@ -939,12 +939,32 @@ class pattern_from_blocks(pattern):
             )
             if status != 0:
                 return 2, None
+        if target_image is not None:
+            big_mask = np.repeat(
+                np.repeat(mask, pattern.shape[0], 0), pattern.shape[1], 1
+            )
+            if not (
+                target_image[np.logical_not(big_mask)] == params["background_color"]
+            ).all():
+                return 7, None
 
         size = (mask.shape[0] * pattern.shape[0], mask.shape[1] * pattern.shape[1])
         result = np.ones(size) * params["background_color"]
+
         for i in range(mask.shape[0]):
             for j in range(mask.shape[1]):
                 if mask[i, j]:
+                    if (
+                        target_image is not None
+                        and not (
+                            target_image[
+                                i * pattern.shape[0] : (i + 1) * pattern.shape[0],
+                                j * pattern.shape[1] : (j + 1) * pattern.shape[1],
+                            ]
+                            == pattern
+                        ).all()
+                    ):
+                        return 4, None
                     result[
                         i * pattern.shape[0] : (i + 1) * pattern.shape[0],
                         j * pattern.shape[1] : (j + 1) * pattern.shape[1],
@@ -1036,7 +1056,11 @@ class pattern_from_blocks(pattern):
                 params = {"background_color": background_color}
 
                 status, predict = self.predict_output(
-                    original_image, params, pattern=pattern, mask=mask
+                    original_image,
+                    params,
+                    pattern=pattern,
+                    mask=mask,
+                    target_image=target_image,
                 )
 
                 if status == 0 and (predict == target_image).all():
