@@ -12,6 +12,13 @@ from matplotlib import pyplot as plt
 from tqdm.notebook import tqdm
 from functools import partial
 
+import signal
+import sys
+
+
+def sigterm_handler(_signo, _stack_frame):
+    sys.exit(0)
+
 
 def process_file(
     file_path,
@@ -31,37 +38,45 @@ def process_file(
         sample, params=preprocess_params, color_params=color_params
     )
 
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     for predictor in predictors:
-        result, answer = predictor(sample)
-        if result == 0:
-            if show_results:
-                show_sample(sample)
+        try:
+            submission_list = []
+            result, answer = predictor(sample)
+            if result == 0:
+                if show_results:
+                    show_sample(sample)
 
-            for j in range(len(answer)):
-                answers = set([])
-                for k in range(len(answer[j])):
-                    str_answer = matrix2answer(answer[j][k])
-                    if str_answer not in answers:
-                        if show_results and k < 3:
-                            plt.matshow(
-                                answer[j][k],
-                                cmap="Set3",
-                                norm=mpl.colors.Normalize(vmin=0, vmax=9),
+                for j in range(len(answer)):
+                    answers = set([])
+                    for k in range(len(answer[j])):
+                        str_answer = matrix2answer(answer[j][k])
+                        if str_answer not in answers:
+                            if show_results and k < 3:
+                                plt.matshow(
+                                    answer[j][k],
+                                    cmap="Set3",
+                                    norm=mpl.colors.Normalize(vmin=0, vmax=9),
+                                )
+                                plt.show()
+                                print(file_path, str_answer)
+                            answers.add(str_answer)
+                            submission_list.append(
+                                {
+                                    "output_id": file_path[:-5] + "_" + str(j),
+                                    "output": str_answer,
+                                }
                             )
-                            plt.show()
-                            print(file_path, str_answer)
-                        answers.add(str_answer)
-                        submission_list.append(
-                            {
-                                "output_id": file_path[:-5] + "_" + str(j),
-                                "output": str_answer,
-                            }
-                        )
-
+            if queue is not None:
+                queue.put(submission_list)
             if break_after_answer:
                 break
-    if queue is not None:
-        queue.put(submission_list)
+        except SystemExit:
+            if queue is not None:
+                queue.put(submission_list)
+
+    return
 
 
 def run_parallel(
@@ -90,6 +105,7 @@ def run_parallel(
         queue=queue,
     )
 
+    result = []
     with tqdm(total=len(files_list)) as pbar:
         num_finished_previous = 0
         try:
@@ -100,7 +116,7 @@ def run_parallel(
                     if process.is_alive():
                         if time.time() - start_time > timeout:
                             process.terminate()
-                            process.join(0.1)
+                            process.join(10)
                             print("Time out. The process is killed.")
                             num_finished += 1
 
@@ -127,16 +143,16 @@ def run_parallel(
         except KeyboardInterrupt:
             for process in process_list:
                 process.terminate()
-                process.join(0.1)
+                process.join(5)
             print("Got Ctrl+C")
         except Exception as error:
             for process in process_list:
                 process.terminate()
-                process.join(0.1)
+                process.join(5)
             print(f"Function raised {error}")
-    result = []
-    while not queue.empty():
-        result = result + queue.get()
+
+        while not queue.empty():
+            result = result + queue.get()
     return result
 
 
