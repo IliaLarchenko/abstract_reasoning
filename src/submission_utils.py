@@ -75,6 +75,7 @@ def process_file(
         except SystemExit:
             if queue is not None:
                 queue.put(submission_list)
+            break
 
     return
 
