@@ -483,7 +483,7 @@ def get_color_scheme(image, target_image=None, params=None):
             result["colors"][color].append({"type": "abs", "k": color})
 
     if len(colors) == 2 and 0 in colors:
-        result["colors"][[x for x in colors if x != 0][0]].append({"type": "none_zero"})
+        result["colors"][[x for x in colors if x != 0][0]].append({"type": "non_zero"})
 
     if "coverage" in params:
         for k, color in enumerate(colors):
@@ -540,6 +540,16 @@ def get_original(image):
     return 0, image
 
 
+def get_inversed_colors(image):
+    unique = np.unique(image)
+    if len(unique) != 2:
+        return 1, None
+    result = image.copy()
+    result[image == unique[0]] = unique[1]
+    result[image == unique[1]] = unique[0]
+    return 0, result
+
+
 def process_image(
     image,
     max_time=120,
@@ -585,6 +595,11 @@ def process_image(
 
         # starting with the original image
         add_block(result["blocks"], image, [[{"type": "original"}]])
+
+        # inverse colors
+        status, block = get_inversed_colors(image)
+        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+            add_block(result["blocks"], block, [[{"type": "inversed_colors"}]])
 
     start_time = time.time()
     # adding min and max blocks
@@ -865,7 +880,7 @@ def process_image(
                             "params": {
                                 "block": i,
                                 "color": color_dict,
-                                "color_id": int(color),
+                                # "color_id": int(color),
                             },
                         }
                         for i in data["params"]
@@ -968,34 +983,34 @@ def process_image(
             add_block(result["masks"], mask, params_list)
 
     # swap some colors
-    if (
-        ("swap_colors" in params)
-        and (time.time() - start_time < max_time)
-        and (len(result["blocks"]["arrays"]) < max_blocks)
-    ):
-        # print("swap_colors")
-        current_blocks = result["blocks"]["arrays"].copy()
-        for i, color_1 in enumerate(result["colors_sorted"][:-1]):
-            if time.time() - start_time < max_time:
-                for color_2 in result["colors_sorted"][i:]:
-                    for key, data in current_blocks.items():
-                        status, block = get_color_swap(data["array"], color_1, color_2)
-                        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                            for color_dict_1 in result["colors"][color_1].copy():
-                                for color_dict_2 in result["colors"][color_2].copy():
-                                    params_list = [
-                                        i
-                                        + [
-                                            {
-                                                "type": "color_swap",
-                                                "color_1": color_dict_1,
-                                                "color_2": color_dict_2,
-                                            }
-                                        ]
-                                        for i in data["params"]
-                                    ]
-
-                            add_block(result["blocks"], block, params_list)
+    # if (
+    #     ("swap_colors" in params)
+    #     and (time.time() - start_time < max_time)
+    #     and (len(result["blocks"]["arrays"]) < max_blocks)
+    # ):
+    #     # print("swap_colors")
+    #     current_blocks = result["blocks"]["arrays"].copy()
+    #     for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+    #         if time.time() - start_time < max_time:
+    #             for color_2 in result["colors_sorted"][i:]:
+    #                 for key, data in current_blocks.items():
+    #                     status, block = get_color_swap(data["array"], color_1, color_2)
+    #                     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+    #                         for color_dict_1 in result["colors"][color_1].copy():
+    #                             for color_dict_2 in result["colors"][color_2].copy():
+    #                                 params_list = [
+    #                                     i
+    #                                     + [
+    #                                         {
+    #                                             "type": "color_swap",
+    #                                             "color_1": color_dict_1,
+    #                                             "color_2": color_dict_2,
+    #                                         }
+    #                                     ]
+    #                                     for i in data["params"]
+    #                                 ]
+    #
+    #                                 add_block(result["blocks"], block, params_list)
 
     if time.time() - start_time > max_time:
         print("Time is over")
