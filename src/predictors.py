@@ -1263,43 +1263,48 @@ class gravity_blocks(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def get_block_mask(self, image, i, j):
-        color = image[i, j]
+    def get_block_mask(self, image, i, j, block_type):
         structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
-        masks, n_masks = ndimage.label(image == color, structure=structure)
-        mask = masks == masks[i, j]
 
+        if block_type == "same_color":
+            color = image[i, j]
+            masks, n_masks = ndimage.label(image == color, structure=structure)
+        elif block_type == "not_bg":
+            color = image[i + 1, j]
+            masks, n_masks = ndimage.label(image != color, structure=structure)
+
+        mask = masks == masks[i, j]
         return 0, mask
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         result = np.rot90(image.copy(), params["rotate"])
 
-        steps = params["steps"]
-        if steps == "all":
-            steps = 10000
         color = params["color"]
         proceed = True
         step = 0
-        while proceed and step < steps:
+        while proceed:
             step += 1
             proceed = False
             for i in range(1, result.shape[0]):
                 for j in range(0, result.shape[1]):
                     if result[-i, j] == color and result[-i - 1, j] != color:
                         block_color = result[-i - 1, j]
-                        status, mask = self.get_block_mask(result, -i - 1, j)
+                        status, mask = self.get_block_mask(
+                            result, -i - 1, j, params["block_type"]
+                        )
                         if status != 0:
                             continue
 
                         while not (mask[-1] == True).any():
                             moved_mask = np.roll(mask, 1, axis=0)
-                            if np.logical_or(
-                                result[moved_mask] == color,
-                                result[moved_mask] == block_color,
+                            if (
+                                result[np.logical_and(moved_mask, moved_mask != mask)]
+                                == color
                             ).all():
+                                temp = result[mask]
                                 result[mask] = color
-                                result[moved_mask] = block_color
+                                result[moved_mask] = temp
                                 proceed = True
                                 mask = moved_mask
                             else:
@@ -1317,8 +1322,12 @@ class gravity_blocks(predictor):
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for rotate in range(0, 4):
-                for steps in ["all"]:
-                    params = {"color": color, "rotate": rotate, "steps": steps}
+                for block_type in ["same_color", "not_bg"]:
+                    params = {
+                        "color": color,
+                        "rotate": rotate,
+                        "block_type": block_type,
+                    }
 
                     local_candidates = local_candidates + self.add_candidates_list(
                         original_image, target_image, self.sample["train"][k], params
