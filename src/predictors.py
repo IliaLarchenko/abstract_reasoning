@@ -1200,14 +1200,14 @@ class gravity(predictor):
         proceed = True
         step = 0
         while proceed and step < steps:
-            step = 1
+            step += 1
             proceed = False
             for i in range(1, result.shape[0]):
                 for j in range(0, result.shape[1]):
                     if result[-i, j] == color and result[-i - 1, j] != color:
                         result[-i, j] = result[-i - 1, j]
-                        if not params["fill"]:
-                            result[-i - 1, j] = color
+                        if not params["fill_self"]:
+                            result[-i - 1, j] = params["fill_color"]
                         proceed = True
 
         return 0, np.rot90(result, -params["rotate"])
@@ -1222,21 +1222,30 @@ class gravity(predictor):
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for rotate in range(0, 4):
-                for steps in range(max(original_image.shape)):
-                    for fill in [True, False]:
-                        params = {
-                            "color": color,
-                            "rotate": rotate,
-                            "steps": steps,
-                            "fill": fill,
-                        }
+                for steps in ["all"] + list(range(max(original_image.shape))):
+                    for fill_self in [True, False]:
+                        for i, fill_color in enumerate(
+                            self.sample["train"][k]["colors_sorted"]
+                        ):
+                            params = {
+                                "color": color,
+                                "rotate": rotate,
+                                "steps": steps,
+                                "fill_color": fill_color if not fill_self else 0,
+                                "fill_self": fill_self,
+                            }
 
-                        local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
-                        )
+                            local_candidates = (
+                                local_candidates
+                                + self.add_candidates_list(
+                                    original_image,
+                                    target_image,
+                                    self.sample["train"][k],
+                                    params,
+                                )
+                            )
+                            if fill_self:
+                                break
         return self.update_solution_candidates(local_candidates, initial)
 
 
