@@ -1185,5 +1185,3 @@ class colors(predictor):
 
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern
-# TODO: reconstruct pattern
-# TODO: colors functions
