@@ -14,6 +14,7 @@ from functools import partial
 
 import signal
 import sys
+import psutil
 
 
 def sigterm_handler(_signo, _stack_frame):
@@ -89,7 +90,8 @@ def run_parallel(
     show_results=True,
     break_after_answer=False,
     processes=20,
-    timeout=10,
+    timeout=300,
+    max_memory_by_process=1.4e10,
 ):
     process_list = []
     timing_list = []
@@ -120,6 +122,15 @@ def run_parallel(
                             process.join(10)
                             print("Time out. The process is killed.")
                             num_finished += 1
+                        else:
+                            process_data = psutil.Process(process.pid)
+                            if process_data.memory_info().rss > max_memory_by_process:
+                                process.terminate()
+                                process.join(10)
+                                print(
+                                    "Memory limit is exceeded. The process is killed."
+                                )
+                                num_finished += 1
 
                     else:
                         num_finished += 1
