@@ -1183,5 +1183,46 @@ class colors(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
+class gravity(predictor):
+    """move non_background objects toward something"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result = np.rot90(image.copy(), params["rotate"])
+
+        color = params["color"]
+        proceed = True
+        while proceed:
+            proceed = False
+            for i in range(1, result.shape[0]):
+                for j in range(0, result.shape[1]):
+                    if result[-i, j] == color and result[-i - 1, j] != color:
+                        result[-i, j] = result[-i - 1, j]
+                        result[-i - 1, j] = color
+                        proceed = True
+
+        return 0, np.rot90(result, -params["rotate"])
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 5, None
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            for rotate in range(0, 4):
+                params = {"color": color, "rotate": rotate}
+
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern
