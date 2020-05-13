@@ -370,9 +370,9 @@ class puzzle(predictor):
                 if status != 0:
                     skip = True
                     break
-                n, m = array.shape
 
                 if i == 0 and j == 0:
+                    n, m = array.shape
                     predict = np.uint8(
                         np.zeros(
                             (
@@ -385,6 +385,10 @@ class puzzle(predictor):
                         predict += get_color(
                             self.grid_color_list[0], color_scheme["colors"]
                         )
+                else:
+                    if n != array.shape[0] or m != array.shape[1]:
+                        skip = True
+                        break
 
                 predict[
                     i * (n - self.intersection) : i * (n - self.intersection) + n,
