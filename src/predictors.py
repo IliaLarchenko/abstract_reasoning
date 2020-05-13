@@ -6,8 +6,10 @@ from src.functions import (
     intersect_two_lists,
     swap_two_colors,
 )
-import random
 from src.preprocessing import find_grid, get_predict, get_mask_from_block_params
+import random
+from scipy import ndimage
+
 import itertools
 
 
@@ -1252,6 +1254,75 @@ class gravity(predictor):
                             )
                             if fill != "color":
                                 break
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+class gravity_blocks(predictor):
+    """move non_background objects toward something"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def get_block_mask(self, image, i, j):
+        color = image[i, j]
+        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+        masks, n_masks = ndimage.label(image == color, structure=structure)
+        mask = masks == masks[i, j]
+
+        return 0, mask
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result = np.rot90(image.copy(), params["rotate"])
+
+        steps = params["steps"]
+        if steps == "all":
+            steps = 10000
+        color = params["color"]
+        proceed = True
+        step = 0
+        while proceed and step < steps:
+            step += 1
+            proceed = False
+            for i in range(1, result.shape[0]):
+                for j in range(0, result.shape[1]):
+                    if result[-i, j] == color and result[-i - 1, j] != color:
+                        block_color = result[-i - 1, j]
+                        status, mask = self.get_block_mask(result, -i - 1, j)
+                        if status != 0:
+                            continue
+
+                        while not (mask[-1] == True).any():
+                            moved_mask = np.roll(mask, 1, axis=0)
+                            if np.logical_or(
+                                result[moved_mask] == color,
+                                result[moved_mask] == block_color,
+                            ).all():
+                                result[mask] = color
+                                result[moved_mask] = block_color
+                                proceed = True
+                                mask = moved_mask
+                            else:
+                                break
+
+        return 0, np.rot90(result, -params["rotate"])
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 5, None
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            for rotate in range(0, 4):
+                for steps in ["all"]:
+                    params = {"color": color, "rotate": rotate, "steps": steps}
+
+                    local_candidates = local_candidates + self.add_candidates_list(
+                        original_image, target_image, self.sample["train"][k], params
+                    )
         return self.update_solution_candidates(local_candidates, initial)
 
 
