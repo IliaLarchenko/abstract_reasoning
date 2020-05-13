@@ -133,6 +133,8 @@ def test_predictor():
             "data/evaluation",
             ["initial", "initial_masks"],
         ),
+        (21, gravity, {}, "1e0a9b12.json", "data/training", ["initial"]),
+        (22, gravity, {}, "3906de3d.json", "data/training", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
