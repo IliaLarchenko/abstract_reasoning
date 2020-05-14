@@ -208,6 +208,7 @@ def test_predictor():
             "data/training",
             ["initial"],
         ),
+        (46, eliminate_duplicates, {}, "90c28cc7.json", "data/training", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
