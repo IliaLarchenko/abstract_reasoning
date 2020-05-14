@@ -282,9 +282,9 @@ class fill(predictor):
                         image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                             np.array(self.pattern)
                         ]
-                        == params["background_color"]
+                        == params["fill_color"]
                     ).any():
-                        result[i - 1, j - 1] = params["fill_color"]
+                        result[i - 1, j - 1] = params["background_color"]
                 elif self.type == "isolated_non_bg":
                     if (
                         image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
@@ -323,10 +323,10 @@ class fill(predictor):
         original_image, target_image = self.get_images(k)
         if original_image.shape != target_image.shape:
             return 5, None
-        for background_color in [0] + self.sample["train"][k]["colors_sorted"]:
+        for background_color in range(10):
             if not (target_image == background_color).any():
                 continue
-            for fill_color in [1] + self.sample["train"][k]["colors_sorted"]:
+            for fill_color in range(10):
                 if not (target_image == fill_color).any():
                     continue
                 mask = np.logical_and(
