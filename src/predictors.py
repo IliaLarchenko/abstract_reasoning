@@ -1770,5 +1770,104 @@ class connect_dots(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
+class connect_dots_all_colors(predictor):
+    """connect dost of same color, on one line"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_part(self, image, params, part_type, result=None):
+        if result is None:
+            result = image.copy()
+        if part_type == "vert":
+            if params["vert"] == True:
+                for color in range(10):
+                    if color == params["background_color"]:
+                        continue
+                    if params["fill_self"]:
+                        fill_color = color
+                    else:
+                        fill_color = params["fill_color"]
+                    for i in range(result.shape[0]):
+                        line_mask = image[i] == color
+                        if (line_mask).sum() >= 2:
+                            indices = [x for x in range(len(line_mask)) if line_mask[x]]
+                            if params["fill_all"]:
+                                result[i, indices[0] + 1 : indices[-1]] = fill_color
+                            else:
+                                for j in range(len(indices) - 1):
+                                    result[
+                                        i, indices[j] + 1 : indices[j + 1]
+                                    ] = fill_color
+        elif part_type == "hor":
+            if params["hor"] == True:
+                for color in range(10):
+                    if color == params["background_color"]:
+                        continue
+                    if params["fill_self"]:
+                        fill_color = color
+                    else:
+                        fill_color = params["fill_color"]
+                    for i in range(result.shape[1]):
+                        line_mask = image[:, i] == color
+                        if (line_mask).sum() >= 2:
+                            indices = [x for x in range(len(line_mask)) if line_mask[x]]
+                            if params["fill_all"]:
+                                result[indices[0] + 1 : indices[-1], i] = fill_color
+                            else:
+                                for j in range(len(indices) - 1):
+                                    result[
+                                        indices[j] + 1 : indices[j + 1], i
+                                    ] = fill_color
+
+        return result
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        if params["vert_first"]:
+            result = self.predict_part(image, params, "vert")
+            result = self.predict_part(image, params, "hor", result)
+        else:
+            result = self.predict_part(image, params, "hor")
+            result = self.predict_part(image, params, "vert", result)
+
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        for background_color in self.sample["train"][k]["colors_sorted"]:
+            for hor in [True, False]:
+                for vert in [True, False]:
+                    for fill_self in [True, False]:
+                        for fill_all in [True, False]:
+                            for vert_first in [True, False]:
+                                for fill_color in range(10):
+                                    params = {
+                                        "background_color": background_color,
+                                        "hor": hor,
+                                        "vert": vert,
+                                        "fill_color": fill_color,
+                                        "fill_all": fill_all,
+                                        "vert_first": vert_first,
+                                        "fill_self": fill_self,
+                                    }
+
+                                    local_candidates = (
+                                        local_candidates
+                                        + self.add_candidates_list(
+                                            original_image,
+                                            target_image,
+                                            self.sample["train"][k],
+                                            params,
+                                        )
+                                    )
+                                    if fill_self:
+                                        break
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern

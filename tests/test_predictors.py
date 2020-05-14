@@ -171,6 +171,30 @@ def test_predictor():
         (39, connect_dots, {}, "a699fb00.json", "data/training", ["initial"]),
         (40, connect_dots, {}, "ded97339.json", "data/training", ["initial"]),
         (41, connect_dots, {}, "aa18de87.json", "data/evaluation", ["initial"]),
+        (
+            42,
+            connect_dots_all_colors,
+            {},
+            "40853293.json",
+            "data/training",
+            ["initial"],
+        ),
+        (
+            43,
+            connect_dots_all_colors,
+            {},
+            "22168020.json",
+            "data/training",
+            ["initial"],
+        ),
+        (
+            43,
+            connect_dots_all_colors,
+            {},
+            "070dd51e.json",
+            "data/evaluation",
+            ["initial"],
+        ),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
