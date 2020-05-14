@@ -165,6 +165,12 @@ def test_predictor():
         (33, eliminate_duplicates, {}, "746b3537.json", "data/training", ["initial"]),
         (34, eliminate_duplicates, {}, "e1baa8a4.json", "data/evaluation", ["initial"]),
         (35, eliminate_duplicates, {}, "ce8d95cc.json", "data/evaluation", ["initial"]),
+        (36, connect_dots, {}, "dbc1a6ce.json", "data/training", ["initial"]),
+        (37, connect_dots, {}, "253bf280.json", "data/training", ["initial"]),
+        (38, connect_dots, {}, "ba97ae07.json", "data/training", ["initial"]),
+        (39, connect_dots, {}, "a699fb00.json", "data/training", ["initial"]),
+        (40, connect_dots, {}, "ded97339.json", "data/training", ["initial"]),
+        (41, connect_dots, {}, "aa18de87.json", "data/evaluation", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
