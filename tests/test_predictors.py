@@ -28,8 +28,8 @@ def check(predictor_class, params, file_path, DATA_PATH, preprocessing_params):
 
 def test_predictor():
     for id, predictor_class, params, file_path, DATA_PATH, preprocessing_params in [
-        (1, fill, {"type": "outer"}, "4258a5f9.json", "data/training", ["initial"]),
-        (2, fill, {"type": "inner"}, "bb43febb.json", "data/training", ["initial"]),
+        (1, fill, {}, "4258a5f9.json", "data/training", ["initial"]),
+        (2, fill, {}, "bb43febb.json", "data/training", ["initial"]),
         (3, puzzle, {"intersection": 0}, "a416b8f3.json", "data/training", ["initial"]),
         (
             4,
@@ -105,7 +105,7 @@ def test_predictor():
             "data/evaluation",
             ["initial", "grid_cells", "resize", "initial_masks"],
         ),
-        (15, fill, {"type": "isolated"}, "42a50994.json", "data/training", ["initial"]),
+        (15, fill, {}, "42a50994.json", "data/training", ["initial"]),
         (16, colors, {}, "d631b094.json", "data/training", ["initial"]),
         (17, colors, {}, "1a2e2828.json", "data/evaluation", ["initial"]),
         (
@@ -153,12 +153,9 @@ def test_predictor():
             31,
             fill,
             {
-                "type": "isolated_non_bg",
-                "pattern": [
-                    [False, True, False],
-                    [True, False, True],
-                    [False, True, False],
-                ],
+                "pattern": np.array(
+                    [[False, True, False], [True, False, True], [False, True, False]]
+                )
             },
             "aedd82e4.json",
             "data/training",

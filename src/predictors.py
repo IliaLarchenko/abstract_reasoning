@@ -237,16 +237,21 @@ class fill(predictor):
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
-        self.type = params["type"]  # inner or outer
+        # self.type = params["type"]  # inner or outer
         if "pattern" in params:
             self.pattern = params["pattern"]
         else:
-            self.pattern = [[True, True, True], [True, False, True], [True, True, True]]
+            self.pattern = np.array(
+                [[True, True, True], [True, False, True], [True, True, True]]
+            )
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         result = image.copy()
-        if self.type == "isolated" or self.type == "isolated_non_bg":
+        if (
+            params["process_type"] == "isolated"
+            or params["process_type"] == "isolated_non_bg"
+        ):
             image_with_borders = (
                 np.ones((image.shape[0] + 2, image.shape[1] + 2))
                 * params["background_color"]
@@ -256,12 +261,12 @@ class fill(predictor):
         image_with_borders[1:-1, 1:-1] = image
         for i in range(1, image_with_borders.shape[0] - 1):
             for j in range(1, image_with_borders.shape[1] - 1):
-                if self.type == "outer":
+                if params["process_type"] == "outer":
                     if image[i - 1, j - 1] == params["fill_color"]:
                         image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                             np.array(self.pattern)
                         ] = params["background_color"]
-                elif self.type == "inner":
+                elif params["process_type"] == "inner":
                     if (
                         image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                             np.array(self.pattern)
@@ -269,7 +274,7 @@ class fill(predictor):
                         == params["background_color"]
                     ).all():
                         result[i - 1, j - 1] = params["fill_color"]
-                elif self.type == "inner_ignore_background":
+                elif params["process_type"] == "inner_ignore_background":
                     if (
                         image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                             np.array(self.pattern)
@@ -277,7 +282,7 @@ class fill(predictor):
                         != params["background_color"]
                     ).all():
                         result[i - 1, j - 1] = params["fill_color"]
-                elif self.type == "isolated":
+                elif params["process_type"] == "isolated":
                     if not (
                         image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                             np.array(self.pattern)
@@ -285,7 +290,7 @@ class fill(predictor):
                         == params["fill_color"]
                     ).any():
                         result[i - 1, j - 1] = params["background_color"]
-                elif self.type == "isolated_non_bg":
+                elif params["process_type"] == "isolated_non_bg":
                     if (
                         image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                             np.array(self.pattern)
@@ -293,7 +298,7 @@ class fill(predictor):
                         == params["background_color"]
                     ).all() and image[i - 1, j - 1] != params["background_color"]:
                         result[i - 1, j - 1] = params["fill_color"]
-                elif self.type == "full":
+                elif params["process_type"] == "full":
                     if (
                         i - 1 + self.pattern.shape[0] > image.shape[0]
                         or j - 1 + self.pattern.shape[1] > image.shape[1]
@@ -313,7 +318,7 @@ class fill(predictor):
 
                 else:
                     return 6, None
-        if self.type == "outer":
+        if params["process_type"] == "outer":
             result = image_with_borders[1:-1, 1:-1]
         return 0, result
 
@@ -334,14 +339,23 @@ class fill(predictor):
                 )
                 if not (target_image == original_image)[mask].all():
                     continue
-                params = {
-                    "background_color": background_color,
-                    "fill_color": fill_color,
-                }
+                for process_type in [
+                    "outer",
+                    "full",
+                    "isolated_non_bg",
+                    "isolated",
+                    "inner_ignore_background",
+                    "inner",
+                ]:
+                    params = {
+                        "background_color": background_color,
+                        "fill_color": fill_color,
+                        "process_type": process_type,
+                    }
 
-                local_candidates = local_candidates + self.add_candidates_list(
-                    original_image, target_image, self.sample["train"][k], params
-                )
+                    local_candidates = local_candidates + self.add_candidates_list(
+                        original_image, target_image, self.sample["train"][k], params
+                    )
         return self.update_solution_candidates(local_candidates, initial)
 
 
