@@ -1948,6 +1948,22 @@ class reconstruct_mosaic(predictor):
                     n * block.shape[1] : (n + 1) * block.shape[1],
                 ] = new_block
 
+        if (new_block == color).any():
+            for k in range(new_block.shape[0]):
+                for n in range(new_block.shape[1]):
+                    mask = np.logical_and(
+                        new_block[k:, n:] != color,
+                        new_block[: new_block.shape[0] - k, : new_block.shape[1] - n]
+                        != color,
+                    )
+                    if (
+                        new_block[k:, n:]
+                        == new_block[: new_block.shape[0] - k, : new_block.shape[1] - n]
+                    )[mask].all():
+                        new_block[k:, n:][new_block[k:, n:] == color] = new_block[
+                            : new_block.shape[0] - k, : new_block.shape[1] - n
+                        ][new_block[k:, n:] == color]
+
         result = full_image[
             start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]
         ]
