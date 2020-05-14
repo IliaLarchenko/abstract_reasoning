@@ -1263,8 +1263,11 @@ class gravity_blocks(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def get_block_mask(self, image, i, j, block_type):
-        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+    def get_block_mask(self, image, i, j, block_type, structure_type):
+        if structure_type == 0:
+            structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+        else:
+            structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
         if block_type == "same_color":
             color = image[i, j]
@@ -1291,7 +1294,11 @@ class gravity_blocks(predictor):
                     if result[-i, j] == color and result[-i - 1, j] != color:
                         block_color = result[-i - 1, j]
                         status, mask = self.get_block_mask(
-                            result, -i - 1, j, params["block_type"]
+                            result,
+                            -i - 1,
+                            j,
+                            params["block_type"],
+                            params["structure_type"],
                         )
                         if status != 0:
                             continue
@@ -1323,15 +1330,163 @@ class gravity_blocks(predictor):
         for color in self.sample["train"][k]["colors_sorted"]:
             for rotate in range(0, 4):
                 for block_type in ["same_color", "not_bg"]:
-                    params = {
-                        "color": color,
-                        "rotate": rotate,
-                        "block_type": block_type,
-                    }
+                    for structure_type in [0, 1]:
+                        params = {
+                            "color": color,
+                            "rotate": rotate,
+                            "block_type": block_type,
+                            "structure_type": structure_type,
+                        }
 
-                    local_candidates = local_candidates + self.add_candidates_list(
-                        original_image, target_image, self.sample["train"][k], params
-                    )
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+class gravity_blocks_2_color(gravity_blocks):
+    """move non_background objects toward something"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def find_gravity_color(self, image, gravity_color):
+        mask = image == gravity_color
+        if not (mask).any():
+            return 1, None, None
+
+        max_hor = mask.max(0)
+        max_vert = mask.max(1)
+
+        if max_hor.sum() == 1 and max_vert.sum() > 1:
+            color_type = "vert"
+            num = np.argmax(max_hor)
+        elif max_hor.sum() > 1 and max_vert.sum() == 1:
+            color_type = "hor"
+            num = np.argmax(max_vert)
+        else:
+            return 2, None, None
+
+        return 0, color_type, num
+
+    def predict_partial_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result = np.rot90(image.copy(), params["rotate"])
+
+        color = params["color"]
+        proceed = True
+        step = 0
+        while proceed:
+            step += 1
+            proceed = False
+            for i in range(1, result.shape[0]):
+                for j in range(0, result.shape[1]):
+                    if result[-i, j] == color and result[-i - 1, j] != color:
+                        block_color = result[-i - 1, j]
+                        status, mask = self.get_block_mask(
+                            result,
+                            -i - 1,
+                            j,
+                            params["block_type"],
+                            params["structure_type"],
+                        )
+                        if status != 0:
+                            continue
+
+                        while not (mask[-1] == True).any():
+                            moved_mask = np.roll(mask, 1, axis=0)
+                            if (
+                                result[np.logical_and(moved_mask, moved_mask != mask)]
+                                == color
+                            ).all():
+                                temp = result[mask]
+                                result[mask] = color
+                                result[moved_mask] = temp
+                                proceed = True
+                                mask = moved_mask
+                            else:
+                                break
+
+        return 0, np.rot90(result, -params["rotate"])
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        color = params["color"]
+        status, color_type, num = self.find_gravity_color(
+            image, params["gravity_color"]
+        )
+        if status != 0:
+            return status, None
+
+        if color_type == "hor":
+            top_image = image[:num]
+            new_params = params.copy()
+            new_params["rotate"] = 0
+            status, top_image = self.predict_partial_output(top_image, new_params)
+            if status != 0:
+                return status, None
+            bottom_image = image[num + 1 :]
+            new_params = params.copy()
+            new_params["rotate"] = 2
+            status, bottom_image = self.predict_partial_output(bottom_image, new_params)
+            if status != 0:
+                return status, None
+            result = image.copy()
+            result[:num] = top_image
+            result[num + 1 :] = bottom_image
+            result[
+                :, np.logical_not((image == params["gravity_color"]).max(0))
+            ] = params["color"]
+        elif color_type == "vert":
+            left_image = image[:, :num]
+            new_params = params.copy()
+            new_params["rotate"] = 3
+            status, left_image = self.predict_partial_output(left_image, new_params)
+            if status != 0:
+                return status, None
+            right_image = image[:, num + 1 :]
+            new_params = params.copy()
+            new_params["rotate"] = 1
+            status, right_image = self.predict_partial_output(right_image, new_params)
+            if status != 0:
+                return status, None
+            result = image.copy()
+            result[:, :num] = left_image
+            result[:, num + 1 :] = right_image
+            result[np.logical_not((image == params["gravity_color"]).max(1))] = params[
+                "color"
+            ]
+
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 5, None
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            for gravity_color in self.sample["train"][k]["colors_sorted"]:
+                for block_type in ["same_color", "not_bg"]:
+                    for structure_type in [0, 1]:
+                        params = {
+                            "color": color,
+                            "gravity_color": gravity_color,
+                            "block_type": block_type,
+                            "structure_type": structure_type,
+                        }
+
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
         return self.update_solution_candidates(local_candidates, initial)
 
 
