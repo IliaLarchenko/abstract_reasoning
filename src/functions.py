@@ -428,10 +428,11 @@ def mosaic_reconstruct_corner(original_image, color, simetry_types=None):
 
 def filter_list_of_dicts(list1, list2):
     final_list = []
-    for item1 in list1:
-        for item2 in list2:
+    for item2 in list2:
+        for item1 in list1:
             if get_dict_hash(item1) == get_dict_hash(item2):
                 final_list.append(item1)
+                break
     return final_list
 
 

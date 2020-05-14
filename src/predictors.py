@@ -1866,7 +1866,7 @@ class connect_dots_all_colors(predictor):
             for hor in [True, False]:
                 for vert in [True, False]:
                     for fill_self in [True, False]:
-                        for fill_all in [True, False]:
+                        for fill_all in [False, True]:
                             for vert_first in [True, False]:
                                 for fill_color in range(10):
                                     params = {
