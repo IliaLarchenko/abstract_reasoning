@@ -161,7 +161,7 @@ def test_predictor():
                 ],
             },
             "aedd82e4.json",
-            "data/evaluation",
+            "data/training",
             ["initial"],
         ),
     ]:
