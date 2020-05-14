@@ -1955,8 +1955,18 @@ class reconstruct_mosaic(predictor):
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
-        itteration_list = list()
-        for size in range(2, sum(image.shape)):
+        itteration_list1 = list(range(2, sum(image.shape)))
+        if params["big_first"]:
+            itteration_list1 = list(
+                range(
+                    2,
+                    (image != params["color"]).max(1).sum()
+                    + (image != params["color"]).max(0).sum()
+                    + 1,
+                )
+            )
+            itteration_list1 = itteration_list1[::-1]
+        for size in itteration_list1:
             if params["direction"] == "all":
                 itteration_list = list(range(1, size))
             elif params["direction"] == "vert":
@@ -1988,11 +1998,16 @@ class reconstruct_mosaic(predictor):
 
         for color in [0] + self.sample["train"][k]["colors_sorted"]:
             for direction in ["vert", "hor", "all"]:
-                params = {"color": color, "direction": direction}
+                for big_first in [True, False]:
+                    params = {
+                        "color": color,
+                        "direction": direction,
+                        "big_first": big_first,
+                    }
 
-                local_candidates = local_candidates + self.add_candidates_list(
-                    original_image, target_image, self.sample["train"][k], params
-                )
+                    local_candidates = local_candidates + self.add_candidates_list(
+                        original_image, target_image, self.sample["train"][k], params
+                    )
         return self.update_solution_candidates(local_candidates, initial)
 
 
