@@ -1643,5 +1643,47 @@ class eliminate_color(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
+class eliminate_duplicates(predictor):
+    """eliminate parts of some color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result = image.copy()
+
+        if params["vert"] == True:
+            i = 0
+            while i + 1 < result.shape[0]:
+                if (result[i] == result[i + 1]).all():
+                    result = np.concatenate([result[:i], result[i + 1 :]], 0)
+                else:
+                    i += 1
+        if params["hor"] == True:
+            i = 0
+            while i + 1 < result.shape[1]:
+                if (result[:, i] == result[:, i + 1]).all():
+                    result = np.concatenate([result[:, :i], result[:, i + 1 :]], 1)
+                else:
+                    i += 1
+
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        for hor in [True, False]:
+            for vert in [True, False]:
+                params = {"hor": hor, "vert": vert}
+
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern

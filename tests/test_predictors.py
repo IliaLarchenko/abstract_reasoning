@@ -161,6 +161,10 @@ def test_predictor():
             "data/training",
             ["initial"],
         ),
+        (32, eliminate_duplicates, {}, "eb5a1d5d.json", "data/training", ["initial"]),
+        (33, eliminate_duplicates, {}, "746b3537.json", "data/training", ["initial"]),
+        (34, eliminate_duplicates, {}, "e1baa8a4.json", "data/evaluation", ["initial"]),
+        (35, eliminate_duplicates, {}, "ce8d95cc.json", "data/evaluation", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
