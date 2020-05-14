@@ -1893,5 +1893,108 @@ class connect_dots_all_colors(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
+class reconstruct_mosaic(predictor):
+    """reconstruct mosaic"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def check_surface(self, image, i, j, block, color):
+        b = (image.shape[0] - i) // block.shape[0] + int(
+            ((image.shape[0] - i) % block.shape[0]) > 0
+        )
+        r = (image.shape[1] - j) // block.shape[1] + int(
+            ((image.shape[1] - j) % block.shape[1]) > 0
+        )
+        t = (i) // block.shape[0] + int((i) % block.shape[0] > 0)
+        l = (j) // block.shape[1] + int((j) % block.shape[1] > 0)
+
+        # print(image.shape, t,b, l,r, i, j)
+
+        full_image = (
+            np.ones(((b + t) * block.shape[0], (r + l) * block.shape[1])) * color
+        )
+        start_i = (block.shape[0] - i) % block.shape[0]
+        start_j = (block.shape[1] - j) % block.shape[1]
+
+        full_image[
+            start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]
+        ] = image
+
+        blocks = []
+        for k in range((b + t)):
+            for n in range((r + l)):
+                new_block = full_image[
+                    k * block.shape[0] : (k + 1) * block.shape[0],
+                    n * block.shape[1] : (n + 1) * block.shape[1],
+                ]
+                mask = np.logical_and(new_block != color, block != color)
+                if (new_block == block)[mask].all():
+                    blocks.append(new_block)
+                else:
+                    return 1, None
+        new_block = block.copy()
+        for curr_block in blocks:
+            mask = np.logical_and(new_block != color, curr_block != color)
+            if (new_block == block)[mask].all():
+                new_block[new_block == color] = curr_block[new_block == color]
+            else:
+                return 2, None
+
+        for k in range((b + t)):
+            for n in range((r + l)):
+                full_image[
+                    k * block.shape[0] : (k + 1) * block.shape[0],
+                    n * block.shape[1] : (n + 1) * block.shape[1],
+                ] = new_block
+
+        result = full_image[
+            start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]
+        ]
+        return 0, result
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        itteration_list = list()
+        for size in range(2, sum(image.shape)):
+            if params["direction"] == "all":
+                itteration_list = list(range(1, size))
+            elif params["direction"] == "vert":
+                itteration_list = [image.shape[0]]
+            else:
+                itteration_list = [size - image.shape[1]]
+            for i_size in itteration_list:
+                j_size = size - i_size
+                if j_size < 1:
+                    continue
+                for i_min in range(min(image.shape[0], i_size)):
+                    for j_min in range(min(image.shape[1], j_size)):
+                        block = image[i_min : i_min + i_size, j_min : j_min + j_size]
+                        status, predict = self.check_surface(
+                            image, i_min, j_min, block, params["color"]
+                        )
+                        if status != 0:
+                            continue
+                        return 0, predict
+
+        return 1, None
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+        if original_image.shape != target_image.shape:
+            return 1, None
+
+        for color in [0] + self.sample["train"][k]["colors_sorted"]:
+            for direction in ["vert", "hor", "all"]:
+                params = {"color": color, "direction": direction}
+
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern

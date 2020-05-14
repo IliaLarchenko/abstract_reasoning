@@ -209,6 +209,8 @@ def test_predictor():
             ["initial"],
         ),
         (46, eliminate_duplicates, {}, "90c28cc7.json", "data/training", ["initial"]),
+        (47, reconstruct_mosaic, {}, "f823c43c.json", "data/evaluation", ["initial"]),
+        (48, reconstruct_mosaic, {}, "d8c310e9.json", "data/training", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
