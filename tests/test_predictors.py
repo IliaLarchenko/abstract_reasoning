@@ -14,11 +14,16 @@ def check(predictor_class, params, file_path, DATA_PATH, preprocessing_params):
     if result == 0:
         for i in range(len(answer)):
             test_solved = False
-            for j in range(min(len(answer[i]), 3)):
+            j = 0
+            n = 3
+            while j < n and j < len(answer[i]):
                 result = (answer[i][j] == np.uint8(sample["test"][i]["output"])).all()
                 if result:
                     test_solved = True
                     break
+                j += 1
+                if j > 0 and (answer[i][j] == answer[i][j - 1]).all():
+                    n += 1
             if not test_solved:
                 return False
         return True
@@ -188,11 +193,19 @@ def test_predictor():
             ["initial"],
         ),
         (
-            43,
+            44,
             connect_dots_all_colors,
             {},
             "070dd51e.json",
             "data/evaluation",
+            ["initial"],
+        ),
+        (
+            45,
+            connect_dots_all_colors,
+            {},
+            "22eb0ac0.json",
+            "data/training",
             ["initial"],
         ),
     ]:
