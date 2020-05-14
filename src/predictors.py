@@ -1644,7 +1644,7 @@ class eliminate_color(predictor):
 
 
 class eliminate_duplicates(predictor):
-    """eliminate parts of some color"""
+    """eliminate rows and colomns if they are the same and near each other"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
