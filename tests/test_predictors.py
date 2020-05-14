@@ -149,6 +149,21 @@ def test_predictor():
         ),
         (29, gravity2color, {}, "f83cb3f6.json", "data/evaluation", ["initial"]),
         (30, gravity2color, {}, "13713586.json", "data/evaluation", ["initial"]),
+        (
+            31,
+            fill,
+            {
+                "type": "isolated_non_bg",
+                "pattern": [
+                    [False, True, False],
+                    [True, False, True],
+                    [False, True, False],
+                ],
+            },
+            "aedd82e4.json",
+            "data/evaluation",
+            ["initial"],
+        ),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)

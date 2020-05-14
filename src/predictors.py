@@ -246,7 +246,13 @@ class fill(predictor):
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         result = image.copy()
-        image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
+        if self.type == "isolated" or self.type == "isolated_non_bg":
+            image_with_borders = (
+                np.ones((image.shape[0] + 2, image.shape[1] + 2))
+                * params["background_color"]
+            )
+        else:
+            image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
         image_with_borders[1:-1, 1:-1] = image
         for i in range(1, image_with_borders.shape[0] - 1):
             for j in range(1, image_with_borders.shape[1] - 1):
@@ -279,6 +285,14 @@ class fill(predictor):
                         == params["background_color"]
                     ).any():
                         result[i - 1, j - 1] = params["fill_color"]
+                elif self.type == "isolated_non_bg":
+                    if (
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                            np.array(self.pattern)
+                        ]
+                        == params["background_color"]
+                    ).all() and image[i - 1, j - 1] != params["background_color"]:
+                        result[i - 1, j - 1] = params["fill_color"]
                 elif self.type == "full":
                     if (
                         i - 1 + self.pattern.shape[0] > image.shape[0]
@@ -309,10 +323,10 @@ class fill(predictor):
         original_image, target_image = self.get_images(k)
         if original_image.shape != target_image.shape:
             return 5, None
-        for background_color in range(10):
+        for background_color in [0] + self.sample["train"][k]["colors_sorted"]:
             if not (target_image == background_color).any():
                 continue
-            for fill_color in range(10):
+            for fill_color in [1] + self.sample["train"][k]["colors_sorted"]:
                 if not (target_image == fill_color).any():
                     continue
                 mask = np.logical_and(
