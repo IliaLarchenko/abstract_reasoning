@@ -1495,6 +1495,83 @@ class gravity_blocks_2_color(gravity_blocks):
         return self.update_solution_candidates(local_candidates, initial)
 
 
+class gravity2color(gravity_blocks_2_color):
+    """move non_background objects toward something"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_partial_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result = np.rot90(image.copy(), params["rotate"])
+
+        steps = params["steps"]
+        if steps == "all":
+            steps = 10000
+        color = params["color"]
+        proceed = True
+        step = 0
+        while proceed and step < steps:
+            step += 1
+            proceed = False
+            for i in range(1, result.shape[0]):
+                for j in range(0, result.shape[1]):
+                    if params["fill"] == "to_point":
+                        if result[-i - 1, j] != color:
+                            result[-i, j] = result[-i - 1, j]
+                            result[-i - 1, j] = color
+                            proceed = True
+                    elif result[-i, j] == color and result[-i - 1, j] != color:
+                        if params["fill"] == "self":
+                            result[-i, j] = result[-i - 1, j]
+                        elif params["fill"] == "no":
+                            result[-i, j] = result[-i - 1, j]
+                            result[-i - 1, j] = color
+                        else:
+                            result[-i, j] = params["fill_color"]
+                        proceed = True
+
+        return 0, np.rot90(result, -params["rotate"])
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 5, None
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            for gravity_color in self.sample["train"][k]["colors_sorted"]:
+                for steps in ["all"] + list(range(max(original_image.shape))):
+                    for fill in ["no", "self", "color", "to_point"]:
+                        for i, fill_color in enumerate(
+                            self.sample["train"][k]["colors_sorted"]
+                        ):
+                            if fill == "color" and fill_color == color:
+                                continue
+                            params = {
+                                "color": color,
+                                "gravity_color": gravity_color,
+                                "steps": steps,
+                                "fill_color": fill_color if fill == "color" else 0,
+                                "fill": fill,
+                            }
+
+                            local_candidates = (
+                                local_candidates
+                                + self.add_candidates_list(
+                                    original_image,
+                                    target_image,
+                                    self.sample["train"][k],
+                                    params,
+                                )
+                            )
+                            if fill != "color":
+                                break
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 class eliminate_color(predictor):
     """eliminate parts of some color"""
 

@@ -147,6 +147,8 @@ def test_predictor():
             "data/evaluation",
             ["initial"],
         ),
+        (29, gravity2color, {}, "f83cb3f6.json", "data/evaluation", ["initial"]),
+        (30, gravity2color, {}, "13713586.json", "data/evaluation", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
