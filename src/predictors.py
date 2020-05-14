@@ -1206,7 +1206,12 @@ class gravity(predictor):
             proceed = False
             for i in range(1, result.shape[0]):
                 for j in range(0, result.shape[1]):
-                    if result[-i, j] == color and result[-i - 1, j] != color:
+                    if params["fill"] == "to_point":
+                        if result[-i - 1, j] != color:
+                            result[-i, j] = result[-i - 1, j]
+                            result[-i - 1, j] = color
+                            proceed = True
+                    elif result[-i, j] == color and result[-i - 1, j] != color:
                         if params["fill"] == "self":
                             result[-i, j] = result[-i - 1, j]
                         elif params["fill"] == "no":
@@ -1229,7 +1234,7 @@ class gravity(predictor):
         for color in self.sample["train"][k]["colors_sorted"]:
             for rotate in range(0, 4):
                 for steps in ["all"] + list(range(max(original_image.shape))):
-                    for fill in ["no", "self", "color"]:
+                    for fill in ["no", "self", "color", "to_point"]:
                         for i, fill_color in enumerate(
                             self.sample["train"][k]["colors_sorted"]
                         ):
