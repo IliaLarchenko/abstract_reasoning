@@ -17,13 +17,15 @@ def check(predictor_class, params, file_path, DATA_PATH, preprocessing_params):
             j = 0
             n = 3
             while j < n and j < len(answer[i]):
+                if j > 0 and (answer[i][j] == answer[i][j - 1]).all():
+                    n += 1
+                    j += 1
+                    continue
                 result = (answer[i][j] == np.uint8(sample["test"][i]["output"])).all()
                 if result:
                     test_solved = True
                     break
                 j += 1
-                if j > 0 and (answer[i][j] == answer[i][j - 1]).all():
-                    n += 1
             if not test_solved:
                 return False
         return True
@@ -216,6 +218,32 @@ def test_predictor():
         (51, reconstruct_mosaic, {}, "484b58aa.json", "data/training", ["initial"]),
         (52, reconstruct_mosaic, {}, "29ec7d0e.json", "data/training", ["initial"]),
         (53, reconstruct_mosaic, {}, "ca8f78db.json", "data/evaluation", ["initial"]),
+        (
+            54,
+            reconstruct_mosaic,
+            {"skip_train": 1, "roll": (0, 1), "rrr_input": False},
+            "caa06a1f.json",
+            "data/training",
+            ["initial"],
+        ),
+        (55, reconstruct_mosaic_rr, {}, "b8825c91.json", "data/training", ["initial"]),
+        (
+            56,
+            reconstruct_mosaic_rr,
+            {},
+            "903d1b4a.json",
+            "data/evaluation",
+            ["initial"],
+        ),
+        (
+            57,
+            reconstruct_mosaic_rr,
+            {},
+            "af22c60d.json",
+            "data/evaluation",
+            ["initial"],
+        ),
+        (58, reconstruct_mosaic_rr, {}, "3631a71a.json", "data/training", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
