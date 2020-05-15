@@ -2408,7 +2408,7 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
 
 
 # TODO: test inside_block
-class inside_block(reconstruct_mosaic_rr):
+class inside_block(predictor):
     """reconstruct mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2517,6 +2517,68 @@ class fill_lines(predictor):
                                     )
                                 )
         return self.update_solution_candidates(local_candidates, initial)
+
+
+class replace_column(predictor):
+    """replace any column with another fexed column"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def init_call(self):
+        self.original_patterns = []
+        self.target_patterns = []
+        self.solution_candidates = [{"placeholder": 0}]
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result_list = []
+
+        for i in range(image.shape[1]):
+            column = image[:, i]
+            found = False
+            for j, original_column in enumerate(self.original_patterns):
+                if (
+                    len(column) == len(original_column)
+                    and (original_column == column).all()
+                ):
+                    found = True
+                    result_list.append(self.target_patterns[j].reshape((-1, 1)))
+            if not found:
+                return 1, None
+        result = np.concatenate(result_list, 1)
+
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape[1] != target_image.shape[1]:
+            return 2
+
+        for i in range(original_image.shape[1]):
+            column = original_image[:, i]
+            target_column = target_image[:, i]
+            found = False
+            for j, original_column in enumerate(self.original_patterns):
+                if (
+                    len(column) == len(original_column)
+                    and (original_column == column).all()
+                ):
+                    if (
+                        len(target_column) != len(self.target_patterns[j])
+                        or not (target_column == self.target_patterns[j]).all()
+                    ):
+                        return 3
+                    else:
+                        found = True
+            if not found:
+                self.original_patterns.append(column)
+                self.target_patterns.append(target_column)
+
+        return 0
 
 
 # TODO: targets based logic
