@@ -324,6 +324,8 @@ def test_predictor():
             "data/evaluation",
             ["initial"],
         ),
+        (69, fill_lines, {}, "319f2597.json", "data/evaluation", ["initial"]),
+        (70, fill_lines, {}, "4f537728.json", "data/evaluation", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
