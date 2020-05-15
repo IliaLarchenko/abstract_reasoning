@@ -326,6 +326,24 @@ def test_predictor():
         ),
         (69, fill_lines, {}, "319f2597.json", "data/evaluation", ["initial"]),
         (70, fill_lines, {}, "4f537728.json", "data/evaluation", ["initial"]),
+        (71, replace_column, {}, "3618c87e.json", "data/training", ["initial"]),
+        (72, replace_column, {}, "0d3d703e.json", "data/training", ["initial"]),
+        (
+            73,
+            replace_column,
+            {"rotate": 1},
+            "a85d4709.json",
+            "data/training",
+            ["initial"],
+        ),
+        (
+            74,
+            replace_column,
+            {"rotate": 1},
+            "f45f5ca7.json",
+            "data/evaluation",
+            ["initial"],
+        ),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)
