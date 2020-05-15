@@ -146,8 +146,8 @@ class predictor:
         old_params = params.copy()
         params = params.copy()
         params["color_scheme"] = color_scheme
-        params["blocks_cashe"] = color_scheme["blocks"]
-        params["masks_scheme"] = color_scheme["masks"]
+        params["block_cache"] = color_scheme["blocks"]
+        params["mask_cache"] = color_scheme["masks"]
 
         status, prediction = self.predict_output(image, params)
         if (
@@ -2407,5 +2407,58 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-# TODO: fill pattern - more general surface type
-# TODO: reconstruct pattern
+# TODO: test inside_block
+class inside_block(reconstruct_mosaic_rr):
+    """reconstruct mosaic"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+
+        status, block = get_predict(
+            image,
+            params["block"],
+            block_cache=params["block_cache"],
+            color_scheme=params["color_scheme"],
+        )
+        if status != 0:
+            return 1, None
+
+        i = params["i"]
+        if i >= min(block.shape) / 2:
+            return 1, None
+        return 0, block[i:-i, i:-i]
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if initial:
+            for k, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                array = block["array"]
+                diff_0 = -target_image.shape[0] + array.shape[0]
+                diff_1 = -target_image.shape[1] + array.shape[1]
+                if diff_1 != diff_0 or diff_1 <= 0 or diff_0 % 2 != 0:
+                    continue
+                if (
+                    array[diff_0 // 2 : -diff_0 // 2, diff_0 // 2 : -diff_0 // 2]
+                    == target_image
+                ).all():
+                    # print(block)
+                    for params in block["params"]:
+                        local_candidates.append({"i": diff_0 // 2, "block": params})
+        else:
+            for candidate in self.solution_candidates:
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], candidate
+                )
+
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+# TODO: targets based logic
+# TODO: pattern transfer
+# TODO: mask to answer
