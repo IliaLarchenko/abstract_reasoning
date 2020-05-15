@@ -2057,7 +2057,7 @@ class reconstruct_mosaic_rr(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def check_surface(self, image, i, j, color, direction, reuse_edge):
+    def check_surface(self, image, i, j, color, direction, reuse_edge, keep_bg):
         blocks = []
         blocks.append(image[i:, j:])
         if direction == "rotate":
@@ -2091,6 +2091,13 @@ class reconstruct_mosaic_rr(predictor):
                 temp_block[temp_block == color] = curr_block[temp_block == color]
             else:
                 return 2, None
+
+        if not keep_bg and (full_block == color).any():
+            temp_block = full_block[: min(size), : min(size)]
+            temp_block[temp_block == color] = temp_block.T[temp_block == color]
+
+        if not keep_bg and (full_block == color).any():
+            return 3, None
 
         result = image.copy()
         result[i:, j:] = full_block[: blocks[0].shape[0], : blocks[0].shape[1]]
@@ -2155,6 +2162,7 @@ class reconstruct_mosaic_rr(predictor):
                     params["color"],
                     params["direction"],
                     params["reuse_edge"],
+                    params["keep_bg"],
                 )
                 if status != 0:
                     continue
@@ -2172,6 +2180,7 @@ class reconstruct_mosaic_rr(predictor):
         if initial:
             directions = ["rotate", "reflect"]
             reuse_edge_options = [True, False]
+            keep_bg_options = [True, False]
         else:
             directions = list(
                 set([params["direction"] for params in self.solution_candidates])
@@ -2179,19 +2188,29 @@ class reconstruct_mosaic_rr(predictor):
             reuse_edge_options = list(
                 set([params["reuse_edge"] for params in self.solution_candidates])
             )
+            keep_bg_options = list(
+                set([params["keep_bg"] for params in self.solution_candidates])
+            )
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for direction in directions:
                 for reuse_edge in reuse_edge_options:
-                    params = {
-                        "color": color,
-                        "direction": direction,
-                        "reuse_edge": reuse_edge,
-                    }
+                    for keep_bg in keep_bg_options:
+                        if not keep_bg and (target_image == color).any():
+                            continue
+                        params = {
+                            "color": color,
+                            "direction": direction,
+                            "reuse_edge": reuse_edge,
+                            "keep_bg": keep_bg,
+                        }
 
-                    local_candidates = local_candidates + self.add_candidates_list(
-                        original_image, target_image, self.sample["train"][k], params
-                    )
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
         return self.update_solution_candidates(local_candidates, initial)
 
 
@@ -2327,6 +2346,7 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
                     params["color"],
                     params["direction"],
                     params["reuse_edge"],
+                    params["keep_bg"],
                 )
                 if status != 0:
                     continue
@@ -2346,12 +2366,16 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
         if initial:
             directions = ["rotate", "reflect"]
             reuse_edge_options = [True, False]
+            keep_bg_options = [True, False]
         else:
             directions = list(
                 set([params["direction"] for params in self.solution_candidates])
             )
             reuse_edge_options = list(
                 set([params["reuse_edge"] for params in self.solution_candidates])
+            )
+            keep_bg_options = list(
+                set([params["keep_bg"] for params in self.solution_candidates])
             )
 
         for color in self.sample["train"][k]["colors_sorted"]:
@@ -2364,15 +2388,22 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
                 continue
             for direction in directions:
                 for reuse_edge in reuse_edge_options:
-                    params = {
-                        "color": color,
-                        "direction": direction,
-                        "reuse_edge": reuse_edge,
-                    }
+                    for keep_bg in keep_bg_options:
+                        if not keep_bg and (target_image == color).any():
+                            continue
+                        params = {
+                            "color": color,
+                            "direction": direction,
+                            "reuse_edge": reuse_edge,
+                            "keep_bg": keep_bg,
+                        }
 
-                    local_candidates = local_candidates + self.add_candidates_list(
-                        original_image, target_image, self.sample["train"][k], params
-                    )
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
         return self.update_solution_candidates(local_candidates, initial)
 
 
