@@ -2176,6 +2176,83 @@ class replace_column(predictor):
         return 0
 
 
+class cell_to_column(predictor):
+    """replace any grid cell with  fixed column"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def init_call(self):
+        self.original_patterns = []
+        self.target_patterns = []
+        self.solution_candidates = [{"placeholder": 0}]
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result_list = []
+
+        color, size = find_grid(image)
+        if color < 0:
+            return 2, None
+        if size[1] != 1 and size[0] != 1:
+            return 1, None
+        if size[1] == 1:
+            cell_width = (image.shape[1] - (size[1] - 1)) // size[1]
+            cells = [image[:, i * (cell_width + 1) : i * (cell_width + 1) + cell_width] for i in range(size[1])]
+        else:
+            cell_height = (image.shape[0] - (size[0] - 1)) // size[0]
+            cells = [image[i * (cell_height + 1) : i * (cell_height + 1) + cell_height] for i in range(size[0])]
+
+        for cell in cells:
+            found = False
+            for j, original_cell in enumerate(self.original_patterns):
+                if cell.shape == original_cell.shape and (original_cell == cell).all():
+                    found = True
+                    result_list.append(self.target_patterns[j].reshape((-1, 1)))
+            if not found:
+                return 1, None
+        result = np.concatenate(result_list, 1)
+
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        original_image, target_image = self.get_images(k)
+
+        color, size = find_grid(original_image)
+        if color < 0:
+            return 2
+        if size[1] != 1 and size[0] != 1:
+            return 1
+        if size[1] == 1:
+            cell_width = (original_image.shape[1] - (size[1] - 1)) // size[1]
+            cells = [original_image[:, i * (cell_width + 1) : i * (cell_width + 1) + cell_width] for i in range(size[1])]
+        else:
+            cell_height = (original_image.shape[0] - (size[0] - 1)) // size[0]
+            cells = [original_image[i * (cell_height + 1) : i * (cell_height + 1) + cell_height] for i in range(size[0])]
+
+        if len(cells) != target_image.shape[1]:
+            return 3
+
+        for i, cell in enumerate(cells):
+            target_column = target_image[:, i]
+            found = False
+            for j, original_cell in enumerate(self.original_patterns):
+                if (
+                    len(target_column) != len(self.target_patterns[j])
+                    or not (target_column == self.target_patterns[j]).all()
+                ):
+                    return 3
+                else:
+                    found = True
+                    break
+            if not found:
+                self.original_patterns.append(cell)
+                self.target_patterns.append(target_column)
+
+        return 0
+
+
 # TODO: targets based logic
 # TODO: pattern transfer
 # TODO: mask to answer
