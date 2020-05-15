@@ -2476,8 +2476,10 @@ class fill_lines(predictor):
                         result[i] = params["fill_color"]
                     if params["hor"]:
                         result[:, j] = params["fill_color"]
-
-        result[image == params["keep_color"]] = params["keep_color"]
+        if params["keep"]:
+            result[image == params["keep_color"]] = params["keep_color"]
+        else:
+            result[image != params["keep_color"]] = image[image != params["keep_color"]]
         return 0, result
 
     def process_one_sample(self, k, initial=False):
@@ -2494,24 +2496,26 @@ class fill_lines(predictor):
                     if not hor and not vert:
                         continue
                     for fill_color in range(10):
-                        for keep_color in self.sample["train"][k]["colors_sorted"]:
-                            params = {
-                                "color": color,
-                                "hor": hor,
-                                "vert": vert,
-                                "fill_color": fill_color,
-                                "keep_color": keep_color,
-                            }
+                        for keep in [True, False]:
+                            for keep_color in self.sample["train"][k]["colors_sorted"]:
+                                params = {
+                                    "color": color,
+                                    "hor": hor,
+                                    "vert": vert,
+                                    "fill_color": fill_color,
+                                    "keep_color": keep_color,
+                                    "keep": keep,
+                                }
 
-                            local_candidates = (
-                                local_candidates
-                                + self.add_candidates_list(
-                                    original_image,
-                                    target_image,
-                                    self.sample["train"][k],
-                                    params,
+                                local_candidates = (
+                                    local_candidates
+                                    + self.add_candidates_list(
+                                        original_image,
+                                        target_image,
+                                        self.sample["train"][k],
+                                        params,
+                                    )
                                 )
-                            )
         return self.update_solution_candidates(local_candidates, initial)
 
 
