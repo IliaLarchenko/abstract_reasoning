@@ -1899,7 +1899,7 @@ class reconstruct_mosaic(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def check_surface(self, image, i, j, block, color):
+    def check_surface(self, image, i, j, block, color, bg):
         b = (image.shape[0] - i) // block.shape[0] + int(
             ((image.shape[0] - i) % block.shape[0]) > 0
         )
@@ -1933,10 +1933,11 @@ class reconstruct_mosaic(predictor):
                     blocks.append(new_block)
                 else:
                     return 1, None
+
         new_block = block.copy()
         for curr_block in blocks:
             mask = np.logical_and(new_block != color, curr_block != color)
-            if (new_block == block)[mask].all():
+            if (new_block == curr_block)[mask].all():
                 new_block[new_block == color] = curr_block[new_block == color]
             else:
                 return 2, None
@@ -1948,21 +1949,21 @@ class reconstruct_mosaic(predictor):
                     n * block.shape[1] : (n + 1) * block.shape[1],
                 ] = new_block
 
-        if (new_block == color).any():
+        if (new_block == color).any() and not bg:
+            temp_array = np.concatenate([new_block, new_block], 0)
+            temp_array = np.concatenate([temp_array, temp_array], 1)
             for k in range(new_block.shape[0]):
                 for n in range(new_block.shape[1]):
-                    mask = np.logical_and(
-                        new_block[k:, n:] != color,
-                        new_block[: new_block.shape[0] - k, : new_block.shape[1] - n]
-                        != color,
-                    )
-                    if (
-                        new_block[k:, n:]
-                        == new_block[: new_block.shape[0] - k, : new_block.shape[1] - n]
-                    )[mask].all():
-                        new_block[k:, n:][new_block[k:, n:] == color] = new_block[
-                            : new_block.shape[0] - k, : new_block.shape[1] - n
-                        ][new_block[k:, n:] == color]
+                    current_array = temp_array[
+                        k : k + new_block.shape[0], n : n + new_block.shape[1]
+                    ]
+                    mask = np.logical_and(new_block != color, current_array != color)
+                    if (new_block == current_array)[mask].all():
+                        new_block[new_block == color] = current_array[
+                            new_block == color
+                        ]
+        if (new_block == color).any() and not bg:
+            return 3, None
 
         result = full_image[
             start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]
@@ -1997,7 +1998,12 @@ class reconstruct_mosaic(predictor):
                     for j_min in range(min(image.shape[1], j_size)):
                         block = image[i_min : i_min + i_size, j_min : j_min + j_size]
                         status, predict = self.check_surface(
-                            image, i_min, j_min, block, params["color"]
+                            image,
+                            i_min,
+                            j_min,
+                            block,
+                            params["color"],
+                            params["have_bg"],
                         )
                         if status != 0:
                             continue
@@ -2012,18 +2018,40 @@ class reconstruct_mosaic(predictor):
         if original_image.shape != target_image.shape:
             return 1, None
 
-        for color in [0] + self.sample["train"][k]["colors_sorted"]:
-            for direction in ["vert", "hor", "all"]:
-                for big_first in [True, False]:
-                    params = {
-                        "color": color,
-                        "direction": direction,
-                        "big_first": big_first,
-                    }
+        if initial:
+            directions = ["vert", "hor", "all"]
+            big_first_options = [True, False]
+            have_bg_options = [True, False]
+        else:
+            directions = list(
+                set([params["direction"] for params in self.solution_candidates])
+            )
+            big_first_options = list(
+                set([params["big_first"] for params in self.solution_candidates])
+            )
+            have_bg_options = list(
+                set([params["have_bg"] for params in self.solution_candidates])
+            )
 
-                    local_candidates = local_candidates + self.add_candidates_list(
-                        original_image, target_image, self.sample["train"][k], params
-                    )
+        for color in self.sample["train"][k]["colors_sorted"]:
+            for direction in directions:
+                for big_first in big_first_options:
+                    for have_bg in have_bg_options:
+                        if (target_image == color).any() and not have_bg:
+                            continue
+                        params = {
+                            "color": color,
+                            "direction": direction,
+                            "big_first": big_first,
+                            "have_bg": have_bg,
+                        }
+
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
         return self.update_solution_candidates(local_candidates, initial)
 
 
