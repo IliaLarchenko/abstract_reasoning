@@ -1,11 +1,6 @@
 import numpy as np
 from src.preprocessing import get_color, get_color_scheme, get_dict_hash
-from src.functions import (
-    filter_list_of_dicts,
-    combine_two_lists,
-    intersect_two_lists,
-    swap_two_colors,
-)
+from src.functions import filter_list_of_dicts, combine_two_lists, intersect_two_lists, swap_two_colors
 from src.preprocessing import find_grid, get_predict, get_mask_from_block_params
 import random
 from scipy import ndimage
@@ -72,20 +67,14 @@ class predictor:
     def get_images(self, k, train=True):
         if train:
             if self.rrr_input:
-                original_image = self.reflect_rotate_roll(
-                    np.uint8(self.sample["train"][k]["input"])
-                )
+                original_image = self.reflect_rotate_roll(np.uint8(self.sample["train"][k]["input"]))
             else:
                 original_image = np.uint8(self.sample["train"][k]["input"])
-            target_image = self.reflect_rotate_roll(
-                np.uint8(self.sample["train"][k]["output"])
-            )
+            target_image = self.reflect_rotate_roll(np.uint8(self.sample["train"][k]["output"]))
             return original_image, target_image
         else:
             if self.rrr_input:
-                original_image = self.reflect_rotate_roll(
-                    np.uint8(self.sample["test"][k]["input"])
-                )
+                original_image = self.reflect_rotate_roll(np.uint8(self.sample["test"][k]["input"]))
             else:
                 original_image = np.uint8(self.sample["test"][k]["input"])
             return original_image
@@ -99,17 +88,9 @@ class predictor:
 
     def filter_colors(self):
         for i in range(10):
-            list_of_colors = [
-                get_dict_hash(color_dict)
-                for color_dict in self.sample["train"][0]["colors"][i]
-            ]
+            list_of_colors = [get_dict_hash(color_dict) for color_dict in self.sample["train"][0]["colors"][i]]
             for color_scheme in self.sample["train"][1:]:
-                new_set = set(
-                    [
-                        get_dict_hash(color_dict)
-                        for color_dict in color_scheme["colors"][i]
-                    ]
-                )
+                new_set = set([get_dict_hash(color_dict) for color_dict in color_scheme["colors"][i]])
                 list_of_colors = [x for x in list_of_colors if x in new_set]
                 if len(list_of_colors) == 0:
                     break
@@ -150,11 +131,7 @@ class predictor:
         params["mask_cache"] = color_scheme["masks"]
 
         status, prediction = self.predict_output(image, params)
-        if (
-            status != 0
-            or prediction.shape != target_image.shape
-            or not (prediction == target_image).all()
-        ):
+        if status != 0 or prediction.shape != target_image.shape or not (prediction == target_image).all():
             return []
 
         result = [old_params.copy()]
@@ -174,9 +151,7 @@ class predictor:
         if initial:
             self.solution_candidates = local_candidates
         else:
-            self.solution_candidates = filter_list_of_dicts(
-                local_candidates, self.solution_candidates
-            )
+            self.solution_candidates = filter_list_of_dicts(local_candidates, self.solution_candidates)
         if len(self.solution_candidates) == 0:
             return 4
         else:
@@ -210,9 +185,7 @@ class predictor:
                 original_image = self.get_images(test_n, train=False)
                 color_scheme = self.sample["test"][test_n]
                 for params_dict in self.solution_candidates:
-                    status, params = self.retrive_params_values(
-                        params_dict, color_scheme
-                    )
+                    status, params = self.retrive_params_values(params_dict, color_scheme)
                     if status != 0:
                         continue
                     params["block_cache"] = self.sample["test"][test_n]["blocks"]
@@ -242,21 +215,13 @@ class fill(predictor):
         if "pattern" in params:
             self.pattern = params["pattern"]
         else:
-            self.pattern = np.array(
-                [[True, True, True], [True, False, True], [True, True, True]]
-            )
+            self.pattern = np.array([[True, True, True], [True, False, True], [True, True, True]])
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         result = image.copy()
-        if (
-            params["process_type"] == "isolated"
-            or params["process_type"] == "isolated_non_bg"
-        ):
-            image_with_borders = (
-                np.ones((image.shape[0] + 2, image.shape[1] + 2))
-                * params["background_color"]
-            )
+        if params["process_type"] == "isolated" or params["process_type"] == "isolated_non_bg":
+            image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * params["background_color"]
         else:
             image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
         image_with_borders[1:-1, 1:-1] = image
@@ -264,58 +229,44 @@ class fill(predictor):
             for j in range(1, image_with_borders.shape[1] - 1):
                 if params["process_type"] == "outer":
                     if image[i - 1, j - 1] == params["fill_color"]:
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
-                            np.array(self.pattern)
-                        ] = params["background_color"]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] = params[
+                            "background_color"
+                        ]
                 elif params["process_type"] == "inner":
                     if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
-                            np.array(self.pattern)
-                        ]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
                         == params["background_color"]
                     ).all():
                         result[i - 1, j - 1] = params["fill_color"]
                 elif params["process_type"] == "inner_ignore_background":
                     if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
-                            np.array(self.pattern)
-                        ]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
                         != params["background_color"]
                     ).all():
                         result[i - 1, j - 1] = params["fill_color"]
                 elif params["process_type"] == "isolated":
                     if not (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
-                            np.array(self.pattern)
-                        ]
-                        == params["fill_color"]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] == params["fill_color"]
                     ).any():
                         result[i - 1, j - 1] = params["background_color"]
                 elif params["process_type"] == "isolated_non_bg":
                     if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
-                            np.array(self.pattern)
-                        ]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
                         == params["background_color"]
                     ).all() and image[i - 1, j - 1] != params["background_color"]:
                         result[i - 1, j - 1] = params["fill_color"]
                 elif params["process_type"] == "full":
-                    if (
-                        i - 1 + self.pattern.shape[0] > image.shape[0]
-                        or j - 1 + self.pattern.shape[1] > image.shape[1]
-                    ):
+                    if i - 1 + self.pattern.shape[0] > image.shape[0] or j - 1 + self.pattern.shape[1] > image.shape[1]:
                         continue
                     if (
-                        image[
-                            i - 1 : i - 1 + self.pattern.shape[0],
-                            j - 1 : j - 1 + self.pattern.shape[1],
-                        ][np.array(self.pattern)]
+                        image[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
+                            np.array(self.pattern)
+                        ]
                         == params["background_color"]
                     ).all():
-                        result[
-                            i - 1 : i - 1 + self.pattern.shape[0],
-                            j - 1 : j - 1 + self.pattern.shape[1],
-                        ][np.array(self.pattern)] = params["fill_color"]
+                        result[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
+                            np.array(self.pattern)
+                        ] = params["fill_color"]
 
                 else:
                     return 6, None
@@ -335,19 +286,10 @@ class fill(predictor):
             for fill_color in range(10):
                 if not (target_image == fill_color).any():
                     continue
-                mask = np.logical_and(
-                    target_image != background_color, target_image != fill_color
-                )
+                mask = np.logical_and(target_image != background_color, target_image != fill_color)
                 if not (target_image == original_image)[mask].all():
                     continue
-                for process_type in [
-                    "outer",
-                    "full",
-                    "isolated_non_bg",
-                    "isolated",
-                    "inner_ignore_background",
-                    "inner",
-                ]:
+                for process_type in ["outer", "full", "isolated_non_bg", "isolated", "inner_ignore_background", "inner"]:
                     params = {
                         "background_color": background_color,
                         "fill_color": fill_color,
@@ -381,9 +323,7 @@ class puzzle(predictor):
         else:
             for i in range(1, t_n + 1):
                 for j in range(1, t_m + 1):
-                    if (t_n - self.intersection) % i == 0 and (
-                        t_m - self.intersection
-                    ) % j == 0:
+                    if (t_n - self.intersection) % i == 0 and (t_m - self.intersection) % j == 0:
                         factors.append([i, j])
         return factors, grid_color_list
 
@@ -395,9 +335,7 @@ class puzzle(predictor):
         skip = False
         for i in range(factor[0]):
             for j in range(factor[1]):
-                status, array = get_predict(
-                    image, params[i][j][0], block_cache, color_scheme
-                )
+                status, array = get_predict(image, params[i][j][0], block_cache, color_scheme)
                 if status != 0:
                     skip = True
                     break
@@ -413,9 +351,7 @@ class puzzle(predictor):
                         )
                     )
                     if self.intersection < 0:
-                        predict += get_color(
-                            self.grid_color_list[0], color_scheme["colors"]
-                        )
+                        predict += get_color(self.grid_color_list[0], color_scheme["colors"])
                 else:
                     if n != array.shape[0] or m != array.shape[1]:
                         skip = True
@@ -457,9 +393,7 @@ class puzzle(predictor):
             for i in range(factor[0]):
                 for j in range(factor[1]):
                     if initial:
-                        local_candidates = self.sample["train"][k]["blocks"][
-                            "arrays"
-                        ].keys()
+                        local_candidates = self.sample["train"][k]["blocks"]["arrays"].keys()
                         # print(local_candidates)
                     else:
                         local_candidates = self.solution_candidates[n_factor][i][j]
@@ -467,19 +401,12 @@ class puzzle(predictor):
                     for data in local_candidates:
                         if initial:
                             # print(data)
-                            array = self.sample["train"][k]["blocks"]["arrays"][data][
-                                "array"
-                            ]
-                            params = self.sample["train"][k]["blocks"]["arrays"][data][
-                                "params"
-                            ]
+                            array = self.sample["train"][k]["blocks"]["arrays"][data]["array"]
+                            params = self.sample["train"][k]["blocks"]["arrays"][data]["params"]
                         else:
                             params = [data]
                             status, array = get_predict(
-                                original_image,
-                                data,
-                                self.sample["train"][k]["blocks"],
-                                color_scheme,
+                                original_image, data, self.sample["train"][k]["blocks"], color_scheme
                             )
                             if status != 0:
                                 continue
@@ -489,10 +416,8 @@ class puzzle(predictor):
                         if n <= 0 or m <= 0:
                             continue
                         if (
-                            n - self.intersection
-                            != (t_n - self.intersection) / factor[0]
-                            or m - self.intersection
-                            != (t_m - self.intersection) / factor[1]
+                            n - self.intersection != (t_n - self.intersection) / factor[0]
+                            or m - self.intersection != (t_m - self.intersection) / factor[1]
                         ):
                             continue
 
@@ -500,28 +425,13 @@ class puzzle(predictor):
                         start_m = j * (m - self.intersection)
 
                         if not (
-                            (
-                                n
-                                == target_image[
-                                    start_n : start_n + n, start_m : start_m + m
-                                ].shape[0]
-                            )
-                            and (
-                                m
-                                == target_image[
-                                    start_n : start_n + n, start_m : start_m + m
-                                ].shape[1]
-                            )
+                            (n == target_image[start_n : start_n + n, start_m : start_m + m].shape[0])
+                            and (m == target_image[start_n : start_n + n, start_m : start_m + m].shape[1])
                         ):
                             continue
 
                         # adding the candidate to the candidates list
-                        if (
-                            array
-                            == target_image[
-                                start_n : start_n + n, start_m : start_m + m
-                            ]
-                        ).all():
+                        if (array == target_image[start_n : start_n + n, start_m : start_m + m]).all():
                             new_candidates[n_factor][i][j].extend(params)
                             candidates_num += 1
                     # if there is no candidates for one of the cells the whole factor is invalid
@@ -559,9 +469,7 @@ class puzzle(predictor):
             else:
                 local_factors, grid_color_list = self.initiate_factors(target_image)
                 self.filter_factors(local_factors)
-                self.grid_color_list = filter_list_of_dicts(
-                    grid_color_list, self.grid_color_list
-                )
+                self.grid_color_list = filter_list_of_dicts(grid_color_list, self.grid_color_list)
 
             status = self.process_one_sample(k, initial=(k == 0))
             if status != 0:
@@ -622,10 +530,7 @@ class pattern(predictor):
             self.try_self = False
             return []
 
-        size = [
-            target_image.shape[0] // original_image.shape[0],
-            target_image.shape[1] // original_image.shape[1],
-        ]
+        size = [target_image.shape[0] // original_image.shape[0], target_image.shape[1] // original_image.shape[1]]
 
         if size[0] != original_image.shape[0] or size[1] != original_image.shape[1]:
             self.try_self = False
@@ -634,9 +539,7 @@ class pattern(predictor):
             return []
         for i in range(original_image.shape[0]):
             for j in range(original_image.shape[1]):
-                current_block = target_image[
-                    i * size[0] : (i + 1) * size[0], j * size[1] : (j + 1) * size[1]
-                ]
+                current_block = target_image[i * size[0] : (i + 1) * size[0], j * size[1] : (j + 1) * size[1]]
                 pattern_list = combine_two_lists(pattern_list, [current_block])
 
         return pattern_list
@@ -690,9 +593,7 @@ class pattern(predictor):
         if len(self.all_patterns) + len(self.additional_patterns) == 0:
             return 6
 
-        for pattern_num in (
-            list(range(len(self.all_patterns))) + self.additional_patterns
-        ):
+        for pattern_num in list(range(len(self.all_patterns))) + self.additional_patterns:
             for mask_color in range(10):
                 if not (original_image == mask_color).any():
                     continue
@@ -709,19 +610,11 @@ class pattern(predictor):
                                 "swap": swap,
                             }
 
-                            status, predict = self.predict_output(
-                                original_image, params
-                            )
+                            status, predict = self.predict_output(original_image, params)
 
                             if status == 0 and (predict == target_image).all():
-                                local_candidates = (
-                                    local_candidates
-                                    + self.add_candidates_list(
-                                        original_image,
-                                        target_image,
-                                        self.sample["train"][k],
-                                        params,
-                                    )
+                                local_candidates = local_candidates + self.add_candidates_list(
+                                    original_image, target_image, self.sample["train"][k], params
                                 )
 
         return self.update_solution_candidates(local_candidates, initial)
@@ -746,10 +639,7 @@ class mask_to_block(predictor):
 
     def predict_output(self, image, params):
         status, block = get_predict(
-            image,
-            params["block"],
-            block_cache=params["block_cache"],
-            color_scheme=params["color_scheme"],
+            image, params["block"], block_cache=params["block_cache"], color_scheme=params["color_scheme"]
         )
 
         if status != 0:
@@ -791,8 +681,7 @@ class mask_to_block(predictor):
         for block_hash, block in self.sample["train"][k]["blocks"]["arrays"].items():
             # print(ignore_mask)
             if (block["array"].shape == target_image.shape) and (
-                block["array"][np.logical_not(ignore_mask)]
-                == target_image[np.logical_not(ignore_mask)]
+                block["array"][np.logical_not(ignore_mask)] == target_image[np.logical_not(ignore_mask)]
             ).all():
                 results.append(block_hash)
 
@@ -806,9 +695,7 @@ class mask_to_block(predictor):
             status, blocks = self.add_block(target_image, ignore_mask, k)
             if status != 0:
                 return 8, None
-            result = [
-                {"block": block, "masks": masks, "colors": colors} for block in blocks
-            ]
+            result = [{"block": block, "masks": masks, "colors": colors} for block in blocks]
             return 0, result
 
         result = []
@@ -841,35 +728,23 @@ class mask_to_block(predictor):
 
         if initial:
             ignore_mask = np.zeros_like(target_image, dtype=bool)
-            status, candidates = self.generate_result(
-                target_image, [], [], ignore_mask, k
-            )
+            status, candidates = self.generate_result(target_image, [], [], ignore_mask, k)
             if status != 0:
                 return status
             candidates = [
                 {"block": block_params, "masks": x["masks"], "colors": x["colors"]}
                 for x in candidates
-                for block_params in self.sample["train"][k]["blocks"]["arrays"][
-                    x["block"]
-                ]["params"]
+                for block_params in self.sample["train"][k]["blocks"]["arrays"][x["block"]]["params"]
             ]
             for i in range(self.mask_num):
                 candidates = [
                     {
                         "block": x["block"],
-                        "masks": [
-                            x["masks"][j] if j != i else mask_param
-                            for j in range(self.mask_num)
-                        ],
-                        "colors": [
-                            x["colors"][j] if j != i else color_param
-                            for j in range(self.mask_num)
-                        ],
+                        "masks": [x["masks"][j] if j != i else mask_param for j in range(self.mask_num)],
+                        "colors": [x["colors"][j] if j != i else color_param for j in range(self.mask_num)],
                     }
                     for x in candidates
-                    for mask_param in self.sample["train"][k]["masks"]["arrays"][
-                        x["masks"][i]
-                    ]["params"]
+                    for mask_param in self.sample["train"][k]["masks"]["arrays"][x["masks"][i]]["params"]
                     for color_param in self.sample["train"][k]["colors"][x["colors"][i]]
                 ]
 
@@ -883,10 +758,7 @@ class mask_to_block(predictor):
                 status, prediction = self.predict_output(original_image, params)
                 if status != 0:
                     continue
-                if (
-                    prediction.shape == target_image.shape
-                    and (prediction == target_image).all()
-                ):
+                if prediction.shape == target_image.shape and (prediction == target_image).all():
                     candidates.append(candidate)
 
         self.solution_candidates = candidates
@@ -953,10 +825,7 @@ class pattern_from_blocks(pattern):
     def predict_output(self, image, params, pattern=None, mask=None, target_image=None):
         if pattern is None:
             status, pattern = get_predict(
-                image,
-                params["pattern"],
-                block_cache=params["block_cache"],
-                color_scheme=params["color_scheme"],
+                image, params["pattern"], block_cache=params["block_cache"], color_scheme=params["color_scheme"]
             )
             if status != 0:
                 return 1, None
@@ -971,12 +840,8 @@ class pattern_from_blocks(pattern):
             if status != 0:
                 return 2, None
         if target_image is not None:
-            big_mask = np.repeat(
-                np.repeat(mask, pattern.shape[0], 0), pattern.shape[1], 1
-            )
-            if not (
-                target_image[np.logical_not(big_mask)] == params["background_color"]
-            ).all():
+            big_mask = np.repeat(np.repeat(mask, pattern.shape[0], 0), pattern.shape[1], 1)
+            if not (target_image[np.logical_not(big_mask)] == params["background_color"]).all():
                 return 7, None
 
         size = (mask.shape[0] * pattern.shape[0], mask.shape[1] * pattern.shape[1])
@@ -1011,10 +876,7 @@ class pattern_from_blocks(pattern):
         if initial:
             for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
                 pattern = block["array"]
-                if (
-                    target_image.shape[0] % pattern.shape[0] != 0
-                    or target_image.shape[1] % pattern.shape[1] != 0
-                ):
+                if target_image.shape[0] % pattern.shape[0] != 0 or target_image.shape[1] % pattern.shape[1] != 0:
                     continue
                 for _, mask_path in self.sample["train"][k]["masks"]["arrays"].items():
                     mask = mask_path["array"]
@@ -1028,16 +890,12 @@ class pattern_from_blocks(pattern):
                             continue
                         params = {"background_color": background_color}
 
-                        status, predict = self.predict_output(
-                            original_image, params, pattern=pattern, mask=mask
-                        )
+                        status, predict = self.predict_output(original_image, params, pattern=pattern, mask=mask)
 
                         if status == 0 and (predict == target_image).all():
                             for pattern_params in block["params"]:
                                 for mask_params in mask_path["params"]:
-                                    for color_dict in self.sample["train"][k]["colors"][
-                                        background_color
-                                    ]:
+                                    for color_dict in self.sample["train"][k]["colors"][background_color]:
                                         params = {
                                             "background_color": color_dict,
                                             "mask": mask_params,
@@ -1052,17 +910,11 @@ class pattern_from_blocks(pattern):
 
             for candidate in self.solution_candidates:
                 status, pattern = get_predict(
-                    original_image,
-                    candidate["pattern"],
-                    block_cache=block_cache,
-                    color_scheme=color_scheme,
+                    original_image, candidate["pattern"], block_cache=block_cache, color_scheme=color_scheme
                 )
                 if status != 0:
                     continue
-                if (
-                    target_image.shape[0] % pattern.shape[0] != 0
-                    or target_image.shape[1] % pattern.shape[1] != 0
-                ):
+                if target_image.shape[0] % pattern.shape[0] != 0 or target_image.shape[1] % pattern.shape[1] != 0:
                     continue
 
                 status, mask = get_mask_from_block_params(
@@ -1079,19 +931,13 @@ class pattern_from_blocks(pattern):
                     or target_image.shape[1] != pattern.shape[1] * mask.shape[1]
                 ):
                     continue
-                background_color = get_color(
-                    candidate["background_color"], color_scheme["colors"]
-                )
+                background_color = get_color(candidate["background_color"], color_scheme["colors"])
                 if not (target_image == background_color).any():
                     continue
                 params = {"background_color": background_color}
 
                 status, predict = self.predict_output(
-                    original_image,
-                    params,
-                    pattern=pattern,
-                    mask=mask,
-                    target_image=target_image,
+                    original_image, params, pattern=pattern, mask=mask, target_image=target_image
                 )
 
                 if status == 0 and (predict == target_image).all():
@@ -1122,34 +968,21 @@ class colors(predictor):
             return 0, np.array([[params["color"] * num]])
         if params["type"] == "several_linear":
             colors_array = np.rot90(
-                np.array(
-                    [
-                        params["color_scheme"]["colors_sorted"][
-                            params["i"] : params["i"] + params["size"]
-                        ]
-                    ]
-                ),
+                np.array([params["color_scheme"]["colors_sorted"][params["i"] : params["i"] + params["size"]]]),
                 params["rotate"],
             )
             return 0, colors_array
 
         if params["type"] == "square":
             colors_array = np.zeros((params["size"] * 2 + 1, params["size"] * 2 + 1))
-            if (
-                len(params["color_scheme"]["colors_sorted"])
-                < params["i"] + params["size"]
-            ):
+            if len(params["color_scheme"]["colors_sorted"]) < params["i"] + params["size"]:
                 return 6, None
             if params["direct"] == 0:
                 for j in range(params["size"]):
-                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][
-                        params["i"] + j
-                    ]
+                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][params["i"] + j]
             else:
                 for j in range(params["size"]):
-                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][::-1][
-                        params["i"] + j
-                    ]
+                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][::-1][params["i"] + j]
             return 0, colors_array
 
         return 9, None
@@ -1180,17 +1013,9 @@ class colors(predictor):
                 size_diff = self.sample["train"][k]["colors_num"] - size
                 for i in range(size_diff + 1):
                     for rotate in range(4):
-                        params = {
-                            "type": "several_linear",
-                            "i": i,
-                            "rotate": rotate,
-                            "size": size,
-                        }
+                        params = {"type": "several_linear", "i": i, "rotate": rotate, "size": size}
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
         if target_image.shape[0] == target_image.shape[1]:
             size = target_image.shape[0] // 2
@@ -1198,17 +1023,9 @@ class colors(predictor):
                 size_diff = self.sample["train"][k]["colors_num"] - size
                 for i in range(size_diff + 1):
                     for direct in range(2):
-                        params = {
-                            "type": "square",
-                            "i": i,
-                            "direct": direct,
-                            "size": size,
-                        }
+                        params = {"type": "square", "i": i, "direct": direct, "size": size}
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
 
         return self.update_solution_candidates(local_candidates, initial)
@@ -1264,9 +1081,7 @@ class gravity(predictor):
             for rotate in range(0, 4):
                 for steps in ["all"] + list(range(max(original_image.shape))):
                     for fill in ["no", "self", "color", "to_point"]:
-                        for i, fill_color in enumerate(
-                            self.sample["train"][k]["colors_sorted"]
-                        ):
+                        for i, fill_color in enumerate(self.sample["train"][k]["colors_sorted"]):
                             if fill == "color" and fill_color == color:
                                 continue
                             params = {
@@ -1277,14 +1092,8 @@ class gravity(predictor):
                                 "fill": fill,
                             }
 
-                            local_candidates = (
-                                local_candidates
-                                + self.add_candidates_list(
-                                    original_image,
-                                    target_image,
-                                    self.sample["train"][k],
-                                    params,
-                                )
+                            local_candidates = local_candidates + self.add_candidates_list(
+                                original_image, target_image, self.sample["train"][k], params
                             )
                             if fill != "color":
                                 break
@@ -1328,21 +1137,14 @@ class gravity_blocks(predictor):
                     if result[-i, j] == color and result[-i - 1, j] != color:
                         block_color = result[-i - 1, j]
                         status, mask = self.get_block_mask(
-                            result,
-                            -i - 1,
-                            j,
-                            params["block_type"],
-                            params["structure_type"],
+                            result, -i - 1, j, params["block_type"], params["structure_type"]
                         )
                         if status != 0:
                             continue
 
                         while not (mask[-1] == True).any():
                             moved_mask = np.roll(mask, 1, axis=0)
-                            if (
-                                result[np.logical_and(moved_mask, moved_mask != mask)]
-                                == color
-                            ).all():
+                            if (result[np.logical_and(moved_mask, moved_mask != mask)] == color).all():
                                 temp = result[mask]
                                 result[mask] = color
                                 result[moved_mask] = temp
@@ -1373,10 +1175,7 @@ class gravity_blocks(predictor):
                         }
 
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -1421,21 +1220,14 @@ class gravity_blocks_2_color(gravity_blocks):
                     if result[-i, j] == color and result[-i - 1, j] != color:
                         block_color = result[-i - 1, j]
                         status, mask = self.get_block_mask(
-                            result,
-                            -i - 1,
-                            j,
-                            params["block_type"],
-                            params["structure_type"],
+                            result, -i - 1, j, params["block_type"], params["structure_type"]
                         )
                         if status != 0:
                             continue
 
                         while not (mask[-1] == True).any():
                             moved_mask = np.roll(mask, 1, axis=0)
-                            if (
-                                result[np.logical_and(moved_mask, moved_mask != mask)]
-                                == color
-                            ).all():
+                            if (result[np.logical_and(moved_mask, moved_mask != mask)] == color).all():
                                 temp = result[mask]
                                 result[mask] = color
                                 result[moved_mask] = temp
@@ -1449,9 +1241,7 @@ class gravity_blocks_2_color(gravity_blocks):
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
         color = params["color"]
-        status, color_type, num = self.find_gravity_color(
-            image, params["gravity_color"]
-        )
+        status, color_type, num = self.find_gravity_color(image, params["gravity_color"])
         if status != 0:
             return status, None
 
@@ -1471,9 +1261,7 @@ class gravity_blocks_2_color(gravity_blocks):
             result = image.copy()
             result[:num] = top_image
             result[num + 1 :] = bottom_image
-            result[
-                :, np.logical_not((image == params["gravity_color"]).max(0))
-            ] = params["color"]
+            result[:, np.logical_not((image == params["gravity_color"]).max(0))] = params["color"]
         elif color_type == "vert":
             left_image = image[:, :num]
             new_params = params.copy()
@@ -1490,9 +1278,7 @@ class gravity_blocks_2_color(gravity_blocks):
             result = image.copy()
             result[:, :num] = left_image
             result[:, num + 1 :] = right_image
-            result[np.logical_not((image == params["gravity_color"]).max(1))] = params[
-                "color"
-            ]
+            result[np.logical_not((image == params["gravity_color"]).max(1))] = params["color"]
 
         return 0, result
 
@@ -1516,10 +1302,7 @@ class gravity_blocks_2_color(gravity_blocks):
                         }
 
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -1574,9 +1357,7 @@ class gravity2color(gravity_blocks_2_color):
             for gravity_color in self.sample["train"][k]["colors_sorted"]:
                 for steps in ["all"] + list(range(max(original_image.shape))):
                     for fill in ["no", "self", "color", "to_point"]:
-                        for i, fill_color in enumerate(
-                            self.sample["train"][k]["colors_sorted"]
-                        ):
+                        for i, fill_color in enumerate(self.sample["train"][k]["colors_sorted"]):
                             if fill == "color" and fill_color == color:
                                 continue
                             params = {
@@ -1587,14 +1368,8 @@ class gravity2color(gravity_blocks_2_color):
                                 "fill": fill,
                             }
 
-                            local_candidates = (
-                                local_candidates
-                                + self.add_candidates_list(
-                                    original_image,
-                                    target_image,
-                                    self.sample["train"][k],
-                                    params,
-                                )
+                            local_candidates = local_candidates + self.add_candidates_list(
+                                original_image, target_image, self.sample["train"][k], params
                             )
                             if fill != "color":
                                 break
@@ -1672,9 +1447,7 @@ class eliminate_duplicates(predictor):
                     result = np.concatenate([result[:, :i], result[:, i + 1 :]], 1)
                 elif params["elim_bg"] and (result[:, i] == params["bg_color"]).all():
                     result = np.concatenate([result[:, :i], result[:, i + 1 :]], 1)
-                elif (
-                    params["elim_bg"] and (result[:, i + 1] == params["bg_color"]).all()
-                ):
+                elif params["elim_bg"] and (result[:, i + 1] == params["bg_color"]).all():
                     result = np.concatenate([result[:, : i + 1], result[:, i + 2 :]], 1)
                 else:
                     i += 1
@@ -1690,18 +1463,10 @@ class eliminate_duplicates(predictor):
             for vert in [True, False]:
                 for elim_bg in [True, False]:
                     for bg_color in self.sample["train"][k]["colors_sorted"]:
-                        params = {
-                            "hor": hor,
-                            "vert": vert,
-                            "elim_bg": elim_bg,
-                            "bg_color": bg_color,
-                        }
+                        params = {"hor": hor, "vert": vert, "elim_bg": elim_bg, "bg_color": bg_color}
 
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
                         if not elim_bg:
                             break
@@ -1724,14 +1489,10 @@ class connect_dots(predictor):
                     if (line_mask).sum() >= params["min_in_line"]:
                         indices = [x for x in range(len(line_mask)) if line_mask[x]]
                         if params["fill_all"]:
-                            result[i, indices[0] + 1 : indices[-1]] = params[
-                                "fill_color"
-                            ]
+                            result[i, indices[0] + 1 : indices[-1]] = params["fill_color"]
                         else:
                             for j in range(len(indices) - 1):
-                                result[i, indices[j] + 1 : indices[j + 1]] = params[
-                                    "fill_color"
-                                ]
+                                result[i, indices[j] + 1 : indices[j + 1]] = params["fill_color"]
         elif part_type == "hor":
             if params["hor"] == True:
                 for i in range(result.shape[1]):
@@ -1739,14 +1500,10 @@ class connect_dots(predictor):
                     if (line_mask).sum() >= params["min_in_line"]:
                         indices = [x for x in range(len(line_mask)) if line_mask[x]]
                         if params["fill_all"]:
-                            result[indices[0] + 1 : indices[-1], i] = params[
-                                "fill_color"
-                            ]
+                            result[indices[0] + 1 : indices[-1], i] = params["fill_color"]
                         else:
                             for j in range(len(indices) - 1):
-                                result[indices[j] + 1 : indices[j + 1], i] = params[
-                                    "fill_color"
-                                ]
+                                result[indices[j] + 1 : indices[j + 1], i] = params["fill_color"]
 
         return result
 
@@ -1783,14 +1540,8 @@ class connect_dots(predictor):
                                         "min_in_line": min_in_line,
                                     }
 
-                                    local_candidates = (
-                                        local_candidates
-                                        + self.add_candidates_list(
-                                            original_image,
-                                            target_image,
-                                            self.sample["train"][k],
-                                            params,
-                                        )
+                                    local_candidates = local_candidates + self.add_candidates_list(
+                                        original_image, target_image, self.sample["train"][k], params
                                     )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -1821,9 +1572,7 @@ class connect_dots_all_colors(predictor):
                                 result[i, indices[0] + 1 : indices[-1]] = fill_color
                             else:
                                 for j in range(len(indices) - 1):
-                                    result[
-                                        i, indices[j] + 1 : indices[j + 1]
-                                    ] = fill_color
+                                    result[i, indices[j] + 1 : indices[j + 1]] = fill_color
         elif part_type == "hor":
             if params["hor"] == True:
                 for color in range(10):
@@ -1841,9 +1590,7 @@ class connect_dots_all_colors(predictor):
                                 result[indices[0] + 1 : indices[-1], i] = fill_color
                             else:
                                 for j in range(len(indices) - 1):
-                                    result[
-                                        indices[j] + 1 : indices[j + 1], i
-                                    ] = fill_color
+                                    result[indices[j] + 1 : indices[j + 1], i] = fill_color
 
         return result
 
@@ -1880,14 +1627,8 @@ class connect_dots_all_colors(predictor):
                                         "fill_self": fill_self,
                                     }
 
-                                    local_candidates = (
-                                        local_candidates
-                                        + self.add_candidates_list(
-                                            original_image,
-                                            target_image,
-                                            self.sample["train"][k],
-                                            params,
-                                        )
+                                    local_candidates = local_candidates + self.add_candidates_list(
+                                        original_image, target_image, self.sample["train"][k], params
                                     )
                                     if fill_self:
                                         break
@@ -1901,33 +1642,24 @@ class reconstruct_mosaic(predictor):
         super().__init__(params, preprocess_params)
 
     def check_surface(self, image, i, j, block, color, bg):
-        b = (image.shape[0] - i) // block.shape[0] + int(
-            ((image.shape[0] - i) % block.shape[0]) > 0
-        )
-        r = (image.shape[1] - j) // block.shape[1] + int(
-            ((image.shape[1] - j) % block.shape[1]) > 0
-        )
+        b = (image.shape[0] - i) // block.shape[0] + int(((image.shape[0] - i) % block.shape[0]) > 0)
+        r = (image.shape[1] - j) // block.shape[1] + int(((image.shape[1] - j) % block.shape[1]) > 0)
         t = (i) // block.shape[0] + int((i) % block.shape[0] > 0)
         l = (j) // block.shape[1] + int((j) % block.shape[1] > 0)
 
         # print(image.shape, t,b, l,r, i, j)
 
-        full_image = (
-            np.ones(((b + t) * block.shape[0], (r + l) * block.shape[1])) * color
-        )
+        full_image = np.ones(((b + t) * block.shape[0], (r + l) * block.shape[1])) * color
         start_i = (block.shape[0] - i) % block.shape[0]
         start_j = (block.shape[1] - j) % block.shape[1]
 
-        full_image[
-            start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]
-        ] = image
+        full_image[start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]] = image
 
         blocks = []
         for k in range((b + t)):
             for n in range((r + l)):
                 new_block = full_image[
-                    k * block.shape[0] : (k + 1) * block.shape[0],
-                    n * block.shape[1] : (n + 1) * block.shape[1],
+                    k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
                 ]
                 mask = np.logical_and(new_block != color, block != color)
                 if (new_block == block)[mask].all():
@@ -1948,27 +1680,20 @@ class reconstruct_mosaic(predictor):
             temp_array = np.concatenate([temp_array, temp_array], 1)
             for k in range(new_block.shape[0]):
                 for n in range(new_block.shape[1]):
-                    current_array = temp_array[
-                        k : k + new_block.shape[0], n : n + new_block.shape[1]
-                    ]
+                    current_array = temp_array[k : k + new_block.shape[0], n : n + new_block.shape[1]]
                     mask = np.logical_and(new_block != color, current_array != color)
                     if (new_block == current_array)[mask].all():
-                        new_block[new_block == color] = current_array[
-                            new_block == color
-                        ]
+                        new_block[new_block == color] = current_array[new_block == color]
         if (new_block == color).any() and not bg:
             return 3, None
 
         for k in range((b + t)):
             for n in range((r + l)):
                 full_image[
-                    k * block.shape[0] : (k + 1) * block.shape[0],
-                    n * block.shape[1] : (n + 1) * block.shape[1],
+                    k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
                 ] = new_block
 
-        result = full_image[
-            start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]
-        ]
+        result = full_image[start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]]
         return 0, result
 
     def predict_output(self, image, params):
@@ -1976,12 +1701,7 @@ class reconstruct_mosaic(predictor):
         itteration_list1 = list(range(2, sum(image.shape)))
         if params["big_first"]:
             itteration_list1 = list(
-                range(
-                    2,
-                    (image != params["color"]).max(1).sum()
-                    + (image != params["color"]).max(0).sum()
-                    + 1,
-                )
+                range(2, (image != params["color"]).max(1).sum() + (image != params["color"]).max(0).sum() + 1)
             )
             itteration_list1 = itteration_list1[::-1]
         for size in itteration_list1:
@@ -1998,9 +1718,7 @@ class reconstruct_mosaic(predictor):
                 # for i_min in range(min(image.shape[0], i_size)):
                 #     for j_min in range(min(image.shape[1], j_size)):
                 block = image[0 : 0 + i_size, 0 : 0 + j_size]
-                status, predict = self.check_surface(
-                    image, 0, 0, block, params["color"], params["have_bg"]
-                )
+                status, predict = self.check_surface(image, 0, 0, block, params["color"], params["have_bg"])
                 if status != 0:
                     continue
                 return 0, predict
@@ -2019,15 +1737,9 @@ class reconstruct_mosaic(predictor):
             big_first_options = [True, False]
             have_bg_options = [True, False]
         else:
-            directions = list(
-                set([params["direction"] for params in self.solution_candidates])
-            )
-            big_first_options = list(
-                set([params["big_first"] for params in self.solution_candidates])
-            )
-            have_bg_options = list(
-                set([params["have_bg"] for params in self.solution_candidates])
-            )
+            directions = list(set([params["direction"] for params in self.solution_candidates]))
+            big_first_options = list(set([params["big_first"] for params in self.solution_candidates]))
+            have_bg_options = list(set([params["have_bg"] for params in self.solution_candidates]))
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for direction in directions:
@@ -2035,18 +1747,10 @@ class reconstruct_mosaic(predictor):
                     for have_bg in have_bg_options:
                         if (target_image == color).any() and not have_bg:
                             continue
-                        params = {
-                            "color": color,
-                            "direction": direction,
-                            "big_first": big_first,
-                            "have_bg": have_bg,
-                        }
+                        params = {"color": color, "direction": direction, "big_first": big_first, "have_bg": have_bg}
 
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -2103,46 +1807,22 @@ class reconstruct_mosaic_rr(predictor):
         result[i:, j:] = full_block[: blocks[0].shape[0], : blocks[0].shape[1]]
         if direction == "rotate":
             if reuse_edge:
-                result[: i + 1, j:] = np.rot90(
-                    full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1
-                )
-                result[i:, : j + 1] = np.rot90(
-                    full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1
-                )
-                result[: i + 1, : j + 1] = np.rot90(
-                    full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2
-                )
+                result[: i + 1, j:] = np.rot90(full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1)
+                result[i:, : j + 1] = np.rot90(full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1)
+                result[: i + 1, : j + 1] = np.rot90(full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2)
             else:
-                result[:i, j:] = np.rot90(
-                    full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1
-                )
-                result[i:, :j] = np.rot90(
-                    full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1
-                )
-                result[:i, :j] = np.rot90(
-                    full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2
-                )
+                result[:i, j:] = np.rot90(full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1)
+                result[i:, :j] = np.rot90(full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1)
+                result[:i, :j] = np.rot90(full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2)
         elif direction == "reflect":
             if reuse_edge:
-                result[: i + 1, j:] = full_block[
-                    : blocks[1].shape[0], : blocks[1].shape[1]
-                ][::-1, :]
-                result[i:, : j + 1] = full_block[
-                    : blocks[2].shape[0], : blocks[2].shape[1]
-                ][:, ::-1]
-                result[: i + 1, : j + 1] = full_block[
-                    : blocks[3].shape[0], : blocks[3].shape[1]
-                ][::-1, ::-1]
+                result[: i + 1, j:] = full_block[: blocks[1].shape[0], : blocks[1].shape[1]][::-1, :]
+                result[i:, : j + 1] = full_block[: blocks[2].shape[0], : blocks[2].shape[1]][:, ::-1]
+                result[: i + 1, : j + 1] = full_block[: blocks[3].shape[0], : blocks[3].shape[1]][::-1, ::-1]
             else:
-                result[:i, j:] = full_block[: blocks[1].shape[0], : blocks[1].shape[1]][
-                    ::-1, :
-                ]
-                result[i:, :j] = full_block[: blocks[2].shape[0], : blocks[2].shape[1]][
-                    :, ::-1
-                ]
-                result[:i, :j] = full_block[: blocks[3].shape[0], : blocks[3].shape[1]][
-                    ::-1, ::-1
-                ]
+                result[:i, j:] = full_block[: blocks[1].shape[0], : blocks[1].shape[1]][::-1, :]
+                result[i:, :j] = full_block[: blocks[2].shape[0], : blocks[2].shape[1]][:, ::-1]
+                result[:i, :j] = full_block[: blocks[3].shape[0], : blocks[3].shape[1]][::-1, ::-1]
 
         return 0, result
 
@@ -2156,13 +1836,7 @@ class reconstruct_mosaic_rr(predictor):
                 if j < 1 or i < 1:
                     continue
                 status, predict = self.check_surface(
-                    image,
-                    i,
-                    j,
-                    params["color"],
-                    params["direction"],
-                    params["reuse_edge"],
-                    params["keep_bg"],
+                    image, i, j, params["color"], params["direction"], params["reuse_edge"], params["keep_bg"]
                 )
                 if status != 0:
                     continue
@@ -2182,15 +1856,9 @@ class reconstruct_mosaic_rr(predictor):
             reuse_edge_options = [True, False]
             keep_bg_options = [True, False]
         else:
-            directions = list(
-                set([params["direction"] for params in self.solution_candidates])
-            )
-            reuse_edge_options = list(
-                set([params["reuse_edge"] for params in self.solution_candidates])
-            )
-            keep_bg_options = list(
-                set([params["keep_bg"] for params in self.solution_candidates])
-            )
+            directions = list(set([params["direction"] for params in self.solution_candidates]))
+            reuse_edge_options = list(set([params["reuse_edge"] for params in self.solution_candidates]))
+            keep_bg_options = list(set([params["keep_bg"] for params in self.solution_candidates]))
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for direction in directions:
@@ -2198,18 +1866,10 @@ class reconstruct_mosaic_rr(predictor):
                     for keep_bg in keep_bg_options:
                         if not keep_bg and (target_image == color).any():
                             continue
-                        params = {
-                            "color": color,
-                            "direction": direction,
-                            "reuse_edge": reuse_edge,
-                            "keep_bg": keep_bg,
-                        }
+                        params = {"color": color, "direction": direction, "reuse_edge": reuse_edge, "keep_bg": keep_bg}
 
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -2232,12 +1892,7 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
         itteration_list1 = list(range(2, sum(image.shape)))
         if params["big_first"]:
             itteration_list1 = list(
-                range(
-                    2,
-                    (image != params["color"]).max(1).sum()
-                    + (image != params["color"]).max(0).sum()
-                    + 1,
-                )
+                range(2, (image != params["color"]).max(1).sum() + (image != params["color"]).max(0).sum() + 1)
             )
             itteration_list1 = itteration_list1[::-1]
         for size in itteration_list1:
@@ -2254,15 +1909,10 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
                 # for i_min in range(min(image.shape[0], i_size)):
                 #     for j_min in range(min(image.shape[1], j_size)):
                 block = image[0 : 0 + i_size, 0 : 0 + j_size]
-                status, predict = self.check_surface(
-                    image, 0, 0, block, params["color"], params["have_bg"]
-                )
+                status, predict = self.check_surface(image, 0, 0, block, params["color"], params["have_bg"])
                 if status != 0:
                     continue
-                predict = predict[
-                    indices0.min() : indices0.max() + 1,
-                    indices1.min() : indices1.max() + 1,
-                ]
+                predict = predict[indices0.min() : indices0.max() + 1, indices1.min() : indices1.max() + 1]
                 return 0, predict
 
         return 1, None
@@ -2277,15 +1927,9 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
             big_first_options = [True, False]
             have_bg_options = [True, False]
         else:
-            directions = list(
-                set([params["direction"] for params in self.solution_candidates])
-            )
-            big_first_options = list(
-                set([params["big_first"] for params in self.solution_candidates])
-            )
-            have_bg_options = list(
-                set([params["have_bg"] for params in self.solution_candidates])
-            )
+            directions = list(set([params["direction"] for params in self.solution_candidates]))
+            big_first_options = list(set([params["big_first"] for params in self.solution_candidates]))
+            have_bg_options = list(set([params["have_bg"] for params in self.solution_candidates]))
 
         for color in self.sample["train"][k]["colors_sorted"]:
             mask = original_image == color
@@ -2301,18 +1945,10 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
                     for have_bg in have_bg_options:
                         if (target_image == color).any() and not have_bg:
                             continue
-                        params = {
-                            "color": color,
-                            "direction": direction,
-                            "big_first": big_first,
-                            "have_bg": have_bg,
-                        }
+                        params = {"color": color, "direction": direction, "big_first": big_first, "have_bg": have_bg}
 
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -2340,20 +1976,11 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
                 if j < 1 or i < 1:
                     continue
                 status, predict = self.check_surface(
-                    image,
-                    i,
-                    j,
-                    params["color"],
-                    params["direction"],
-                    params["reuse_edge"],
-                    params["keep_bg"],
+                    image, i, j, params["color"], params["direction"], params["reuse_edge"], params["keep_bg"]
                 )
                 if status != 0:
                     continue
-                predict = predict[
-                    indices0.min() : indices0.max() + 1,
-                    indices1.min() : indices1.max() + 1,
-                ]
+                predict = predict[indices0.min() : indices0.max() + 1, indices1.min() : indices1.max() + 1]
                 return 0, predict
 
         return 1, None
@@ -2368,15 +1995,9 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
             reuse_edge_options = [True, False]
             keep_bg_options = [True, False]
         else:
-            directions = list(
-                set([params["direction"] for params in self.solution_candidates])
-            )
-            reuse_edge_options = list(
-                set([params["reuse_edge"] for params in self.solution_candidates])
-            )
-            keep_bg_options = list(
-                set([params["keep_bg"] for params in self.solution_candidates])
-            )
+            directions = list(set([params["direction"] for params in self.solution_candidates]))
+            reuse_edge_options = list(set([params["reuse_edge"] for params in self.solution_candidates]))
+            keep_bg_options = list(set([params["keep_bg"] for params in self.solution_candidates]))
 
         for color in self.sample["train"][k]["colors_sorted"]:
             mask = original_image == color
@@ -2391,18 +2012,10 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
                     for keep_bg in keep_bg_options:
                         if not keep_bg and (target_image == color).any():
                             continue
-                        params = {
-                            "color": color,
-                            "direction": direction,
-                            "reuse_edge": reuse_edge,
-                            "keep_bg": keep_bg,
-                        }
+                        params = {"color": color, "direction": direction, "reuse_edge": reuse_edge, "keep_bg": keep_bg}
 
                         local_candidates = local_candidates + self.add_candidates_list(
-                            original_image,
-                            target_image,
-                            self.sample["train"][k],
-                            params,
+                            original_image, target_image, self.sample["train"][k], params
                         )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -2418,10 +2031,7 @@ class inside_block(predictor):
         """ predicts 1 output image given input image and prediction params"""
 
         status, block = get_predict(
-            image,
-            params["block"],
-            block_cache=params["block_cache"],
-            color_scheme=params["color_scheme"],
+            image, params["block"], block_cache=params["block_cache"], color_scheme=params["color_scheme"]
         )
         if status != 0:
             return 1, None
@@ -2443,10 +2053,7 @@ class inside_block(predictor):
                 diff_1 = -target_image.shape[1] + array.shape[1]
                 if diff_1 != diff_0 or diff_1 <= 0 or diff_0 % 2 != 0:
                     continue
-                if (
-                    array[diff_0 // 2 : -diff_0 // 2, diff_0 // 2 : -diff_0 // 2]
-                    == target_image
-                ).all():
+                if (array[diff_0 // 2 : -diff_0 // 2, diff_0 // 2 : -diff_0 // 2] == target_image).all():
                     # print(block)
                     for params in block["params"]:
                         local_candidates.append({"i": diff_0 // 2, "block": params})
@@ -2507,14 +2114,8 @@ class fill_lines(predictor):
                                     "keep": keep,
                                 }
 
-                                local_candidates = (
-                                    local_candidates
-                                    + self.add_candidates_list(
-                                        original_image,
-                                        target_image,
-                                        self.sample["train"][k],
-                                        params,
-                                    )
+                                local_candidates = local_candidates + self.add_candidates_list(
+                                    original_image, target_image, self.sample["train"][k], params
                                 )
         return self.update_solution_candidates(local_candidates, initial)
 
@@ -2538,10 +2139,7 @@ class replace_column(predictor):
             column = image[:, i]
             found = False
             for j, original_column in enumerate(self.original_patterns):
-                if (
-                    len(column) == len(original_column)
-                    and (original_column == column).all()
-                ):
+                if len(column) == len(original_column) and (original_column == column).all():
                     found = True
                     result_list.append(self.target_patterns[j].reshape((-1, 1)))
             if not found:
@@ -2563,10 +2161,7 @@ class replace_column(predictor):
             target_column = target_image[:, i]
             found = False
             for j, original_column in enumerate(self.original_patterns):
-                if (
-                    len(column) == len(original_column)
-                    and (original_column == column).all()
-                ):
+                if len(column) == len(original_column) and (original_column == column).all():
                     if (
                         len(target_column) != len(self.target_patterns[j])
                         or not (target_column == self.target_patterns[j]).all()

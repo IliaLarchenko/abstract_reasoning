@@ -1,10 +1,5 @@
 import numpy as np
-from src.preprocessing import (
-    get_color,
-    get_color_scheme,
-    get_mask_from_block_params,
-    get_dict_hash,
-)
+from src.preprocessing import get_color, get_color_scheme, get_mask_from_block_params, get_dict_hash
 import time
 import gc
 
@@ -34,10 +29,7 @@ def paint_mask(sample, rotate_target=0):
                 for color_dict2 in sample["train"][0]["colors"][color2].copy():
                     candidates.append(
                         {
-                            "mask": {
-                                "params": mask["params"],
-                                "operation": mask["operation"],
-                            },
+                            "mask": {"params": mask["params"], "operation": mask["operation"]},
                             "color1": color_dict1.copy(),
                             "color2": color_dict2.copy(),
                         }
@@ -152,23 +144,17 @@ def several_colors_square(sample):
             for j in range(size):
                 colors_array[j:-j] = sample["train"][k]["colors_sorted"][i + j]
             if (colors_array == target_image).all():
-                color_candidates.append(
-                    {"type": "square", "i": i, "direct": 0, "size_diff": size_diff}
-                )
+                color_candidates.append({"type": "square", "i": i, "direct": 0, "size_diff": size_diff})
 
             for j in range(size):
                 colors_array[j:-j] = sample["train"][k]["colors_sorted"][::-1][i + j]
             if (colors_array == target_image).all():
-                color_candidates.append(
-                    {"type": "square", "i": i, "direct": 1, "size_diff": size_diff}
-                )
+                color_candidates.append({"type": "square", "i": i, "direct": 1, "size_diff": size_diff})
 
         if k == 0:
             color_candidates_final = color_candidates
         else:
-            color_candidates_final = filter_list_of_dicts(
-                color_candidates, color_candidates_final
-            )
+            color_candidates_final = filter_list_of_dicts(color_candidates, color_candidates_final)
         if len(color_candidates_final) == 0:
             return 2, None
 

@@ -35,9 +35,7 @@ def process_file(
         sample = json.load(file)
 
     submission_list = []
-    sample = preprocess_sample(
-        sample, params=preprocess_params, color_params=color_params
-    )
+    sample = preprocess_sample(sample, params=preprocess_params, color_params=color_params)
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -55,20 +53,11 @@ def process_file(
                         str_answer = matrix2answer(answer[j][k])
                         if str_answer not in answers:
                             if show_results and k < 3:
-                                plt.matshow(
-                                    answer[j][k],
-                                    cmap="Set3",
-                                    norm=mpl.colors.Normalize(vmin=0, vmax=9),
-                                )
+                                plt.matshow(answer[j][k], cmap="Set3", norm=mpl.colors.Normalize(vmin=0, vmax=9))
                                 plt.show()
                                 print(file_path, str_answer)
                             answers.add(str_answer)
-                            submission_list.append(
-                                {
-                                    "output_id": file_path[:-5] + "_" + str(j),
-                                    "output": str_answer,
-                                }
-                            )
+                            submission_list.append({"output_id": file_path[:-5] + "_" + str(j), "output": str_answer})
             if queue is not None:
                 queue.put(submission_list)
             if break_after_answer:
@@ -129,9 +118,7 @@ def run_parallel(
                                 while not queue.empty():
                                     result = result + queue.get()
                                 process.join(10)
-                                print(
-                                    "Memory limit is exceeded. The process is killed."
-                                )
+                                print("Memory limit is exceeded. The process is killed.")
                                 num_finished += 1
 
                     else:
@@ -141,12 +128,8 @@ def run_parallel(
                     pbar.update(len(files_list) - num_finished_previous)
                     time.sleep(0.1)
                     break
-                elif len(process_list) - num_finished < processes and len(
-                    process_list
-                ) < len(files_list):
-                    p = multiprocessing.Process(
-                        target=func, args=(files_list[len(process_list)],)
-                    )
+                elif len(process_list) - num_finished < processes and len(process_list) < len(files_list):
+                    p = multiprocessing.Process(target=func, args=(files_list[len(process_list)],))
                     process_list.append(p)
                     timing_list.append(time.time())
                     p.start()
@@ -170,9 +153,7 @@ def run_parallel(
     return result
 
 
-def generate_submission(
-    predictions_list, sample_submission_path="data/sample_submission.csv"
-):
+def generate_submission(predictions_list, sample_submission_path="data/sample_submission.csv"):
     submission = pd.read_csv(sample_submission_path).to_dict("records")
 
     initial_ids = set([data["output_id"] for data in submission])
@@ -180,15 +161,7 @@ def generate_submission(
 
     ids = set([data["output_id"] for data in predictions_list])
     for output_id in ids:
-        predicts = list(
-            set(
-                [
-                    data["output"]
-                    for data in predictions_list
-                    if data["output_id"] == output_id
-                ]
-            )
-        )
+        predicts = list(set([data["output"] for data in predictions_list if data["output_id"] == output_id]))
         output = " ".join(predicts[:3])
         new_submission.append({"output_id": output_id, "output": output})
 
@@ -199,27 +172,18 @@ def generate_submission(
     return pd.DataFrame(new_submission)
 
 
-def combine_submission_files(
-    list_of_dfs, sample_submission_path="data/sample_submission.csv"
-):
+def combine_submission_files(list_of_dfs, sample_submission_path="data/sample_submission.csv"):
     submission = pd.read_csv(sample_submission_path)
 
     list_of_outputs = []
     for df in list_of_dfs:
-        list_of_outputs.append(
-            df.sort_values(by="output_id")["output"].astype(str).values
-        )
+        list_of_outputs.append(df.sort_values(by="output_id")["output"].astype(str).values)
 
     merge_output = []
     for i in range(len(list_of_outputs[0])):
-        list_of_answ = [
-            [x.strip() for x in output[i].strip().split(" ")]
-            for output in list_of_outputs
-        ]
+        list_of_answ = [[x.strip() for x in output[i].strip().split(" ")] for output in list_of_outputs]
 
-        total_len = len(
-            list(set([item for sublist in list_of_answ for item in sublist]))
-        )
+        total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
         while total_len > 3:
             n = 0
             for i in range(1, len(list_of_answ) + 1):
@@ -227,9 +191,7 @@ def combine_submission_files(
                     list_of_answ[-i] = list_of_answ[-i][:-1]
                     break
             list_of_answ[n] = list_of_answ[n][:-1]
-            total_len = len(
-                list(set([item for sublist in list_of_answ for item in sublist]))
-            )
+            total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
 
         o = list(set([item for sublist in list_of_answ for item in sublist]))
         answer = " ".join(o[:3]).strip()
