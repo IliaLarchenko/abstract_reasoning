@@ -212,6 +212,10 @@ def test_predictor():
         (47, reconstruct_mosaic, {}, "f823c43c.json", "data/evaluation", ["initial"]),
         (48, reconstruct_mosaic, {}, "d8c310e9.json", "data/training", ["initial"]),
         (49, reconstruct_mosaic, {}, "8eb1be9a.json", "data/training", ["initial"]),
+        (50, reconstruct_mosaic, {}, "05269061.json", "data/training", ["initial"]),
+        (51, reconstruct_mosaic, {}, "484b58aa.json", "data/training", ["initial"]),
+        (52, reconstruct_mosaic, {}, "29ec7d0e.json", "data/training", ["initial"]),
+        (53, reconstruct_mosaic, {}, "ca8f78db.json", "data/evaluation", ["initial"]),
     ]:
         assert (
             check(predictor_class, params, file_path, DATA_PATH, preprocessing_params)

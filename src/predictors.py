@@ -1942,13 +1942,6 @@ class reconstruct_mosaic(predictor):
             else:
                 return 2, None
 
-        for k in range((b + t)):
-            for n in range((r + l)):
-                full_image[
-                    k * block.shape[0] : (k + 1) * block.shape[0],
-                    n * block.shape[1] : (n + 1) * block.shape[1],
-                ] = new_block
-
         if (new_block == color).any() and not bg:
             temp_array = np.concatenate([new_block, new_block], 0)
             temp_array = np.concatenate([temp_array, temp_array], 1)
@@ -1964,6 +1957,13 @@ class reconstruct_mosaic(predictor):
                         ]
         if (new_block == color).any() and not bg:
             return 3, None
+
+        for k in range((b + t)):
+            for n in range((r + l)):
+                full_image[
+                    k * block.shape[0] : (k + 1) * block.shape[0],
+                    n * block.shape[1] : (n + 1) * block.shape[1],
+                ] = new_block
 
         result = full_image[
             start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]
@@ -1992,22 +1992,17 @@ class reconstruct_mosaic(predictor):
                 itteration_list = [size - image.shape[1]]
             for i_size in itteration_list:
                 j_size = size - i_size
-                if j_size < 1:
+                if j_size < 1 or i_size < 1:
                     continue
-                for i_min in range(min(image.shape[0], i_size)):
-                    for j_min in range(min(image.shape[1], j_size)):
-                        block = image[i_min : i_min + i_size, j_min : j_min + j_size]
-                        status, predict = self.check_surface(
-                            image,
-                            i_min,
-                            j_min,
-                            block,
-                            params["color"],
-                            params["have_bg"],
-                        )
-                        if status != 0:
-                            continue
-                        return 0, predict
+                # for i_min in range(min(image.shape[0], i_size)):
+                #     for j_min in range(min(image.shape[1], j_size)):
+                block = image[0 : 0 + i_size, 0 : 0 + j_size]
+                status, predict = self.check_surface(
+                    image, 0, 0, block, params["color"], params["have_bg"]
+                )
+                if status != 0:
+                    continue
+                return 0, predict
 
         return 1, None
 
