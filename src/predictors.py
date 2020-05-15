@@ -225,6 +225,7 @@ class predictor:
                     answers[test_n].append(self.process_prediction(prediction))
                     result_generated = True
 
+        self.sample["train"] = self.initial_train
         if result_generated:
             return 0, answers
         else:
@@ -2180,6 +2181,187 @@ class reconstruct_mosaic_rr(predictor):
             )
 
         for color in self.sample["train"][k]["colors_sorted"]:
+            for direction in directions:
+                for reuse_edge in reuse_edge_options:
+                    params = {
+                        "color": color,
+                        "direction": direction,
+                        "reuse_edge": reuse_edge,
+                    }
+
+                    local_candidates = local_candidates + self.add_candidates_list(
+                        original_image, target_image, self.sample["train"][k], params
+                    )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+class reconstruct_mosaic_extract(reconstruct_mosaic):
+    """reconstruct mosaic"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+
+        mask = image == params["color"]
+        sum0 = mask.sum(0)
+        sum1 = mask.sum(1)
+        indices0 = np.arange(len(sum1))[sum1 > 0]
+        indices1 = np.arange(len(sum0))[sum0 > 0]
+
+        itteration_list1 = list(range(2, sum(image.shape)))
+        if params["big_first"]:
+            itteration_list1 = list(
+                range(
+                    2,
+                    (image != params["color"]).max(1).sum()
+                    + (image != params["color"]).max(0).sum()
+                    + 1,
+                )
+            )
+            itteration_list1 = itteration_list1[::-1]
+        for size in itteration_list1:
+            if params["direction"] == "all":
+                itteration_list = list(range(1, size))
+            elif params["direction"] == "vert":
+                itteration_list = [image.shape[0]]
+            else:
+                itteration_list = [size - image.shape[1]]
+            for i_size in itteration_list:
+                j_size = size - i_size
+                if j_size < 1 or i_size < 1:
+                    continue
+                # for i_min in range(min(image.shape[0], i_size)):
+                #     for j_min in range(min(image.shape[1], j_size)):
+                block = image[0 : 0 + i_size, 0 : 0 + j_size]
+                status, predict = self.check_surface(
+                    image, 0, 0, block, params["color"], params["have_bg"]
+                )
+                if status != 0:
+                    continue
+                predict = predict[
+                    indices0.min() : indices0.max() + 1,
+                    indices1.min() : indices1.max() + 1,
+                ]
+                return 0, predict
+
+        return 1, None
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if initial:
+            directions = ["vert", "hor", "all"]
+            big_first_options = [True, False]
+            have_bg_options = [True, False]
+        else:
+            directions = list(
+                set([params["direction"] for params in self.solution_candidates])
+            )
+            big_first_options = list(
+                set([params["big_first"] for params in self.solution_candidates])
+            )
+            have_bg_options = list(
+                set([params["have_bg"] for params in self.solution_candidates])
+            )
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            mask = original_image == color
+            sum0 = mask.sum(0)
+            sum1 = mask.sum(1)
+
+            if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
+                continue
+            if target_image.shape[0] != max(sum0) or target_image.shape[1] != max(sum1):
+                continue
+            for direction in directions:
+                for big_first in big_first_options:
+                    for have_bg in have_bg_options:
+                        if (target_image == color).any() and not have_bg:
+                            continue
+                        params = {
+                            "color": color,
+                            "direction": direction,
+                            "big_first": big_first,
+                            "have_bg": have_bg,
+                        }
+
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image,
+                            target_image,
+                            self.sample["train"][k],
+                            params,
+                        )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
+    """reconstruct mosaic"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+
+        mask = image == params["color"]
+        sum0 = mask.sum(0)
+        sum1 = mask.sum(1)
+        indices0 = np.arange(len(sum1))[sum1 > 0]
+        indices1 = np.arange(len(sum0))[sum0 > 0]
+
+        itteration_list1 = list(range(2, sum(image.shape)))
+        for size in itteration_list1:
+            itteration_list = list(range(1, size))
+            for i in itteration_list:
+                j = size - i
+                if j < 1 or i < 1:
+                    continue
+                status, predict = self.check_surface(
+                    image,
+                    i,
+                    j,
+                    params["color"],
+                    params["direction"],
+                    params["reuse_edge"],
+                )
+                if status != 0:
+                    continue
+                predict = predict[
+                    indices0.min() : indices0.max() + 1,
+                    indices1.min() : indices1.max() + 1,
+                ]
+                return 0, predict
+
+        return 1, None
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if initial:
+            directions = ["rotate", "reflect"]
+            reuse_edge_options = [True, False]
+        else:
+            directions = list(
+                set([params["direction"] for params in self.solution_candidates])
+            )
+            reuse_edge_options = list(
+                set([params["reuse_edge"] for params in self.solution_candidates])
+            )
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            mask = original_image == color
+            sum0 = mask.sum(0)
+            sum1 = mask.sum(1)
+            if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
+                continue
+            if target_image.shape[0] != max(sum0) or target_image.shape[1] != max(sum1):
+                continue
             for direction in directions:
                 for reuse_edge in reuse_edge_options:
                     params = {
