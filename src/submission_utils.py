@@ -74,10 +74,8 @@ def process_file(
             if break_after_answer:
                 break
         except SystemExit:
-            if queue is not None:
-                queue.put(submission_list)
             break
-    time.sleep(1)
+    time.sleep(5)
     return
 
 
@@ -119,6 +117,8 @@ def run_parallel(
                     if process.is_alive():
                         if time.time() - start_time > timeout:
                             process.terminate()
+                            while not queue.empty():
+                                result = result + queue.get()
                             process.join(10)
                             print("Time out. The process is killed.")
                             num_finished += 1
@@ -126,6 +126,8 @@ def run_parallel(
                             process_data = psutil.Process(process.pid)
                             if process_data.memory_info().rss > max_memory_by_process:
                                 process.terminate()
+                                while not queue.empty():
+                                    result = result + queue.get()
                                 process.join(10)
                                 print(
                                     "Memory limit is exceeded. The process is killed."
@@ -151,6 +153,8 @@ def run_parallel(
                 pbar.update(num_finished - num_finished_previous)
                 num_finished_previous = num_finished
                 # print(f"num_finished: {num_finished}, total_num: {len(process_list)}")
+                while not queue.empty():
+                    result = result + queue.get()
                 time.sleep(1)
         except KeyboardInterrupt:
             for process in process_list:
@@ -163,8 +167,6 @@ def run_parallel(
                 process.join(5)
             print(f"Function raised {error}")
 
-        while not queue.empty():
-            result = result + queue.get()
     return result
 
 
