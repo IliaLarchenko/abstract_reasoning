@@ -77,7 +77,7 @@ def process_file(
             if queue is not None:
                 queue.put(submission_list)
             break
-
+    time.sleep(1)
     return
 
 
@@ -151,7 +151,7 @@ def run_parallel(
                 pbar.update(num_finished - num_finished_previous)
                 num_finished_previous = num_finished
                 # print(f"num_finished: {num_finished}, total_num: {len(process_list)}")
-                time.sleep(0.1)
+                time.sleep(1)
         except KeyboardInterrupt:
             for process in process_list:
                 process.terminate()
