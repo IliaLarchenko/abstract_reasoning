@@ -2459,6 +2459,62 @@ class inside_block(reconstruct_mosaic_rr):
         return self.update_solution_candidates(local_candidates, initial)
 
 
+class fill_lines(predictor):
+    """fill the whole horizontal and/or vertical lines with one color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+
+        result = image.copy()
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                if image[i, j] == params["color"]:
+                    if params["vert"]:
+                        result[i] = params["fill_color"]
+                    if params["hor"]:
+                        result[:, j] = params["fill_color"]
+
+        result[image == params["keep_color"]] = params["keep_color"]
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 2
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            for hor in [True, False]:
+                for vert in [True, False]:
+                    if not hor and not vert:
+                        continue
+                    for fill_color in range(10):
+                        for keep_color in self.sample["train"][k]["colors_sorted"]:
+                            params = {
+                                "color": color,
+                                "hor": hor,
+                                "vert": vert,
+                                "fill_color": fill_color,
+                                "keep_color": keep_color,
+                            }
+
+                            local_candidates = (
+                                local_candidates
+                                + self.add_candidates_list(
+                                    original_image,
+                                    target_image,
+                                    self.sample["train"][k],
+                                    params,
+                                )
+                            )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 # TODO: targets based logic
 # TODO: pattern transfer
 # TODO: mask to answer
