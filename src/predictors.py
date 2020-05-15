@@ -2050,5 +2050,149 @@ class reconstruct_mosaic(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
+class reconstruct_mosaic_rr(predictor):
+    """reconstruct mosaic"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def check_surface(self, image, i, j, color, direction, reuse_edge):
+        blocks = []
+        blocks.append(image[i:, j:])
+        if direction == "rotate":
+            if reuse_edge:
+                blocks.append(np.rot90(image[: i + 1, j:], 1))
+                blocks.append(np.rot90(image[i:, : j + 1], -1))
+                blocks.append(np.rot90(image[: i + 1, : j + 1], 2))
+            else:
+                blocks.append(np.rot90(image[:i, j:], 1))
+                blocks.append(np.rot90(image[i:, :j], -1))
+                blocks.append(np.rot90(image[:i, :j], 2))
+        elif direction == "reflect":
+            if reuse_edge:
+                blocks.append(image[: i + 1, j:][::-1, :])
+                blocks.append(image[i:, : j + 1][:, ::-1])
+                blocks.append(image[: i + 1, : j + 1][::-1, ::-1])
+            else:
+                blocks.append(image[:i, j:][::-1, :])
+                blocks.append(image[i:, :j][:, ::-1])
+                blocks.append(image[:i, :j][::-1, ::-1])
+
+        size = [0, 0]
+        size[0] = max([x.shape[0] for x in blocks])
+        size[1] = max([x.shape[1] for x in blocks])
+
+        full_block = np.ones(size) * color
+        for curr_block in blocks:
+            temp_block = full_block[: curr_block.shape[0], : curr_block.shape[1]]
+            mask = np.logical_and(temp_block != color, curr_block != color)
+            if (temp_block == curr_block)[mask].all():
+                temp_block[temp_block == color] = curr_block[temp_block == color]
+            else:
+                return 2, None
+
+        result = image.copy()
+        result[i:, j:] = full_block[: blocks[0].shape[0], : blocks[0].shape[1]]
+        if direction == "rotate":
+            if reuse_edge:
+                result[: i + 1, j:] = np.rot90(
+                    full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1
+                )
+                result[i:, : j + 1] = np.rot90(
+                    full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1
+                )
+                result[: i + 1, : j + 1] = np.rot90(
+                    full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2
+                )
+            else:
+                result[:i, j:] = np.rot90(
+                    full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1
+                )
+                result[i:, :j] = np.rot90(
+                    full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1
+                )
+                result[:i, :j] = np.rot90(
+                    full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2
+                )
+        elif direction == "reflect":
+            if reuse_edge:
+                result[: i + 1, j:] = full_block[
+                    : blocks[1].shape[0], : blocks[1].shape[1]
+                ][::-1, :]
+                result[i:, : j + 1] = full_block[
+                    : blocks[2].shape[0], : blocks[2].shape[1]
+                ][:, ::-1]
+                result[: i + 1, : j + 1] = full_block[
+                    : blocks[3].shape[0], : blocks[3].shape[1]
+                ][::-1, ::-1]
+            else:
+                result[:i, j:] = full_block[: blocks[1].shape[0], : blocks[1].shape[1]][
+                    ::-1, :
+                ]
+                result[i:, :j] = full_block[: blocks[2].shape[0], : blocks[2].shape[1]][
+                    :, ::-1
+                ]
+                result[:i, :j] = full_block[: blocks[3].shape[0], : blocks[3].shape[1]][
+                    ::-1, ::-1
+                ]
+
+        return 0, result
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        itteration_list1 = list(range(2, sum(image.shape)))
+        for size in itteration_list1:
+            itteration_list = list(range(1, size))
+            for i in itteration_list:
+                j = size - i
+                if j < 1 or i < 1:
+                    continue
+                status, predict = self.check_surface(
+                    image,
+                    i,
+                    j,
+                    params["color"],
+                    params["direction"],
+                    params["reuse_edge"],
+                )
+                if status != 0:
+                    continue
+                return 0, predict
+
+        return 1, None
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+        if original_image.shape != target_image.shape:
+            return 1, None
+
+        if initial:
+            directions = ["rotate", "reflect"]
+            reuse_edge_options = [True, False]
+        else:
+            directions = list(
+                set([params["direction"] for params in self.solution_candidates])
+            )
+            reuse_edge_options = list(
+                set([params["reuse_edge"] for params in self.solution_candidates])
+            )
+
+        for color in self.sample["train"][k]["colors_sorted"]:
+            for direction in directions:
+                for reuse_edge in reuse_edge_options:
+                    params = {
+                        "color": color,
+                        "direction": direction,
+                        "reuse_edge": reuse_edge,
+                    }
+
+                    local_candidates = local_candidates + self.add_candidates_list(
+                        original_image, target_image, self.sample["train"][k], params
+                    )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
 # TODO: fill pattern - more general surface type
 # TODO: reconstruct pattern
