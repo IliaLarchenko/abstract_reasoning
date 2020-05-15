@@ -75,7 +75,7 @@ def process_file(
                 break
         except SystemExit:
             break
-    time.sleep(5)
+    time.sleep(1)
     return
 
 
@@ -155,7 +155,7 @@ def run_parallel(
                 # print(f"num_finished: {num_finished}, total_num: {len(process_list)}")
                 while not queue.empty():
                     result = result + queue.get()
-                time.sleep(1)
+                time.sleep(0.1)
         except KeyboardInterrupt:
             for process in process_list:
                 process.terminate()
