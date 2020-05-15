@@ -3,7 +3,6 @@ from scipy.stats import mode
 from scipy import ndimage
 import json
 import time
-import random
 
 
 def find_grid(image):
