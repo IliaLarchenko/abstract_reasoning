@@ -247,7 +247,7 @@ class fill(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
         # self.type = params["type"]  # inner or outer
-        if "pattern" in params:
+        if params is not None and "pattern" in params:
             self.pattern = params["pattern"]
         else:
             self.pattern = np.array([[True, True, True], [True, False, True], [True, True, True]])
@@ -290,6 +290,12 @@ class fill(predictor):
                         == params["background_color"]
                     ).all() and image[i - 1, j - 1] != params["background_color"]:
                         result[i - 1, j - 1] = params["fill_color"]
+                elif params["process_type"] == "around":
+                    if image[i - 1, j - 1] == params["fill_color"]:
+                        temp = image_with_borders[i - 1 : i + 2, j - 1 : j + 2]
+                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                            np.logical_and(np.array(self.pattern), temp == params["background_color"])
+                        ] = params["fill_color"]
                 elif params["process_type"] == "full":
                     if i - 1 + self.pattern.shape[0] > image.shape[0] or j - 1 + self.pattern.shape[1] > image.shape[1]:
                         continue
@@ -305,7 +311,7 @@ class fill(predictor):
 
                 else:
                     return 6, None
-        if params["process_type"] == "outer":
+        if params["process_type"] in ["outer", "around"]:
             result = image_with_borders[1:-1, 1:-1]
         return 0, result
 
@@ -324,7 +330,15 @@ class fill(predictor):
                 mask = np.logical_and(target_image != background_color, target_image != fill_color)
                 if not (target_image == original_image)[mask].all():
                     continue
-                for process_type in ["outer", "full", "isolated_non_bg", "isolated", "inner_ignore_background", "inner"]:
+                for process_type in [
+                    "outer",
+                    "full",
+                    "isolated_non_bg",
+                    "isolated",
+                    "inner_ignore_background",
+                    "inner",
+                    "around",
+                ]:
                     params = {
                         "background_color": background_color,
                         "fill_color": fill_color,

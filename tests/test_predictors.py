@@ -182,5 +182,7 @@ def test_predictor():
             "data/training",
             ["initial", "background", "initial_masks"],
         ),
+        (77, fill, {}, "dc1df850.json", "data/training", ["initial"]),
+        (78, fill, {}, "f0df5ff0.json", "data/evaluation", ["initial"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
