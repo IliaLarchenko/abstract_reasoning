@@ -1524,8 +1524,14 @@ class eliminate_duplicates(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def predict_output(self, image, params):
+    def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
+        if block is not None:
+            image = block
+        else:
+            status, image = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
         result = image.copy()
 
         if params["vert"] == True:
@@ -1558,17 +1564,37 @@ class eliminate_duplicates(predictor):
         local_candidates = []
         original_image, target_image = self.get_images(k)
 
-        for hor in [True, False]:
-            for vert in [True, False]:
-                for elim_bg in [True, False]:
-                    for bg_color in self.sample["train"][k]["colors_sorted"]:
-                        params = {"hor": hor, "vert": vert, "elim_bg": elim_bg, "bg_color": bg_color}
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                pattern = block["array"]
+                if pattern.shape[0] < target_image.shape[0] or pattern.shape[1] < target_image.shape[1]:
+                    continue
+                for hor in [True, False]:
+                    for vert in [True, False]:
+                        for elim_bg in [True, False]:
+                            for bg_color in self.sample["train"][k]["colors_sorted"]:
+                                params = {"hor": hor, "vert": vert, "elim_bg": elim_bg, "bg_color": bg_color}
 
-                        local_candidates = local_candidates + self.add_candidates_list(
-                            original_image, target_image, self.sample["train"][k], params
-                        )
-                        if not elim_bg:
-                            break
+                                status, result = self.predict_output(original_image, params, block=pattern)
+                                if status != 0:
+                                    continue
+
+                                if result.shape == target_image.shape and (result == target_image).all():
+                                    for param in block["params"]:
+                                        params["block"] = param
+                                        local_candidates = local_candidates + self.add_candidates_list(
+                                            original_image, target_image, self.sample["train"][k], params
+                                        )
+                                if not elim_bg:
+                                    break
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
         return self.update_solution_candidates(local_candidates, initial)
 
 
@@ -1606,8 +1632,16 @@ class connect_dots(predictor):
 
         return result
 
-    def predict_output(self, image, params):
+    def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
+        if block is not None:
+            image = block
+        else:
+            status, image = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
+        result = image.copy()
+
         if params["vert_first"]:
             result = self.predict_part(image, params, "vert")
             result = self.predict_part(image, params, "hor", result)
@@ -1622,26 +1656,46 @@ class connect_dots(predictor):
         local_candidates = []
         original_image, target_image = self.get_images(k)
 
-        for color in self.sample["train"][k]["colors_sorted"]:
-            for hor in [True, False]:
-                for vert in [True, False]:
-                    for fill_color in range(10):
-                        for fill_all in [True, False]:
-                            for vert_first in [True, False]:
-                                for min_in_line in [2, 3, 4]:
-                                    params = {
-                                        "color": color,
-                                        "hor": hor,
-                                        "vert": vert,
-                                        "fill_color": fill_color,
-                                        "fill_all": fill_all,
-                                        "vert_first": vert_first,
-                                        "min_in_line": min_in_line,
-                                    }
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                pattern = block["array"]
+                if pattern.shape[0] != target_image.shape[0] or pattern.shape[1] != target_image.shape[1]:
+                    continue
+                for color in self.sample["train"][k]["colors_sorted"]:
+                    for hor in [True, False]:
+                        for vert in [True, False]:
+                            for fill_color in range(10):
+                                for fill_all in [True, False]:
+                                    for vert_first in [True, False]:
+                                        for min_in_line in [2, 3, 4]:
+                                            params = {
+                                                "color": color,
+                                                "hor": hor,
+                                                "vert": vert,
+                                                "fill_color": fill_color,
+                                                "fill_all": fill_all,
+                                                "vert_first": vert_first,
+                                                "min_in_line": min_in_line,
+                                            }
 
-                                    local_candidates = local_candidates + self.add_candidates_list(
-                                        original_image, target_image, self.sample["train"][k], params
-                                    )
+                                            status, result = self.predict_output(original_image, params, block=pattern)
+                                            if status != 0:
+                                                continue
+
+                                            if result.shape == target_image.shape and (result == target_image).all():
+                                                for param in block["params"]:
+                                                    params["block"] = param
+                                                    local_candidates = local_candidates + self.add_candidates_list(
+                                                        original_image, target_image, self.sample["train"][k], params
+                                                    )
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
         return self.update_solution_candidates(local_candidates, initial)
 
 
@@ -1693,8 +1747,15 @@ class connect_dots_all_colors(predictor):
 
         return result
 
-    def predict_output(self, image, params):
+    def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
+        if block is not None:
+            image = block
+        else:
+            status, image = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
+
         if params["vert_first"]:
             result = self.predict_part(image, params, "vert")
             result = self.predict_part(image, params, "hor", result)
@@ -1709,28 +1770,48 @@ class connect_dots_all_colors(predictor):
         local_candidates = []
         original_image, target_image = self.get_images(k)
 
-        for background_color in self.sample["train"][k]["colors_sorted"]:
-            for hor in [True, False]:
-                for vert in [True, False]:
-                    for fill_self in [True, False]:
-                        for fill_all in [False, True]:
-                            for vert_first in [True, False]:
-                                for fill_color in range(10):
-                                    params = {
-                                        "background_color": background_color,
-                                        "hor": hor,
-                                        "vert": vert,
-                                        "fill_color": fill_color,
-                                        "fill_all": fill_all,
-                                        "vert_first": vert_first,
-                                        "fill_self": fill_self,
-                                    }
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                pattern = block["array"]
+                if pattern.shape[0] != target_image.shape[0] or pattern.shape[1] != target_image.shape[1]:
+                    continue
+                for background_color in self.sample["train"][k]["colors_sorted"]:
+                    for hor in [True, False]:
+                        for vert in [True, False]:
+                            for fill_self in [True, False]:
+                                for fill_all in [False, True]:
+                                    for vert_first in [True, False]:
+                                        for fill_color in range(10):
+                                            params = {
+                                                "background_color": background_color,
+                                                "hor": hor,
+                                                "vert": vert,
+                                                "fill_color": fill_color,
+                                                "fill_all": fill_all,
+                                                "vert_first": vert_first,
+                                                "fill_self": fill_self,
+                                            }
 
-                                    local_candidates = local_candidates + self.add_candidates_list(
-                                        original_image, target_image, self.sample["train"][k], params
-                                    )
-                                    if fill_self:
-                                        break
+                                            status, result = self.predict_output(original_image, params, block=pattern)
+                                            if status != 0:
+                                                continue
+
+                                            if result.shape == target_image.shape and (result == target_image).all():
+                                                for param in block["params"]:
+                                                    params["block"] = param
+                                                    local_candidates = local_candidates + self.add_candidates_list(
+                                                        original_image, target_image, self.sample["train"][k], params
+                                                    )
+                                            if fill_self:
+                                                break
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
         return self.update_solution_candidates(local_candidates, initial)
 
 
@@ -2171,8 +2252,14 @@ class fill_lines(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def predict_output(self, image, params):
+    def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
+        if block is not None:
+            image = block
+        else:
+            status, image = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
 
         result = image.copy()
         for i in range(image.shape[0]):
@@ -2196,26 +2283,46 @@ class fill_lines(predictor):
         if original_image.shape != target_image.shape:
             return 2
 
-        for color in self.sample["train"][k]["colors_sorted"]:
-            for hor in [True, False]:
-                for vert in [True, False]:
-                    if not hor and not vert:
-                        continue
-                    for fill_color in range(10):
-                        for keep in [True, False]:
-                            for keep_color in self.sample["train"][k]["colors_sorted"]:
-                                params = {
-                                    "color": color,
-                                    "hor": hor,
-                                    "vert": vert,
-                                    "fill_color": fill_color,
-                                    "keep_color": keep_color,
-                                    "keep": keep,
-                                }
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                pattern = block["array"]
+                if pattern.shape[0] != target_image.shape[0] or pattern.shape[1] != target_image.shape[1]:
+                    continue
+                for color in self.sample["train"][k]["colors_sorted"]:
+                    for hor in [True, False]:
+                        for vert in [True, False]:
+                            if not hor and not vert:
+                                continue
+                            for fill_color in range(10):
+                                for keep in [True, False]:
+                                    for keep_color in self.sample["train"][k]["colors_sorted"]:
+                                        params = {
+                                            "color": color,
+                                            "hor": hor,
+                                            "vert": vert,
+                                            "fill_color": fill_color,
+                                            "keep_color": keep_color,
+                                            "keep": keep,
+                                        }
 
-                                local_candidates = local_candidates + self.add_candidates_list(
-                                    original_image, target_image, self.sample["train"][k], params
-                                )
+                                        status, result = self.predict_output(original_image, params, block=pattern)
+                                        if status != 0:
+                                            continue
+
+                                        if result.shape == target_image.shape and (result == target_image).all():
+                                            for param in block["params"]:
+                                                params["block"] = param
+                                                local_candidates = local_candidates + self.add_candidates_list(
+                                                    original_image, target_image, self.sample["train"][k], params
+                                                )
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
         return self.update_solution_candidates(local_candidates, initial)
 
 
@@ -2352,6 +2459,103 @@ class cell_to_column(predictor):
                 self.target_patterns.append(target_column)
 
         return 0
+
+
+class extend_targets(predictor):
+    """replace any grid cell with  fixed column"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def init_call(self):
+        self.filter_colors()
+        self.target_patterns = []
+
+    def predict_output(self, image, params):
+        """ predicts 1 output image given input image and prediction params"""
+        result = image.copy()
+
+        if len(self.target_patterns) == 0:
+            return 1, None
+
+        if params["type"] == "horizontal":
+            max_target_num = np.argmax([x.shape[1] for x in self.target_patterns])
+            max_target = self.target_patterns[max_target_num]
+            if result.shape[1] < max_target.shape[1]:
+                result = max_target[:, : result.shape[1]]
+                return 0, result
+            else:
+                for shift in range(1, max_target.shape[1]):
+                    if (max_target[:, shift:] == max_target[:, :-shift]).all():
+                        repeat_block = max_target[:, :shift]
+                        temp = np.concatenate([repeat_block] * (result.shape[1] // shift + 1), axis=1)
+                        result = temp[:, : result.shape[1]]
+                        return 0, result
+        elif params["type"] == "vertical":
+            max_target_num = np.argmax([x.shape[0] for x in self.target_patterns])
+            max_target = self.target_patterns[max_target_num]
+            if result.shape[0] < max_target.shape[0]:
+                result = max_target[: result.shape[0]]
+                return 0, result
+            else:
+                for shift in range(1, max_target.shape[0]):
+                    if (max_target[shift:] == max_target[:-shift]).all():
+                        repeat_block = max_target[:shift]
+                        temp = np.concatenate([repeat_block] * (result.shape[0] // shift + 1), axis=0)
+                        result = temp[: result.shape[0]]
+                        if result.shape[0] == 0 or result.shape[1] == 0:
+                            return 5, None
+                        return 0, result
+        else:
+            max_target_num = np.argmax([x.shape[0] for x in self.target_patterns])
+            max_target = self.target_patterns[max_target_num]
+            if result.shape[0] < max_target.shape[0]:
+                result = max_target[: result.shape[0], : result.shape[1]]
+                if result.shape[0] == 0 or result.shape[1] == 0:
+                    return 5, None
+                return 0, result
+            else:
+                for shift in range(1, max_target.shape[0]):
+                    if (max_target[shift:] == max_target[:-shift]).all():
+                        repeat_block = max_target[:shift]
+                        temp = np.concatenate([repeat_block] * (result.shape[0] // shift + 1), axis=0)
+                        result = temp[: result.shape[0]]
+                        break
+                for shift in range(1, max_target.shape[1]):
+                    if (max_target[:, shift:] == max_target[:, :-shift]).all():
+                        repeat_block = result[:, :shift]
+                        temp = np.concatenate([repeat_block] * (image.shape[1] // shift + 1), axis=1)
+                        result = temp[:, : image.shape[1]]
+                        if result.shape[0] == 0 or result.shape[1] == 0:
+                            return 5, None
+                        return 0, result
+
+        return 2, None
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 1
+        if len(self.sample["train"]) < 3:
+            return 2
+
+        if initial:
+            self.solution_candidates.append({"type": "horizontal"})
+            self.solution_candidates.append({"type": "vertical"})
+            self.solution_candidates.append({"type": "diagonal"})
+
+        if len(self.target_patterns) < 2:
+            self.target_patterns.append(target_image)
+            return 0
+
+        for candidate in self.solution_candidates:
+            local_candidates = local_candidates + self.add_candidates_list(
+                original_image, target_image, self.sample["train"][k], candidate
+            )
+        return self.update_solution_candidates(local_candidates, initial)
 
 
 # TODO: targets based logic
