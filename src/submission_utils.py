@@ -185,12 +185,10 @@ def combine_submission_files(list_of_dfs, sample_submission_path="data/sample_su
 
         total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
         while total_len > 3:
-            n = 0
             for i in range(1, len(list_of_answ) + 1):
                 if len(list_of_answ[-i]) > (i > len(list_of_answ) - 3):
                     list_of_answ[-i] = list_of_answ[-i][:-1]
                     break
-            list_of_answ[n] = list_of_answ[n][:-1]
             total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
 
         o = list(set([item for sublist in list_of_answ for item in sublist]))
