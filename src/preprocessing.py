@@ -530,7 +530,7 @@ def get_inversed_colors(image):
 
 
 def process_image(
-    image, max_time=120, max_blocks=10000, max_masks=1000, target_image=None, params=None, color_params=None
+    image, max_time=120, max_blocks=200000, max_masks=200000, target_image=None, params=None, color_params=None
 ):
     """processes the original image and returns dict with structured image blocks"""
 
