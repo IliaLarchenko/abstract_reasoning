@@ -114,7 +114,7 @@ class predictor:
                     delete = True
                     for color_dict2 in color_scheme0["colors"][i][j + 1 :]:
                         hash2 = get_dict_hash(color_dict2)
-                        for color_scheme1 in self.sample["train"][1:] + self.sample["test"]:
+                        for color_scheme1 in list(self.sample["train"][1:]) + list(self.sample["test"]):
                             found = False
                             for k in range(10):
                                 hash_array = [get_dict_hash(color_dict) for color_dict in color_scheme1["colors"][k]]
