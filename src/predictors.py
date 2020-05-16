@@ -2558,6 +2558,5 @@ class extend_targets(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-# TODO: targets based logic
 # TODO: pattern transfer
 # TODO: mask to answer
