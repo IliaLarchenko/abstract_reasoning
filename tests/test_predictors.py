@@ -188,5 +188,13 @@ def test_predictor():
         (79, fill, {}, "fc754716.json", "data/evaluation", ["initial", "background"]),
         (80, extend_targets, {}, "7447852a.json", "data/training", ["initial"]),
         (81, extend_targets, {}, "332efdb3.json", "data/evaluation", ["initial"]),
+        (
+            82,
+            puzzle,
+            {"intersection": 0},
+            "3979b1a8.json",
+            "data/evaluation",
+            ["initial", "background", "cut_edges", "resize"],
+        ),  # strange, but works
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
