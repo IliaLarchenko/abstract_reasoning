@@ -165,5 +165,13 @@ def test_predictor():
         (72, replace_column, {}, "0d3d703e.json", "data/training", ["initial"]),
         (73, replace_column, {"rotate": 1}, "a85d4709.json", "data/training", ["initial"]),
         (74, replace_column, {"rotate": 1}, "f45f5ca7.json", "data/evaluation", ["initial"]),
+        (
+            75,
+            pattern_from_blocks,
+            {},
+            "8f2ea7aa.json",
+            "data/training",
+            ["initial", "max_area_covered", "initial_masks"],
+        ),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"

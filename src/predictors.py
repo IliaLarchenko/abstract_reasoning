@@ -87,20 +87,55 @@ class predictor:
         return 1, None
 
     def filter_colors(self):
-        for i in range(10):
-            list_of_colors = [get_dict_hash(color_dict) for color_dict in self.sample["train"][0]["colors"][i]]
-            for color_scheme in self.sample["train"][1:]:
-                new_set = set([get_dict_hash(color_dict) for color_dict in color_scheme["colors"][i]])
-                list_of_colors = [x for x in list_of_colors if x in new_set]
-                if len(list_of_colors) == 0:
-                    break
-            if len(list_of_colors) > 1:
-                colors_to_delete = list_of_colors[1:]
+        # filtering colors, that are not present in at least one of the images
+        all_colors = []
+        for color_scheme1 in self.sample["train"]:
+            list_of_colors = [get_dict_hash(color_dict) for i in range(10) for color_dict in color_scheme1["colors"][i]]
+            all_colors.append(list_of_colors)
+        for j in range(1, len(self.sample["train"])):
+            all_colors[0] = [x for x in all_colors[0] if x in all_colors[j]]
+        keep_colors = set(all_colors[0])
 
-                for color_scheme in self.sample["train"]:
-                    for color_dict in color_scheme["colors"][i].copy():
-                        if get_dict_hash(color_dict) in colors_to_delete:
-                            color_scheme["colors"][i].remove(color_dict)
+        for color_scheme1 in self.sample["train"]:
+            for i in range(10):
+                j = 0
+                while j < len(color_scheme1["colors"][i]):
+                    if get_dict_hash(color_scheme1["colors"][i][j]) in keep_colors:
+                        j += 1
+                    else:
+                        del color_scheme1["colors"][i][j]
+
+        delete_colors = []
+        color_scheme0 = self.sample["train"][0]
+        for i in range(10):
+            if len(color_scheme0["colors"][i]) > 1:
+                for j, color_dict1 in enumerate(color_scheme0["colors"][i][:-1]):
+                    hash1 = get_dict_hash(color_dict1)
+                    delete = True
+                    for color_dict2 in color_scheme0["colors"][i][j + 1 :]:
+                        hash2 = get_dict_hash(color_dict2)
+                        for color_scheme1 in self.sample["train"][1:] + self.sample["test"]:
+                            found = False
+                            for k in range(10):
+                                hash_array = [get_dict_hash(color_dict) for color_dict in color_scheme1["colors"][k]]
+                                if hash1 in hash_array and hash2 in hash_array:
+                                    found = True
+                                    break
+                            if not found:
+                                delete = False
+                                break
+                        if delete:
+                            delete_colors.append(hash1)
+                            break
+
+        for color_scheme1 in self.sample["train"]:
+            for i in range(10):
+                j = 0
+                while j < len(color_scheme1["colors"][i]):
+                    if get_dict_hash(color_scheme1["colors"][i][j]) in delete_colors:
+                        del color_scheme1["colors"][i][j]
+                    else:
+                        j += 1
         return
 
     def init_call(self):
@@ -545,6 +580,7 @@ class pattern(predictor):
         return pattern_list
 
     def init_call(self):
+        self.filter_colors()
         self.try_self = True
         for k in range(len(self.sample["train"])):
             original_image, target_image = self.get_images(k)
@@ -2127,6 +2163,7 @@ class replace_column(predictor):
         super().__init__(params, preprocess_params)
 
     def init_call(self):
+        self.filter_colors()
         self.original_patterns = []
         self.target_patterns = []
         self.solution_candidates = [{"placeholder": 0}]
@@ -2183,6 +2220,7 @@ class cell_to_column(predictor):
         super().__init__(params, preprocess_params)
 
     def init_call(self):
+        self.filter_colors()
         self.original_patterns = []
         self.target_patterns = []
         self.solution_candidates = [{"placeholder": 0}]
