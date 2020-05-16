@@ -17,12 +17,13 @@ def check(predictor_class, params, file_path, DATA_PATH, preprocessing_params):
             j = 0
             n = 3
             while j < n and j < len(answer[i]):
-                if j > 0 and (answer[i][j] == answer[i][j - 1]).all():
+                if j > 0 and (answer[i][j].shape == answer[i][j - 1].shape) and (answer[i][j] == answer[i][j - 1]).all():
                     n += 1
                     j += 1
                     continue
-                result = (answer[i][j] == np.uint8(sample["test"][i]["output"])).all()
-                if result:
+                if (answer[i][j].shape == np.uint8(sample["test"][i]["output"]).shape) and (
+                    answer[i][j] == np.uint8(sample["test"][i]["output"])
+                ).all():
                     test_solved = True
                     break
                 j += 1
