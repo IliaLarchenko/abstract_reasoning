@@ -173,5 +173,14 @@ def test_predictor():
             "data/training",
             ["initial", "max_area_covered", "initial_masks"],
         ),
+        (76, mask_to_block, {"mask_num": 1}, "f76d97a5.json", "data/training", ["initial", "initial_masks"]),
+        (
+            77,
+            mask_to_block,
+            {"mask_num": 2},
+            "bda2d7a6.json",
+            "data/training",
+            ["initial", "background", "initial_masks"],
+        ),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
