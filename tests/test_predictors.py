@@ -196,5 +196,13 @@ def test_predictor():
             "data/evaluation",
             ["initial", "background", "cut_edges", "resize"],
         ),  # strange, but works
+        (
+            83,
+            mask_to_block,
+            {"mask_num": 3},
+            "ea9794b1.json",
+            "data/evaluation",
+            ["initial", "corners", "initial_masks"],
+        ),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
