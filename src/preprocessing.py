@@ -471,15 +471,9 @@ def get_color_scheme(image, target_image=None, params=None):
     result["colors_sorted"] = colors
     result["colors_num"] = len(colors)
 
-    if target_image is None:
-        for color in range(10):
-            # use abs color value - same for any image
-            result["colors"][color].append({"type": "abs", "k": color})
-    else:
-        unique_target = np.unique(target_image)
-        for color in [int(x) for x in set(list(unique_target) + list(unique))]:
-            # use abs color value - same for any image
-            result["colors"][color].append({"type": "abs", "k": color})
+    for color in range(10):
+        # use abs color value - same for any image
+        result["colors"][color].append({"type": "abs", "k": color})
 
     if len(colors) == 2 and 0 in colors:
         result["colors"][[x for x in colors if x != 0][0]].append({"type": "non_zero"})
