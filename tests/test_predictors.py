@@ -204,13 +204,6 @@ def test_predictor():
             "data/evaluation",
             ["initial", "corners", "initial_masks"],
         ),
-        (
-            84,
-            mask_to_block,
-            {"mask_num": 3},
-            "3d31c5b3.json",
-            "data/evaluation",
-            ["initial", "k_parts", "initial_masks"],
-        ),
+        (84, mask_to_block, {"mask_num": 3}, "3d31c5b3.json", "data/evaluation", ["initial", "k_part", "initial_masks"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
