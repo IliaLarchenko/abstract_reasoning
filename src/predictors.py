@@ -844,6 +844,13 @@ class mask_to_block(predictor):
         """ works like fit_predict"""
         self.sample = sample
         self.init_call()
+
+        color_nums = [len(np.unique(x["output"])) for x in self.sample["train"]]
+        max_color_nums = np.argmax(color_nums)
+        self.sample["train"][0], self.sample["train"][max_color_nums] = (
+            self.sample["train"][max_color_nums],
+            self.sample["train"][0],
+        )
         self.initial_train = list(sample["train"]).copy()
 
         if self.params is not None and "skip_train" in self.params:
@@ -856,17 +863,17 @@ class mask_to_block(predictor):
         for _ in self.sample["test"]:
             answers.append([])
         result_generated = False
-
         all_subsets = list(itertools.combinations(self.initial_train, train_len))
         for subset in all_subsets:
             self.sample["train"] = subset
             status = self.process_full_train()
             if status != 0:
-                return status, None
+                continue
 
-            random.shuffle(self.solution_candidates)
-            self.solution_candidates = self.solution_candidates[:300]
-            print(len(self.solution_candidates))
+            # print(len(self.solution_candidates))
+            # random.shuffle(self.solution_candidates)
+            # self.solution_candidates = self.solution_candidates[:300]
+            # print(len(self.solution_candidates))
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
                 color_scheme = self.sample["test"][test_n]
@@ -883,6 +890,7 @@ class mask_to_block(predictor):
                     answers[test_n].append(self.process_prediction(prediction))
                     result_generated = True
 
+        sample["train"] = self.initial_train
         if result_generated:
             return 0, answers
         else:
