@@ -111,7 +111,7 @@ def run_parallel(
                     if process.is_alive():
                         if time.time() - start_time > timeout:
                             process.terminate()
-                            while not qk_partueue.empty():
+                            while not queue.empty():
                                 result = result + queue.get()
                             process.join(10)
                             print("Time out. The process is killed.")
@@ -191,6 +191,7 @@ def combine_submission_files(list_of_dfs, sample_submission_path="data/sample_su
         ]
         list_of_answ = [x for x in list_of_answ if len(x) != 0]
         total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
+        print(total_len)
         while total_len > 3:
             for j in range(1, len(list_of_answ) + 1):
                 if len(list_of_answ[-j]) > (j > len(list_of_answ) - 3):
