@@ -30,12 +30,15 @@ def process_file(
     show_results=True,
     break_after_answer=False,
     queue=None,
+    process_whole_ds=False,
 ):
     with open(os.path.join(PATH, file_path), "r") as file:
         sample = json.load(file)
 
     submission_list = []
-    sample = preprocess_sample(sample, params=preprocess_params, color_params=color_params)
+    sample = preprocess_sample(
+        sample, params=preprocess_params, color_params=color_params, process_whole_ds=process_whole_ds
+    )
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -79,6 +82,7 @@ def run_parallel(
     processes=20,
     timeout=300,
     max_memory_by_process=1.4e10,
+    process_whole_ds=False,
 ):
     process_list = []
     timing_list = []
@@ -93,6 +97,7 @@ def run_parallel(
         show_results=show_results,
         break_after_answer=break_after_answer,
         queue=queue,
+        process_whole_ds=process_whole_ds,
     )
 
     result = []
@@ -106,7 +111,7 @@ def run_parallel(
                     if process.is_alive():
                         if time.time() - start_time > timeout:
                             process.terminate()
-                            while not queue.empty():
+                            while not qk_partueue.empty():
                                 result = result + queue.get()
                             process.join(10)
                             print("Time out. The process is killed.")
