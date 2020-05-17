@@ -7,7 +7,7 @@ def check(predictor_class, params, file_path, DATA_PATH, preprocessing_params):
     with open(os.path.join(DATA_PATH, file_path), "r") as file:
         sample = json.load(file)
 
-    sample = preprocess_sample(sample, params=preprocessing_params)
+    sample = preprocess_sample(sample, params=preprocessing_params, process_whole_ds=True)
     predictor = predictor_class(params=params)
 
     result, answer = predictor(sample)
@@ -203,6 +203,14 @@ def test_predictor():
             "ea9794b1.json",
             "data/evaluation",
             ["initial", "corners", "initial_masks"],
+        ),
+        (
+            84,
+            mask_to_block,
+            {"mask_num": 3},
+            "3d31c5b3.json",
+            "data/evaluation",
+            ["initial", "k_parts", "initial_masks"],
         ),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
