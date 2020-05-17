@@ -2386,13 +2386,22 @@ class fill_lines(predictor):
                 return 4, None
 
         result = image.copy()
-        for i in range(image.shape[0]):
+        if params["full"]:
+            for i in range(image.shape[0]):
+                if (image[i] == params["color"]).all():
+                    result[i] = params["fill_color"]
             for j in range(image.shape[1]):
-                if image[i, j] == params["color"]:
-                    if params["vert"]:
-                        result[i] = params["fill_color"]
-                    if params["hor"]:
-                        result[:, j] = params["fill_color"]
+                if (image[:, j] == params["color"]).all():
+                    result[:, j] = params["fill_color"]
+        else:
+            for i in range(image.shape[0]):
+                for j in range(image.shape[1]):
+                    if image[i, j] == params["color"]:
+                        if params["vert"]:
+                            result[i] = params["fill_color"]
+                        if params["hor"]:
+                            result[:, j] = params["fill_color"]
+
         if params["keep"]:
             result[image == params["keep_color"]] = params["keep_color"]
         else:
@@ -2419,26 +2428,28 @@ class fill_lines(predictor):
                                 continue
                             for fill_color in range(10):
                                 for keep in [True, False]:
-                                    for keep_color in self.sample["train"][k]["colors_sorted"]:
-                                        params = {
-                                            "color": color,
-                                            "hor": hor,
-                                            "vert": vert,
-                                            "fill_color": fill_color,
-                                            "keep_color": keep_color,
-                                            "keep": keep,
-                                        }
+                                    for full in [True, False]:
+                                        for keep_color in self.sample["train"][k]["colors_sorted"]:
+                                            params = {
+                                                "color": color,
+                                                "hor": hor,
+                                                "vert": vert,
+                                                "fill_color": fill_color,
+                                                "keep_color": keep_color,
+                                                "keep": keep,
+                                                "full": full,
+                                            }
 
-                                        status, result = self.predict_output(original_image, params, block=pattern)
-                                        if status != 0:
-                                            continue
+                                            status, result = self.predict_output(original_image, params, block=pattern)
+                                            if status != 0:
+                                                continue
 
-                                        if result.shape == target_image.shape and (result == target_image).all():
-                                            for param in block["params"]:
-                                                params["block"] = param
-                                                local_candidates = local_candidates + self.add_candidates_list(
-                                                    original_image, target_image, self.sample["train"][k], params
-                                                )
+                                            if result.shape == target_image.shape and (result == target_image).all():
+                                                for param in block["params"]:
+                                                    params["block"] = param
+                                                    local_candidates = local_candidates + self.add_candidates_list(
+                                                        original_image, target_image, self.sample["train"][k], params
+                                                    )
         else:
             for candidate in self.solution_candidates:
                 status, params = self.retrive_params_values(candidate, self.sample["train"][k])
