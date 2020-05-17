@@ -102,6 +102,24 @@ def get_corner(image, side):
         return 0, image[: -size[0], -size[1] :]
 
 
+def get_k_part(image, num, k):
+    if image.shape[0] > image.shape[1]:
+        max_axis = 0
+        max_shape = image.shape[0]
+    else:
+        max_axis = 1
+        max_shape = image.shape[1]
+
+    if max_shape % num != 0:
+        return 1, None
+    size = max_shape // num
+
+    if max_axis == 0:
+        return 0, image[k * size : (k + 1) * size]
+    else:
+        return 0, image[:, k * size : (k + 1) * size]
+
+
 def get_rotation(image, k):
     return 0, np.rot90(image, k)
 
@@ -554,6 +572,7 @@ def process_image(
         "additional_masks",
         "coverage_masks",
         "min_max_masks",
+        "k_part",
     ]
 
     if not params:
@@ -651,6 +670,15 @@ def process_image(
             status, block = get_half(image, side=side)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                 add_block(result["blocks"], block, [[{"type": "half", "side": side}]])
+
+    # adding halves of the images
+    if ("k_part" in params) and (time.time() - start_time < max_time) and (len(result["blocks"]["arrays"]) < max_blocks):
+        # print("part")
+        for num in [3, 4]:
+            for k in range(num):
+                status, block = get_k_part(image, num=num, k=k)
+                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                    add_block(result["blocks"], block, [[{"type": "k_part", "num": num, "k": k}]])
 
     # adding corners of the images
     if (
@@ -1045,7 +1073,7 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
     return 0, result
 
 
-def preprocess_sample(sample, params=None, color_params=None):
+def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=False):
     """ make the whole preprocessing for particular sample"""
 
     original_image = np.uint8(sample["train"][0]["input"])
@@ -1057,10 +1085,13 @@ def preprocess_sample(sample, params=None, color_params=None):
 
     for n, image in enumerate(sample["train"][1:]):
         original_image = np.uint8(image["input"])
-        sample["train"][n + 1].update(process_image(original_image, params=["initial"]), color_params=color_params)
+        if process_whole_ds:
+            sample["train"][n + 1].update(process_image(original_image, params=params, color_params=color_params))
+        else:
+            sample["train"][n + 1].update(process_image(original_image, params=["initial"], color_params=color_params))
 
     for n, image in enumerate(sample["test"]):
         original_image = np.uint8(image["input"])
-        sample["test"][n].update(process_image(original_image, params=["initial"]), color_params=color_params)
+        sample["test"][n].update(process_image(original_image, params=["initial"], color_params=color_params))
 
     return sample
