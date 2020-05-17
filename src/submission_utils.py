@@ -181,13 +181,15 @@ def combine_submission_files(list_of_dfs, sample_submission_path="data/sample_su
 
     merge_output = []
     for i in range(len(list_of_outputs[0])):
-        list_of_answ = [[x.strip() for x in output[i].strip().split(" ")] for output in list_of_outputs]
-
+        list_of_answ = [
+            [x.strip() for x in output[i].strip().split(" ") if x.strip() != ""] for output in list_of_outputs
+        ]
+        list_of_answ = [x for x in list_of_answ if len(x) != 0]
         total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
         while total_len > 3:
-            for i in range(1, len(list_of_answ) + 1):
-                if len(list_of_answ[-i]) > (i > len(list_of_answ) - 3):
-                    list_of_answ[-i] = list_of_answ[-i][:-1]
+            for j in range(1, len(list_of_answ) + 1):
+                if len(list_of_answ[-j]) > (j > len(list_of_answ) - 3):
+                    list_of_answ[-j] = list_of_answ[-j][:-1]
                     break
             total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
 
