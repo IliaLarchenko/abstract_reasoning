@@ -544,7 +544,7 @@ def get_inversed_colors(image):
 
 
 def process_image(
-    image, max_time=120, max_blocks=200000, max_masks=200000, target_image=None, params=None, color_params=None
+    image, max_time=150, max_blocks=200000, max_masks=200000, target_image=None, params=None, color_params=None
 ):
     """processes the original image and returns dict with structured image blocks"""
 
@@ -838,6 +838,8 @@ def process_image(
                 [{"operation": "not", "params": param["params"]} for param in mask["params"]],
             )
 
+    initial_masks = result["masks"]["arrays"].copy()
+    masks_to_add = []
     processed = []
     if ("additional_masks" in params) and (time.time() - start_time < max_time * 2):
         # print("additional_masks")
@@ -846,7 +848,6 @@ def process_image(
             if time.time() - start_time < max_time * 2 and (
                 (target_image.shape == mask1["array"].shape) or (target_image.shape == mask1["array"].T.shape)
             ):
-
                 # if max_masks * 3 < len(result["masks"]):
                 #     break
                 for key2, mask2 in initial_masks.items():
@@ -867,10 +868,18 @@ def process_image(
                                 params_list_xor.append(
                                     {"operation": "xor", "params": {"mask1": param1, "mask2": param2}}
                                 )
+                        masks_to_add.append(
+                            (result["masks"], np.logical_and(mask1["array"], mask2["array"]), params_list_and)
+                        )
+                        masks_to_add.append(
+                            (result["masks"], np.logical_or(mask1["array"], mask2["array"]), params_list_or)
+                        )
+                        masks_to_add.append(
+                            (result["masks"], np.logical_xor(mask1["array"], mask2["array"]), params_list_xor)
+                        )
 
-                        add_block(result["masks"], np.logical_and(mask1["array"], mask2["array"]), params_list_and)
-                        add_block(result["masks"], np.logical_or(mask1["array"], mask2["array"]), params_list_or)
-                        add_block(result["masks"], np.logical_xor(mask1["array"], mask2["array"]), params_list_xor)
+    for path, array, params_list in masks_to_add:
+        add_block(path, array, params_list)
 
     # coverage_masks
     if ("coverage_masks" in params) and (time.time() - start_time < max_time * 2):
