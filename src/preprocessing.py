@@ -622,7 +622,7 @@ def process_image(
     # adding background
     if ("background" in params) and (time.time() - start_time < max_time):
         # print("background")
-        for color in result["colors_sorted"]:
+        for color in range(10):
             status, block = get_background(image, color)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                 params_list = []
