@@ -205,5 +205,15 @@ def test_predictor():
             ["initial", "corners", "initial_masks"],
         ),
         (84, mask_to_block, {"mask_num": 3}, "3d31c5b3.json", "data/evaluation", ["initial", "k_part", "initial_masks"]),
+        # (85, mask_to_block,{"mask_num": 3},
+        #   "6a11f6da.json", "data/evaluation", ["initial", "k_part", "initial_masks"]), #very slow
+        (
+            86,
+            mask_to_block,
+            {"mask_num": 2},
+            "d47aa2ff.json",
+            "data/evaluation",
+            ["initial", "grid_cells", "additional_masks", "initial_masks"],
+        ),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
