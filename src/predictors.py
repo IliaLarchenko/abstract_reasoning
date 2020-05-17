@@ -1047,23 +1047,44 @@ class colors(predictor):
             if num <= 0:
                 return 7, 0
             return 0, np.array([[params["color"] * num]])
+        if params["type"] == "mono_size":
+            result = np.ones((params["size0"], params["size1"])) * params["color"]
+            return 0, result
+        if params["type"] == "mono_same":
+            result = np.ones_like(image) * params["color"]
+            return 0, result
+
         if params["type"] == "several_linear":
+            if "size" in params:
+                size = params["size"]
+            else:
+                size = len(params["color_scheme"]["colors_sorted"]) - params["size_diff"]
             colors_array = np.rot90(
-                np.array([params["color_scheme"]["colors_sorted"][params["i"] : params["i"] + params["size"]]]),
-                params["rotate"],
+                np.array([params["color_scheme"]["colors_sorted"][params["i"] : params["i"] + size]]), params["rotate"]
             )
             return 0, colors_array
 
-        if params["type"] == "square":
-            colors_array = np.zeros((params["size"] * 2 + 1, params["size"] * 2 + 1))
-            if len(params["color_scheme"]["colors_sorted"]) < params["i"] + params["size"]:
+        if params["type"] in ["square2", "square"]:
+            if "size" in params:
+                size = params["size"]
+            else:
+                size = len(params["color_scheme"]["colors_sorted"]) - params["size_diff"]
+            if params["type"] == "square":
+                colors_array = np.zeros((size * 2 + 1, size * 2 + 1))
+            else:
+                colors_array = np.zeros((size * 2, size * 2))
+            if len(params["color_scheme"]["colors_sorted"]) < params["i"] + size:
                 return 6, None
             if params["direct"] == 0:
-                for j in range(params["size"]):
-                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][params["i"] + j]
+                for j in range(size):
+                    colors_array[j : colors_array.shape[0] - j, j : colors_array.shape[0] - j] = params["color_scheme"][
+                        "colors_sorted"
+                    ][params["i"] + j]
             else:
-                for j in range(params["size"]):
-                    colors_array[j:-j] = params["color_scheme"]["colors_sorted"][::-1][params["i"] + j]
+                for j in range(size):
+                    colors_array[j : colors_array.shape[0] - j, j : colors_array.shape[0] - j] = params["color_scheme"][
+                        "colors_sorted"
+                    ][::-1][params["i"] + j]
             return 0, colors_array
 
         return 9, None
@@ -1088,6 +1109,21 @@ class colors(predictor):
             local_candidates = local_candidates + self.add_candidates_list(
                 original_image, target_image, self.sample["train"][k], params
             )
+        if len(np.unique(target_image)) == 1:
+            params = {
+                "type": "mono_size",
+                "color": int(target_image[0, 0]),
+                "size0": target_image.shape[0],
+                "size1": target_image.shape[1],
+            }
+            local_candidates = local_candidates + self.add_candidates_list(
+                original_image, target_image, self.sample["train"][k], params
+            )
+            if target_image.shape == original_image.shape:
+                params = {"type": "mono_same", "color": int(target_image[0, 0])}
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
         if target_image.shape[0] == 1 or target_image.shape[1] == 1:
             size = target_image.shape[0] * target_image.shape[1]
             if not (size > self.sample["train"][k]["colors_num"]):
@@ -1098,6 +1134,11 @@ class colors(predictor):
                         local_candidates = local_candidates + self.add_candidates_list(
                             original_image, target_image, self.sample["train"][k], params
                         )
+                        params = {"type": "several_linear", "i": i, "rotate": rotate, "size_diff": size_diff}
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image, target_image, self.sample["train"][k], params
+                        )
+
         if target_image.shape[0] == target_image.shape[1]:
             size = target_image.shape[0] // 2
             if not (size > self.sample["train"][k]["colors_num"]):
@@ -1105,6 +1146,18 @@ class colors(predictor):
                 for i in range(size_diff + 1):
                     for direct in range(2):
                         params = {"type": "square", "i": i, "direct": direct, "size": size}
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image, target_image, self.sample["train"][k], params
+                        )
+                        params = {"type": "square2", "i": i, "direct": direct, "size": size}
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image, target_image, self.sample["train"][k], params
+                        )
+                        params = {"type": "square", "i": i, "direct": direct, "size_diff": size_diff}
+                        local_candidates = local_candidates + self.add_candidates_list(
+                            original_image, target_image, self.sample["train"][k], params
+                        )
+                        params = {"type": "square2", "i": i, "direct": direct, "size_diff": size_diff}
                         local_candidates = local_candidates + self.add_candidates_list(
                             original_image, target_image, self.sample["train"][k], params
                         )

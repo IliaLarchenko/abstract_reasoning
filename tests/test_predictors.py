@@ -215,5 +215,6 @@ def test_predictor():
             "data/evaluation",
             ["initial", "grid_cells", "additional_masks", "initial_masks"],
         ),
+        (87, colors, {}, "85c4e7cd.json", "data/training", ["initial"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
