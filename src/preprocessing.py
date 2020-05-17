@@ -1085,7 +1085,7 @@ def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=F
 
     for n, image in enumerate(sample["train"][1:]):
         original_image = np.uint8(image["input"])
-        target_image = np.uint8(sample["train"][0]["output"])
+        target_image = np.uint8(sample["train"][n + 1]["output"])
         if process_whole_ds:
             sample["train"][n + 1].update(
                 process_image(original_image, target_image=target_image, params=params, color_params=color_params)
