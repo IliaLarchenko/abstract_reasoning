@@ -4,6 +4,8 @@ from scipy import ndimage
 import json
 import time
 
+from src.utils import matrix2answer
+
 
 def find_grid(image):
     # Looks for the grid in image and returns color and size
@@ -523,7 +525,7 @@ def get_color_scheme(image, target_image=None, params=None):
 
 
 def add_block(target_dict, image, params_list):
-    array_hash = hash(image.tostring())
+    array_hash = hash(matrix2answer(image))
     if array_hash not in target_dict["arrays"]:
         target_dict["arrays"][array_hash] = {"array": image, "params": []}
 
