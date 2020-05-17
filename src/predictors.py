@@ -1098,27 +1098,41 @@ class colors(predictor):
             )
             return 0, colors_array
 
-        if params["type"] in ["square2", "square"]:
+        if params["type"] in ["square3", "square2", "square"]:
             if "size" in params:
                 size = params["size"]
             else:
                 size = len(params["color_scheme"]["colors_sorted"]) - params["size_diff"]
             if params["type"] == "square":
                 colors_array = np.zeros((size * 2 + 1, size * 2 + 1))
-            else:
+            elif params["type"] == "square2":
                 colors_array = np.zeros((size * 2, size * 2))
+            elif params["type"] == "square3":
+                colors_array = np.zeros((size, size))
             if len(params["color_scheme"]["colors_sorted"]) < params["i"] + size:
                 return 6, None
-            if params["direct"] == 0:
-                for j in range(size):
-                    colors_array[j : colors_array.shape[0] - j, j : colors_array.shape[0] - j] = params["color_scheme"][
-                        "colors_sorted"
-                    ][params["i"] + j]
+            if params["type"] in ["square2", "square"]:
+                if params["direct"] == 0:
+                    for j in range(size):
+                        colors_array[j : colors_array.shape[0] - j, j : colors_array.shape[0] - j] = params[
+                            "color_scheme"
+                        ]["colors_sorted"][params["i"] + j]
+                else:
+                    for j in range(size):
+                        colors_array[j : colors_array.shape[0] - j, j : colors_array.shape[0] - j] = params[
+                            "color_scheme"
+                        ]["colors_sorted"][::-1][params["i"] + j]
             else:
-                for j in range(size):
-                    colors_array[j : colors_array.shape[0] - j, j : colors_array.shape[0] - j] = params["color_scheme"][
-                        "colors_sorted"
-                    ][::-1][params["i"] + j]
+                if params["direct"] == 0:
+                    for j in range(size):
+                        colors_array[: colors_array.shape[0] - j, : colors_array.shape[0] - j] = params["color_scheme"][
+                            "colors_sorted"
+                        ][params["i"] + j]
+                else:
+                    for j in range(size):
+                        colors_array[: colors_array.shape[0] - j, : colors_array.shape[0] - j] = params["color_scheme"][
+                            "colors_sorted"
+                        ][::-1][params["i"] + j]
             return 0, colors_array
 
         return 9, None
@@ -1195,6 +1209,21 @@ class colors(predictor):
                         local_candidates = local_candidates + self.add_candidates_list(
                             original_image, target_image, self.sample["train"][k], params
                         )
+                        for rotate in range(4):
+                            params = {"type": "square3", "i": i, "direct": direct, "size": size, "rotate": rotate}
+                            local_candidates = local_candidates + self.add_candidates_list(
+                                original_image, target_image, self.sample["train"][k], params
+                            )
+                            params = {
+                                "type": "square3",
+                                "i": i,
+                                "direct": direct,
+                                "size_diff": size_diff,
+                                "rotate": rotate,
+                            }
+                            local_candidates = local_candidates + self.add_candidates_list(
+                                original_image, target_image, self.sample["train"][k], params
+                            )
 
         return self.update_solution_candidates(local_candidates, initial)
 
