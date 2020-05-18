@@ -4,11 +4,13 @@ import os
 import signal
 import sys
 import time
+
 from functools import partial
 
 import matplotlib as mpl
 import pandas as pd
 import psutil
+
 from matplotlib import pyplot as plt
 from src.preprocessing import preprocess_sample
 from src.utils import matrix2answer, show_sample
@@ -49,7 +51,7 @@ def process_file(
                     show_sample(sample)
 
                 for j in range(len(answer)):
-                    answers = set([])
+                    answers = set()
                     for k in range(len(answer[j])):
                         str_answer = matrix2answer(answer[j][k])
                         if str_answer not in answers:
@@ -159,12 +161,12 @@ def run_parallel(
 def generate_submission(predictions_list, sample_submission_path="data/sample_submission.csv"):
     submission = pd.read_csv(sample_submission_path).to_dict("records")
 
-    initial_ids = set([data["output_id"] for data in submission])
+    initial_ids = {data["output_id"] for data in submission}
     new_submission = []
 
-    ids = set([data["output_id"] for data in predictions_list])
+    ids = {data["output_id"] for data in predictions_list}
     for output_id in ids:
-        predicts = list(set([data["output"] for data in predictions_list if data["output_id"] == output_id]))
+        predicts = list({data["output"] for data in predictions_list if data["output_id"] == output_id})
         output = " ".join(predicts[:3])
         new_submission.append({"output_id": output_id, "output": output})
 
@@ -188,16 +190,16 @@ def combine_submission_files(list_of_dfs, sample_submission_path="data/sample_su
             [x.strip() for x in output[i].strip().split(" ") if x.strip() != ""] for output in list_of_outputs
         ]
         list_of_answ = [x for x in list_of_answ if len(x) != 0]
-        total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
+        total_len = len(list({item for sublist in list_of_answ for item in sublist}))
         print(total_len)
         while total_len > 3:
             for j in range(1, len(list_of_answ) + 1):
                 if len(list_of_answ[-j]) > (j > len(list_of_answ) - 3):
                     list_of_answ[-j] = list_of_answ[-j][:-1]
                     break
-            total_len = len(list(set([item for sublist in list_of_answ for item in sublist])))
+            total_len = len(list({item for sublist in list_of_answ for item in sublist}))
 
-        o = list(set([item for sublist in list_of_answ for item in sublist]))
+        o = list({item for sublist in list_of_answ for item in sublist})
         answer = " ".join(o[:3]).strip()
         while answer.find("  ") > 0:
             answer = answer.replace("  ", " ")

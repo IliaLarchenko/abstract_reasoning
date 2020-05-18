@@ -14,4 +14,8 @@ repos:
     rev: 4.3.21-2
     hooks:
     -   id: isort
-        args: [-w, "121"]
+        args: [-w, "121", -lbt, "1"]
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v2.4.3
+    hooks:
+    -   id: pyupgrade

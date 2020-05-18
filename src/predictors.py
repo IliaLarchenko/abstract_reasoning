@@ -2,6 +2,7 @@ import itertools
 import random
 
 import numpy as np
+
 from scipy import ndimage
 from src.functions import combine_two_lists, filter_list_of_dicts, intersect_two_lists, swap_two_colors
 from src.preprocessing import find_grid, get_color, get_dict_hash, get_mask_from_block_params, get_predict
@@ -1959,8 +1960,8 @@ class reconstruct_mosaic(predictor):
         full_image[start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]] = image
 
         blocks = []
-        for k in range((b + t)):
-            for n in range((r + l)):
+        for k in range(b + t):
+            for n in range(r + l):
                 new_block = full_image[
                     k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
                 ]
@@ -1990,8 +1991,8 @@ class reconstruct_mosaic(predictor):
         if (new_block == color).any() and not bg:
             return 3, None
 
-        for k in range((b + t)):
-            for n in range((r + l)):
+        for k in range(b + t):
+            for n in range(r + l):
                 full_image[
                     k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
                 ] = new_block
@@ -2040,9 +2041,9 @@ class reconstruct_mosaic(predictor):
             big_first_options = [True, False]
             have_bg_options = [True, False]
         else:
-            directions = list(set([params["direction"] for params in self.solution_candidates]))
-            big_first_options = list(set([params["big_first"] for params in self.solution_candidates]))
-            have_bg_options = list(set([params["have_bg"] for params in self.solution_candidates]))
+            directions = list({params["direction"] for params in self.solution_candidates})
+            big_first_options = list({params["big_first"] for params in self.solution_candidates})
+            have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for direction in directions:
@@ -2159,9 +2160,9 @@ class reconstruct_mosaic_rr(predictor):
             reuse_edge_options = [True, False]
             keep_bg_options = [True, False]
         else:
-            directions = list(set([params["direction"] for params in self.solution_candidates]))
-            reuse_edge_options = list(set([params["reuse_edge"] for params in self.solution_candidates]))
-            keep_bg_options = list(set([params["keep_bg"] for params in self.solution_candidates]))
+            directions = list({params["direction"] for params in self.solution_candidates})
+            reuse_edge_options = list({params["reuse_edge"] for params in self.solution_candidates})
+            keep_bg_options = list({params["keep_bg"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for direction in directions:
@@ -2230,9 +2231,9 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
             big_first_options = [True, False]
             have_bg_options = [True, False]
         else:
-            directions = list(set([params["direction"] for params in self.solution_candidates]))
-            big_first_options = list(set([params["big_first"] for params in self.solution_candidates]))
-            have_bg_options = list(set([params["have_bg"] for params in self.solution_candidates]))
+            directions = list({params["direction"] for params in self.solution_candidates})
+            big_first_options = list({params["big_first"] for params in self.solution_candidates})
+            have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             mask = original_image == color
@@ -2298,9 +2299,9 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
             reuse_edge_options = [True, False]
             keep_bg_options = [True, False]
         else:
-            directions = list(set([params["direction"] for params in self.solution_candidates]))
-            reuse_edge_options = list(set([params["reuse_edge"] for params in self.solution_candidates]))
-            keep_bg_options = list(set([params["keep_bg"] for params in self.solution_candidates]))
+            directions = list({params["direction"] for params in self.solution_candidates})
+            reuse_edge_options = list({params["reuse_edge"] for params in self.solution_candidates})
+            keep_bg_options = list({params["keep_bg"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             mask = original_image == color
