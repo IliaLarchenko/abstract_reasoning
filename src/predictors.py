@@ -262,7 +262,7 @@ class fill(predictor):
                 return 4, None
 
         result = image.copy()
-        if params["process_type"] in ["isolated", "isolated_non_bg"]:
+        if params["process_type"] in ["isolated", "isolated_non_bg", "n_bg", "n_bg_full", "n_fill_self"]:
             image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * params["background_color"]
         else:
             image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
