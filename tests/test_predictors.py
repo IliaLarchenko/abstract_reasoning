@@ -1,4 +1,5 @@
 import os
+
 from src.predictors import *
 from src.preprocessing import *
 
@@ -217,5 +218,6 @@ def test_predictor():
         ),
         (87, colors, {}, "85c4e7cd.json", "data/training", ["initial"]),
         (88, fill_lines, {}, "c1d99e64.json", "data/training", ["initial"]),
+        (89, fill, {}, "6f8cd79b.json", "data/training", ["initial", "background"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"

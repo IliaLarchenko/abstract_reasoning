@@ -1,9 +1,9 @@
-import numpy as np
-from scipy.stats import mode
-from scipy import ndimage
 import json
 import time
 
+import numpy as np
+from scipy import ndimage
+from scipy.stats import mode
 from src.utils import matrix2answer
 
 

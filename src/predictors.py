@@ -1,11 +1,10 @@
-import numpy as np
-from src.preprocessing import get_color, get_dict_hash
-from src.functions import filter_list_of_dicts, combine_two_lists, intersect_two_lists, swap_two_colors
-from src.preprocessing import find_grid, get_predict, get_mask_from_block_params
-import random
-from scipy import ndimage
-
 import itertools
+import random
+
+import numpy as np
+from scipy import ndimage
+from src.functions import combine_two_lists, filter_list_of_dicts, intersect_two_lists, swap_two_colors
+from src.preprocessing import find_grid, get_color, get_dict_hash, get_mask_from_block_params, get_predict
 
 
 class predictor:

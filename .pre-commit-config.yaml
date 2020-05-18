@@ -10,3 +10,8 @@ repos:
     hooks:
     -   id: black
         args: [--config=black.toml]
+-   repo: https://github.com/timothycrosley/isort
+    rev: 4.3.21-2
+    hooks:
+    -   id: isort
+        args: [-w, "121"]

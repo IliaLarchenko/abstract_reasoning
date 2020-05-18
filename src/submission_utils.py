@@ -1,20 +1,18 @@
 import json
 import multiprocessing
 import os
-import time
-import pandas as pd
-
-from src.preprocessing import preprocess_sample
-from src.utils import show_sample, matrix2answer
-import matplotlib as mpl
-from matplotlib import pyplot as plt
-
-from tqdm.notebook import tqdm
-from functools import partial
-
 import signal
 import sys
+import time
+from functools import partial
+
+import matplotlib as mpl
+import pandas as pd
 import psutil
+from matplotlib import pyplot as plt
+from src.preprocessing import preprocess_sample
+from src.utils import matrix2answer, show_sample
+from tqdm.notebook import tqdm
 
 
 def sigterm_handler(_signo, _stack_frame):

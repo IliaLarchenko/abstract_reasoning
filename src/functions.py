@@ -1,7 +1,8 @@
-import numpy as np
-from src.preprocessing import get_color, get_color_scheme, get_mask_from_block_params, get_dict_hash
-import time
 import gc
+import time
+
+import numpy as np
+from src.preprocessing import get_color, get_color_scheme, get_dict_hash, get_mask_from_block_params
 
 
 def paint_mask(sample, rotate_target=0):
