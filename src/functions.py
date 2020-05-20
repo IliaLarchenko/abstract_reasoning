@@ -262,7 +262,7 @@ def check_surface_block(image, i, j, block):
 
 def find_mosaic_block(image, params):
     """ predicts 1 output image given input image and prediction params"""
-    itteration_list1 = list(range(2, sum(image.shape)-1))
+    itteration_list1 = list(range(2, sum(image.shape) - 3))
     if params["big_first"]:
         itteration_list1 = itteration_list1[::-1]
     for size in itteration_list1:
@@ -285,32 +285,48 @@ def find_mosaic_block(image, params):
     return 1, None
 
 
-def reconstruct_mosaic_from_block(block, params, original_image = None):
-    if params['mosaic_size_type'] == 'fixed':
-        temp_shape = [0,0]
-        temp_shape[0] = params['mosaic_shape'][0] + params['mosaic_shape'][0] % block.shape[0]
-        temp_shape[1] = params['mosaic_shape'][1] + params['mosaic_shape'][1] % block.shape[1]
+def reconstruct_mosaic_from_block(block, params, original_image=None):
+    if params["mosaic_size_type"] == "fixed":
+        temp_shape = [0, 0]
+        temp_shape[0] = params["mosaic_shape"][0] + params["mosaic_shape"][0] % block.shape[0]
+        temp_shape[1] = params["mosaic_shape"][1] + params["mosaic_shape"][1] % block.shape[1]
 
         result = np.zeros(temp_shape)
-        for i in range(temp_shape[0] //  block.shape[0]):
-            for j in range(temp_shape[1] //  block.shape[1]):
-                result[i*block.shape[0] : (i+1)*block.shape[0], j*block.shape[1] : (j+1)*block.shape[1]] = block
-        result = result[:params['mosaic_shape'][0], :params['mosaic_shape'][1]]
-    elif params['mosaic_size_type'] == 'size':
-        result = np.zeros((params['mosaic_size'][0]*block.shape[0],params['mosaic_size'][1]*block.shape[1]))
-        for i in range(params['mosaic_size'][0]):
-            for j in range(params['mosaic_size'][1]):
-                result[i*block.shape[0] : (i+1)*block.shape[0], j*block.shape[1] : (j+1)*block.shape[1]] = block
-    elif params['mosaic_size_type'] == 'same':
+        for i in range(temp_shape[0] // block.shape[0]):
+            for j in range(temp_shape[1] // block.shape[1]):
+                result[
+                    i * block.shape[0] : (i + 1) * block.shape[0], j * block.shape[1] : (j + 1) * block.shape[1]
+                ] = block
+        result = result[: params["mosaic_shape"][0], : params["mosaic_shape"][1]]
+    elif params["mosaic_size_type"] == "size":
+        result = np.zeros((params["mosaic_size"][0] * block.shape[0], params["mosaic_size"][1] * block.shape[1]))
+        for i in range(params["mosaic_size"][0]):
+            for j in range(params["mosaic_size"][1]):
+                result[
+                    i * block.shape[0] : (i + 1) * block.shape[0], j * block.shape[1] : (j + 1) * block.shape[1]
+                ] = block
+    elif params["mosaic_size_type"] == "same":
         params = params.copy()
-        params['mosaic_shape'] = original_image.shape
-        params['mosaic_size_type'] = 'fixed'
-        result = reconstruct_mosaic_from_block(block, params, original_image = None)
-    elif params['mosaic_size_type'] == 'same_rotated':
+        params["mosaic_shape"] = original_image.shape
+        params["mosaic_size_type"] = "fixed"
+        result = reconstruct_mosaic_from_block(block, params, original_image=None)
+    elif params["mosaic_size_type"] == "same_rotated":
         params = params.copy()
-        params['mosaic_shape'] = original_image.T.shape
-        params['mosaic_size_type'] = 'fixed'
-        result = reconstruct_mosaic_from_block(block, params, original_image = None)
+        params["mosaic_shape"] = original_image.T.shape
+        params["mosaic_size_type"] = "fixed"
+        result = reconstruct_mosaic_from_block(block, params, original_image=None)
+    elif params["mosaic_size_type"] == "color_num":
+        params = params.copy()
+        color_num = len(np.unique(original_image))
+        params["mosaic_size"] = [color_num, color_num]
+        params["mosaic_size_type"] = "size"
+        result = reconstruct_mosaic_from_block(block, params, original_image=None)
+    elif params["mosaic_size_type"] == "block_shape_size":
+        params = params.copy()
+        color_num = len(np.unique(original_image))
+        params["mosaic_size"] = block.shape
+        params["mosaic_size_type"] = "size"
+        result = reconstruct_mosaic_from_block(block, params, original_image=None)
     else:
         return None
     return result

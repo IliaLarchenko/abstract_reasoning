@@ -49,10 +49,11 @@ def process_file(
             if result == 0:
                 if show_results:
                     show_sample(sample)
-
                 for j in range(len(answer)):
                     answers = set()
                     for k in range(len(answer[j])):
+                        if answer[j][k] is None:
+                            continue
                         str_answer = matrix2answer(answer[j][k])
                         if str_answer not in answers:
                             if show_results and k < 3:
