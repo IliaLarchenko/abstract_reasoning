@@ -4,7 +4,8 @@ import random
 import numpy as np
 
 from scipy import ndimage
-from src.functions import combine_two_lists, filter_list_of_dicts, intersect_two_lists, swap_two_colors
+from src.functions import combine_two_lists, filter_list_of_dicts, intersect_two_lists, swap_two_colors, \
+    find_mosaic_block, reconstruct_mosaic_from_block
 from src.preprocessing import find_grid, get_color, get_dict_hash, get_mask_from_block_params, get_predict
 
 
@@ -20,6 +21,8 @@ class predictor:
             self.rrr_input = params["rrr_input"]
         else:
             self.rrr_input = True
+        if 'mosaic_target' not in self.params:
+            self.params['mosaic_target'] = False
 
     def retrive_params_values(self, params, color_scheme):
         new_params = {}
@@ -68,22 +71,65 @@ class predictor:
         return result
 
     def get_images(self, k, train=True):
+        if self.rrr_input:
+            original_image = self.reflect_rotate_roll(np.uint8(self.sample["train"][k]["input"]))
+        else:
+            original_image = np.uint8(self.sample["train"][k]["input"])
+        
         if train:
-            if self.rrr_input:
-                original_image = self.reflect_rotate_roll(np.uint8(self.sample["train"][k]["input"]))
+            if self.params['mosaic_target']:
+                target_image = np.uint8(self.sample["train"][k]["mosaic_output"])
             else:
-                original_image = np.uint8(self.sample["train"][k]["input"])
-            target_image = self.reflect_rotate_roll(np.uint8(self.sample["train"][k]["output"]))
+                target_image = np.uint8(self.sample["train"][k]["output"])   
+            target_image = self.reflect_rotate_roll(target_image)
             return original_image, target_image
         else:
-            if self.rrr_input:
-                original_image = self.reflect_rotate_roll(np.uint8(self.sample["test"][k]["input"]))
-            else:
-                original_image = np.uint8(self.sample["test"][k]["input"])
-            return original_image
 
-    def process_prediction(self, image):
-        return self.reflect_rotate_roll(image, inverse=True)
+            return original_image
+        
+    def initiate_mosaic(self):
+        same_size = True
+        same_size_rotated = True
+        fixed_size = True
+        shapes = []
+        sizes = []
+        for k, data in enumerate(self.sample['train']):
+            target_image = np.uint8(data['output'])
+            original_image = self.get_images(k, train=False)
+            status, block = find_mosaic_block(target_image, self.params)
+            if status !=0:
+                return False
+            self.sample["train"][k]["mosaic_output"] = block
+            same_size = same_size and target_image.shape == original_image.shape
+            same_size_rotated = same_size_rotated and target_image.shape == original_image.T.shape
+            if target_image.shape[0] % block.shape[0] and target_image.shape[1] % block.shape[1]:
+                sizes.append([target_image.shape[0] // block.shape[0],target_image.shape[1] // block.shape[1]])
+            shapes.append(target_image.shape)
+
+        params = {}
+
+        if len([1 for x in shapes[1:] if x != shapes[0]]) == 0:
+            params['mosaic_size_type'] = "fixed"
+            params['mosaic_shape'] = shapes[0]
+        elif fixed_size and len([1 for x in sizes[1:] if x != sizes[0]]) == 0:
+            params['mosaic_size_type'] = "size"
+            params['mosaic_size'] = sizes[0]
+        elif same_size:
+            params['mosaic_size_type'] = "same"
+        elif same_size_rotated:
+            params['mosaic_size_type'] = "same_rotated"
+        else:
+            return False
+
+        self.params['mosaic_params'] = params
+        return True
+    
+
+    def process_prediction(self, image, original_image = None):
+        result = self.reflect_rotate_roll(image, inverse=True)
+        if self.params['mosaic_target']:
+            result = reconstruct_mosaic_from_block(result, self.params['mosaic_params'], original_image = original_image)
+        return result
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -143,6 +189,12 @@ class predictor:
 
     def init_call(self):
         self.filter_colors()
+        if self.params['mosaic_target']:
+            if self.initiate_mosaic():
+                return True
+            else:
+                return False
+        return True
 
     def process_one_sample(self, k, initial=False):
         """ processes k train sample and updates self.solution_candidates"""
@@ -198,7 +250,8 @@ class predictor:
     def __call__(self, sample):
         """ works like fit_predict"""
         self.sample = sample
-        self.init_call()
+        if not self.init_call():
+            return 5, None
         self.initial_train = list(sample["train"]).copy()
 
         if self.params is not None and "skip_train" in self.params:
@@ -233,7 +286,7 @@ class predictor:
                     if status != 0:
                         continue
 
-                    answers[test_n].append(self.process_prediction(prediction))
+                    answers[test_n].append(self.process_prediction(prediction, original_image = original_image))
                     result_generated = True
 
         self.sample["train"] = self.initial_train
@@ -826,7 +879,7 @@ class puzzle(predictor):
                         self.sample["test"][test_n]["blocks"],
                     )
                     if status == 0:
-                        answers[test_n].append(self.process_prediction(prediction))
+                        answers[test_n].append(self.process_prediction(prediction, original_image = original_image))
                         result_generated = True
 
         if result_generated:
@@ -1136,7 +1189,7 @@ class mask_to_block(predictor):
                     if status != 0:
                         continue
 
-                    answers[test_n].append(self.process_prediction(prediction))
+                    answers[test_n].append(self.process_prediction(prediction, original_image = original_image))
                     result_generated = True
 
         sample["train"] = self.initial_train
