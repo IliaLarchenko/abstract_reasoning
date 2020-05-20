@@ -10,7 +10,10 @@ from src.preprocessing import find_grid, get_color, get_dict_hash, get_mask_from
 
 class predictor:
     def __init__(self, params=None, preprocess_params=None):
-        self.params = params
+        if params is None:
+            self.params = {}
+        else:
+            self.params = params
         self.preprocess_params = preprocess_params
         self.solution_candidates = []
         if self.params is not None and "rrr_input" in params:
