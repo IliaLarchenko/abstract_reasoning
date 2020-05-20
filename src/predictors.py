@@ -4,8 +4,14 @@ import random
 import numpy as np
 
 from scipy import ndimage
-from src.functions import (combine_two_lists, filter_list_of_dicts, find_mosaic_block, intersect_two_lists,
-                           reconstruct_mosaic_from_block, swap_two_colors)
+from src.functions import (
+    combine_two_lists,
+    filter_list_of_dicts,
+    find_mosaic_block,
+    intersect_two_lists,
+    reconstruct_mosaic_from_block,
+    swap_two_colors,
+)
 from src.preprocessing import find_grid, get_color, get_dict_hash, get_mask_from_block_params, get_predict
 
 
@@ -1176,7 +1182,8 @@ class mask_to_block(predictor):
     def __call__(self, sample):
         """ works like fit_predict"""
         self.sample = sample
-        self.init_call()
+        if not self.init_call():
+            return 5, None
 
         color_nums = [len(np.unique(x["output"])) for x in self.sample["train"]]
         max_color_nums = np.argmax(color_nums)
