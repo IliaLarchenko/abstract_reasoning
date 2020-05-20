@@ -262,11 +262,8 @@ def check_surface_block(image, i, j, block):
 
 def find_mosaic_block(image, params):
     """ predicts 1 output image given input image and prediction params"""
-    itteration_list1 = list(range(2, sum(image.shape)))
+    itteration_list1 = list(range(2, sum(image.shape)-1))
     if params["big_first"]:
-        itteration_list1 = list(
-            range(2, (image != params["color"]).max(1).sum() + (image != params["color"]).max(0).sum() + 1)
-        )
         itteration_list1 = itteration_list1[::-1]
     for size in itteration_list1:
         if params["direction"] == "all":

@@ -17,7 +17,7 @@ class predictor:
             self.params = params
         self.preprocess_params = preprocess_params
         self.solution_candidates = []
-        if self.params is not None and "rrr_input" in params:
+        if "rrr_input" in self.params:
             self.rrr_input = params["rrr_input"]
         else:
             self.rrr_input = True
@@ -70,21 +70,29 @@ class predictor:
 
         return result
 
-    def get_images(self, k, train=True):
-        if self.rrr_input:
-            original_image = self.reflect_rotate_roll(np.uint8(self.sample["train"][k]["input"]))
-        else:
-            original_image = np.uint8(self.sample["train"][k]["input"])
+    def get_images(self, k, train=True, return_target = True):
+        if not train:
+            return_target = False
         
         if train:
-            if self.params['mosaic_target']:
-                target_image = np.uint8(self.sample["train"][k]["mosaic_output"])
+            if self.rrr_input:
+                original_image = self.reflect_rotate_roll(np.uint8(self.sample["train"][k]["input"]))
             else:
-                target_image = np.uint8(self.sample["train"][k]["output"])   
-            target_image = self.reflect_rotate_roll(target_image)
-            return original_image, target_image
+                original_image = np.uint8(self.sample["train"][k]["input"])
+            if return_target:
+                if self.params['mosaic_target']:
+                    target_image = np.uint8(self.sample["train"][k]["mosaic_output"])
+                else:
+                    target_image = np.uint8(self.sample["train"][k]["output"])
+                target_image = self.reflect_rotate_roll(target_image)
+                return original_image, target_image
+            else:
+                return original_image
         else:
-
+            if self.rrr_input:
+                original_image = self.reflect_rotate_roll(np.uint8(self.sample["test"][k]["input"]))
+            else:
+                original_image = np.uint8(self.sample["test"][k]["input"])
             return original_image
         
     def initiate_mosaic(self):
@@ -95,7 +103,7 @@ class predictor:
         sizes = []
         for k, data in enumerate(self.sample['train']):
             target_image = np.uint8(data['output'])
-            original_image = self.get_images(k, train=False)
+            original_image = self.get_images(k, train=True, return_target = False)
             status, block = find_mosaic_block(target_image, self.params)
             if status !=0:
                 return False
@@ -857,6 +865,8 @@ class puzzle(predictor):
     def __call__(self, sample):
         """ works like fit_predict"""
         self.sample = sample
+        if not self.init_call():
+            return 5, None
         status = self.process_full_train()
         if status != 0:
             return status, None
@@ -920,6 +930,9 @@ class pattern(predictor):
 
     def init_call(self):
         self.filter_colors()
+        if self.params['mosaic_target']:
+            if not self.initiate_mosaic():
+                return False
         self.try_self = True
         for k in range(len(self.sample["train"])):
             original_image, target_image = self.get_images(k)
@@ -932,6 +945,7 @@ class pattern(predictor):
             self.additional_patterns = ["self", "processed"]
         else:
             self.additional_patterns = []
+        return True
 
     def predict_output(self, image, params):
         if params["swap"]:
@@ -2737,9 +2751,13 @@ class replace_column(predictor):
 
     def init_call(self):
         self.filter_colors()
+        if self.params['mosaic_target']:
+            if not self.initiate_mosaic():
+                return False
         self.original_patterns = []
         self.target_patterns = []
         self.solution_candidates = [{"placeholder": 0}]
+        return True
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -2794,9 +2812,13 @@ class cell_to_column(predictor):
 
     def init_call(self):
         self.filter_colors()
+        if self.params['mosaic_target']:
+            if not self.initiate_mosaic():
+                return False
         self.original_patterns = []
         self.target_patterns = []
         self.solution_candidates = [{"placeholder": 0}]
+        return True
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -2872,7 +2894,11 @@ class extend_targets(predictor):
 
     def init_call(self):
         self.filter_colors()
+        if self.params['mosaic_target']:
+            if not self.initiate_mosaic():
+                return False
         self.target_patterns = []
+        return True
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
