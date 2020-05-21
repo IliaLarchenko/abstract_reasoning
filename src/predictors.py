@@ -2250,6 +2250,8 @@ class reconstruct_mosaic(predictor):
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
+        if "simple_mode" not in self.params:
+            self.params["simple_mode"] = True
 
     def check_surface(self, image, i, j, block, color, bg, rotate):
         b = (image.shape[0] - i) // block.shape[0] + int(((image.shape[0] - i) % block.shape[0]) > 0)
@@ -2408,8 +2410,12 @@ class reconstruct_mosaic(predictor):
             directions = ["all", "vert", "hor"]
             big_first_options = [False, True]
             have_bg_options = [True, False]
-            rotate_block_options = [True, False]
-            k_th_block_options = list(range(10))
+            if self.params["simple_mode"]:
+                rotate_block_options = [False]
+                k_th_block_options = [0]
+            else:
+                rotate_block_options = [True, False]
+                k_th_block_options = list(range(10))
         else:
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
@@ -2447,19 +2453,21 @@ class reconstruct_mosaic_rr(predictor):
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
+        if "n_rotate" not in self.params:
+            self.params["n_rotate"] = 1
 
     def check_surface(self, image, i, j, color, direction, reuse_edge, keep_bg):
         blocks = []
         blocks.append(image[i:, j:])
         if direction == "rotate":
             if reuse_edge:
-                blocks.append(np.rot90(image[: i + 1, j:], 1))
-                blocks.append(np.rot90(image[i:, : j + 1], -1))
-                blocks.append(np.rot90(image[: i + 1, : j + 1], 2))
+                blocks.append(np.rot90(image[: i + 1, j:], 1 * self.params["n_rotate"]))
+                blocks.append(np.rot90(image[i:, : j + 1], 3 * self.params["n_rotate"]))
+                blocks.append(np.rot90(image[: i + 1, : j + 1], 2 * self.params["n_rotate"]))
             else:
-                blocks.append(np.rot90(image[:i, j:], 1))
-                blocks.append(np.rot90(image[i:, :j], -1))
-                blocks.append(np.rot90(image[:i, :j], 2))
+                blocks.append(np.rot90(image[:i, j:], 1 * self.params["n_rotate"]))
+                blocks.append(np.rot90(image[i:, :j], 3 * self.params["n_rotate"]))
+                blocks.append(np.rot90(image[:i, :j], 2 * self.params["n_rotate"]))
         elif direction == "reflect":
             if reuse_edge:
                 blocks.append(image[: i + 1, j:][::-1, :])
@@ -2494,13 +2502,25 @@ class reconstruct_mosaic_rr(predictor):
         result[i:, j:] = full_block[: blocks[0].shape[0], : blocks[0].shape[1]]
         if direction == "rotate":
             if reuse_edge:
-                result[: i + 1, j:] = np.rot90(full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1)
-                result[i:, : j + 1] = np.rot90(full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1)
-                result[: i + 1, : j + 1] = np.rot90(full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2)
+                result[: i + 1, j:] = np.rot90(
+                    full_block[: blocks[1].shape[0], : blocks[1].shape[1]], 3 * self.params["n_rotate"]
+                )
+                result[i:, : j + 1] = np.rot90(
+                    full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1 * self.params["n_rotate"]
+                )
+                result[: i + 1, : j + 1] = np.rot90(
+                    full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2 * self.params["n_rotate"]
+                )
             else:
-                result[:i, j:] = np.rot90(full_block[: blocks[1].shape[0], : blocks[1].shape[1]], -1)
-                result[i:, :j] = np.rot90(full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1)
-                result[:i, :j] = np.rot90(full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2)
+                result[:i, j:] = np.rot90(
+                    full_block[: blocks[1].shape[0], : blocks[1].shape[1]], 3 * self.params["n_rotate"]
+                )
+                result[i:, :j] = np.rot90(
+                    full_block[: blocks[2].shape[0], : blocks[2].shape[1]], 1 * self.params["n_rotate"]
+                )
+                result[:i, :j] = np.rot90(
+                    full_block[: blocks[3].shape[0], : blocks[3].shape[1]], 2 * self.params["n_rotate"]
+                )
         elif direction == "reflect":
             if reuse_edge:
                 result[: i + 1, j:] = full_block[: blocks[1].shape[0], : blocks[1].shape[1]][::-1, :]
@@ -2566,6 +2586,8 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
+        if "simple_mode" not in self.params:
+            self.params["simple_mode"] = True
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -2619,8 +2641,12 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
             directions = ["vert", "hor", "all"]
             big_first_options = [True, False]
             have_bg_options = [True, False]
-            rotate_block_options = [True, False]
-            k_th_block_options = [True, False]
+            if self.params["simple_mode"]:
+                rotate_block_options = [False]
+                k_th_block_options = [0]
+            else:
+                rotate_block_options = [True, False]
+                k_th_block_options = list(range(10))
         else:
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
@@ -2666,6 +2692,8 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
+        if "n_rotate" not in self.params:
+            self.params["n_rotate"] = 1
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
