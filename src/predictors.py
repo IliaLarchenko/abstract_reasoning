@@ -2251,7 +2251,7 @@ class reconstruct_mosaic(predictor):
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
 
-    def check_surface(self, image, i, j, block, color, bg):
+    def check_surface(self, image, i, j, block, color, bg, rotate):
         b = (image.shape[0] - i) // block.shape[0] + int(((image.shape[0] - i) % block.shape[0]) > 0)
         r = (image.shape[1] - j) // block.shape[1] + int(((image.shape[1] - j) % block.shape[1]) > 0)
         t = (i) // block.shape[0] + int((i) % block.shape[0] > 0)
@@ -2265,6 +2265,14 @@ class reconstruct_mosaic(predictor):
 
         full_image[start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]] = image
 
+        for k in range(b + t):
+            for n in range(r + l):
+                new_block = full_image[
+                    k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
+                ]
+                if (new_block == color).sum() < (block == color).sum():
+                    block = new_block.copy()
+
         blocks = []
         for k in range(b + t):
             for n in range(r + l):
@@ -2275,7 +2283,28 @@ class reconstruct_mosaic(predictor):
                 if (new_block == block)[mask].all():
                     blocks.append(new_block)
                 else:
-                    return 1, None
+                    if rotate:
+                        success = False
+                        if new_block.shape[0] != new_block.shape[1]:
+                            rotations = [0, 2]
+                        else:
+                            rotations = [0, 1, 2, 3]
+                        for rotation in rotations:
+                            for transpose in [True, False]:
+                                rotated_block = np.rot90(new_block.copy(), rotation)
+                                if transpose:
+                                    rotated_block = rotated_block[::-1]
+                                mask = np.logical_and(block != color, rotated_block != color)
+                                if (block == rotated_block)[mask].all():
+                                    blocks.append(rotated_block)
+                                    success = True
+                                    break
+                            if success:
+                                break
+                        if not success:
+                            return 1, None
+                    else:
+                        return 1, None
 
         new_block = block.copy()
         for curr_block in blocks:
@@ -2299,9 +2328,35 @@ class reconstruct_mosaic(predictor):
 
         for k in range(b + t):
             for n in range(r + l):
-                full_image[
-                    k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
-                ] = new_block
+                if rotate:
+                    current_array = full_image[
+                        k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
+                    ]
+                    if rotate:
+                        success = False
+                        if current_array.shape[0] != current_array.shape[1]:
+                            rotations = [0, 2]
+                        else:
+                            rotations = [0, 1, 2, 3]
+                    for rotation in rotations:
+                        for transpose in [True, False]:
+                            rotated_block = np.rot90(new_block.copy(), rotation)
+                            if transpose:
+                                rotated_block = rotated_block[::-1]
+                            mask = np.logical_and(rotated_block != color, current_array != color)
+                            if (rotated_block == current_array)[mask].all():
+                                full_image[
+                                    k * block.shape[0] : (k + 1) * block.shape[0],
+                                    n * block.shape[1] : (n + 1) * block.shape[1],
+                                ] = rotated_block
+                                success = True
+                                break
+                        if success:
+                            break
+                else:
+                    full_image[
+                        k * block.shape[0] : (k + 1) * block.shape[0], n * block.shape[1] : (n + 1) * block.shape[1]
+                    ] = new_block
 
         result = full_image[start_i : start_i + image.shape[0], start_j : start_j + image.shape[1]]
         return 0, result
@@ -2328,7 +2383,9 @@ class reconstruct_mosaic(predictor):
                 # for i_min in range(min(image.shape[0], i_size)):
                 #     for j_min in range(min(image.shape[1], j_size)):
                 block = image[0 : 0 + i_size, 0 : 0 + j_size]
-                status, predict = self.check_surface(image, 0, 0, block, params["color"], params["have_bg"])
+                status, predict = self.check_surface(
+                    image, 0, 0, block, params["color"], params["have_bg"], params["rotate_block"]
+                )
                 if status != 0:
                     continue
                 return 0, predict
@@ -2343,13 +2400,15 @@ class reconstruct_mosaic(predictor):
             return 1, None
 
         if initial:
-            directions = ["vert", "hor", "all"]
-            big_first_options = [True, False]
+            directions = ["all", "vert", "hor"]
+            big_first_options = [False, True]
             have_bg_options = [True, False]
+            rotate_block_options = [True, False]
         else:
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
             have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
+            rotate_block_options = list({params["rotate_block"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for direction in directions:
@@ -2357,11 +2416,18 @@ class reconstruct_mosaic(predictor):
                     for have_bg in have_bg_options:
                         if (target_image == color).any() and not have_bg:
                             continue
-                        params = {"color": color, "direction": direction, "big_first": big_first, "have_bg": have_bg}
+                        for rotate_block in rotate_block_options:
+                            params = {
+                                "color": color,
+                                "direction": direction,
+                                "big_first": big_first,
+                                "have_bg": have_bg,
+                                "rotate_block": rotate_block,
+                            }
 
-                        local_candidates = local_candidates + self.add_candidates_list(
-                            original_image, target_image, self.sample["train"][k], params
-                        )
+                            local_candidates = local_candidates + self.add_candidates_list(
+                                original_image, target_image, self.sample["train"][k], params
+                            )
         return self.update_solution_candidates(local_candidates, initial)
 
 
@@ -2519,7 +2585,9 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
                 # for i_min in range(min(image.shape[0], i_size)):
                 #     for j_min in range(min(image.shape[1], j_size)):
                 block = image[0 : 0 + i_size, 0 : 0 + j_size]
-                status, predict = self.check_surface(image, 0, 0, block, params["color"], params["have_bg"])
+                status, predict = self.check_surface(
+                    image, 0, 0, block, params["color"], params["have_bg"], params["rotate_block"]
+                )
                 if status != 0:
                     continue
                 predict = predict[indices0.min() : indices0.max() + 1, indices1.min() : indices1.max() + 1]
@@ -2536,10 +2604,12 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
             directions = ["vert", "hor", "all"]
             big_first_options = [True, False]
             have_bg_options = [True, False]
+            rotate_block_options = [True, False]
         else:
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
             have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
+            rotate_block_options = list({params["rotate_block"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             mask = original_image == color
@@ -2555,11 +2625,18 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
                     for have_bg in have_bg_options:
                         if (target_image == color).any() and not have_bg:
                             continue
-                        params = {"color": color, "direction": direction, "big_first": big_first, "have_bg": have_bg}
+                        for rotate_block in rotate_block_options:
+                            params = {
+                                "color": color,
+                                "direction": direction,
+                                "big_first": big_first,
+                                "have_bg": have_bg,
+                                "rotate_block": rotate_block,
+                            }
 
-                        local_candidates = local_candidates + self.add_candidates_list(
-                            original_image, target_image, self.sample["train"][k], params
-                        )
+                            local_candidates = local_candidates + self.add_candidates_list(
+                                original_image, target_image, self.sample["train"][k], params
+                            )
         return self.update_solution_candidates(local_candidates, initial)
 
 
