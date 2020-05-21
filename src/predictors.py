@@ -12,7 +12,15 @@ from src.functions import (
     reconstruct_mosaic_from_block,
     swap_two_colors,
 )
-from src.preprocessing import find_grid, get_color, get_dict_hash, get_mask_from_block_params, get_predict
+from src.preprocessing import (
+    find_grid,
+    get_color,
+    get_dict_hash,
+    get_mask_from_block_params,
+    get_predict,
+    preprocess_sample,
+)
+from src.utils import matrix2answer
 
 
 class predictor:
@@ -3135,6 +3143,92 @@ class extend_targets(predictor):
                 original_image, target_image, self.sample["train"][k], candidate
             )
         return self.update_solution_candidates(local_candidates, initial)
+
+
+class image_slicer(predictor):
+    """fill the whole horizontal and/or vertical lines with one color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+        self.predictors = [
+            connect_dots_all_colors(params),
+            extend_targets(params),
+            cell_to_column(params),
+            replace_column(params),
+            replace_column({"rotate": 1}),
+            gravity_blocks_2_color(params),
+            gravity_blocks(params),
+            gravity2color(params),
+            gravity(params),
+            colors(params),
+            pattern(params),
+            fill_lines(params),
+            fill(params),
+            inside_block(params),
+            connect_dots(params),
+        ]
+        self.preprocess_params = ["initial"]
+
+    def __call__(self, sample):
+        self.sample = sample
+        possible_i = list(range(1, 6))
+        possible_j = list(range(1, 6))
+        for _, data in enumerate(self.sample["train"]):
+            original_image = np.array(data["input"])
+            target_image = np.array(data["output"])
+            if original_image.shape != target_image.shape:
+                return 1, None
+        for _, data in enumerate(self.sample["test"]):
+            original_image = np.array(data["input"])
+
+        if len(possible_i) == 1 and len(possible_j) == 1:
+            return 2, None
+
+        final_answers = [[] for data in self.sample["test"]]
+        for size_i in possible_i:
+            for size_j in possible_j:
+                answers = [np.array(data["input"]) for data in self.sample["test"]]
+                for i in range(size_i):
+                    for j in range(size_j):
+                        current_sample = {"train": [], "test": []}
+                        for _, data in enumerate(self.sample["train"]):
+                            original_image = np.array(data["input"])
+                            target_image = np.array(data["output"])
+                            current_sample["train"].append(
+                                {
+                                    "input": original_image[i::size_i, j::size_j],
+                                    "output": target_image[i::size_i, j::size_j],
+                                }
+                            )
+                        for _, data in enumerate(self.sample["test"]):
+                            original_image = np.array(data["input"])
+                            current_sample["test"].append({"input": original_image[i::size_i, j::size_j]})
+
+                        current_sample = preprocess_sample(current_sample, self.preprocess_params)
+
+                        for predictor in self.predictors:
+                            result, answer = predictor(current_sample)
+                            if result == 0:
+                                for k in range(len(answer)):
+                                    try:
+                                        answers[k][i::size_i, j::size_j] = answer[k][0]
+                                    except:
+                                        result = 1
+                                        break
+                                break
+
+                        if result != 0:
+                            break
+                    if result != 0:
+                        break
+                if result == 0:
+                    for k in range(len(self.sample["test"])):
+                        final_answers[k].append(answers[k])
+
+        for k in range(len(self.sample["test"])):
+            if len(final_answers[k]) < 1:
+                return 5, None
+        return 0, final_answers
 
 
 # TODO: pattern transfer
