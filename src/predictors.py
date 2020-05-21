@@ -2363,6 +2363,7 @@ class reconstruct_mosaic(predictor):
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
+        k = 0
         itteration_list1 = list(range(2, sum(image.shape)))
         if params["big_first"]:
             itteration_list1 = list(
@@ -2388,7 +2389,11 @@ class reconstruct_mosaic(predictor):
                 )
                 if status != 0:
                     continue
-                return 0, predict
+                if k == params["k_th_block"]:
+                    return 0, predict
+                else:
+                    k += 1
+                    continue
 
         return 1, None
 
@@ -2404,11 +2409,13 @@ class reconstruct_mosaic(predictor):
             big_first_options = [False, True]
             have_bg_options = [True, False]
             rotate_block_options = [True, False]
+            k_th_block_options = list(range(10))
         else:
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
             have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
             rotate_block_options = list({params["rotate_block"] for params in self.solution_candidates})
+            k_th_block_options = list({params["k_th_block"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             for direction in directions:
@@ -2417,17 +2424,21 @@ class reconstruct_mosaic(predictor):
                         if (target_image == color).any() and not have_bg:
                             continue
                         for rotate_block in rotate_block_options:
-                            params = {
-                                "color": color,
-                                "direction": direction,
-                                "big_first": big_first,
-                                "have_bg": have_bg,
-                                "rotate_block": rotate_block,
-                            }
+                            for k_th_block in k_th_block_options:
+                                # if k_th_block != 0 and big_first:
+                                #     continue
+                                params = {
+                                    "color": color,
+                                    "direction": direction,
+                                    "big_first": big_first,
+                                    "have_bg": have_bg,
+                                    "rotate_block": rotate_block,
+                                    "k_th_block": k_th_block,
+                                }
 
-                            local_candidates = local_candidates + self.add_candidates_list(
-                                original_image, target_image, self.sample["train"][k], params
-                            )
+                                local_candidates = local_candidates + self.add_candidates_list(
+                                    original_image, target_image, self.sample["train"][k], params
+                                )
         return self.update_solution_candidates(local_candidates, initial)
 
 
@@ -2558,7 +2569,7 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
-
+        k = 0
         mask = image == params["color"]
         sum0 = mask.sum(0)
         sum1 = mask.sum(1)
@@ -2590,8 +2601,12 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
                 )
                 if status != 0:
                     continue
-                predict = predict[indices0.min() : indices0.max() + 1, indices1.min() : indices1.max() + 1]
-                return 0, predict
+                if k == params["k_th_block"]:
+                    predict = predict[indices0.min() : indices0.max() + 1, indices1.min() : indices1.max() + 1]
+                    return 0, predict
+                else:
+                    k += 1
+                    continue
 
         return 1, None
 
@@ -2605,11 +2620,13 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
             big_first_options = [True, False]
             have_bg_options = [True, False]
             rotate_block_options = [True, False]
+            k_th_block_options = [True, False]
         else:
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
             have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
             rotate_block_options = list({params["rotate_block"] for params in self.solution_candidates})
+            k_th_block_options = list({params["k_th_block"] for params in self.solution_candidates})
 
         for color in self.sample["train"][k]["colors_sorted"]:
             mask = original_image == color
@@ -2626,17 +2643,21 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
                         if (target_image == color).any() and not have_bg:
                             continue
                         for rotate_block in rotate_block_options:
-                            params = {
-                                "color": color,
-                                "direction": direction,
-                                "big_first": big_first,
-                                "have_bg": have_bg,
-                                "rotate_block": rotate_block,
-                            }
+                            for k_th_block in k_th_block_options:
+                                # if k_th_block != 0 and big_first:
+                                #     continue
+                                params = {
+                                    "color": color,
+                                    "direction": direction,
+                                    "big_first": big_first,
+                                    "have_bg": have_bg,
+                                    "rotate_block": rotate_block,
+                                    "k_th_block": k_th_block,
+                                }
 
-                            local_candidates = local_candidates + self.add_candidates_list(
-                                original_image, target_image, self.sample["train"][k], params
-                            )
+                                local_candidates = local_candidates + self.add_candidates_list(
+                                    original_image, target_image, self.sample["train"][k], params
+                                )
         return self.update_solution_candidates(local_candidates, initial)
 
 
