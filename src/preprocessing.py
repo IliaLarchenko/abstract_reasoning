@@ -452,6 +452,16 @@ def add_unique_colors(image, result, colors=None):
     return
 
 
+def add_center_color(image, result, colors=None):
+    i = image.shape[0] // 4
+    j = image.shape[1] // 4
+    center = image[i : image.shape[0] - i, j : image.shape[1] - j]
+    values, counts = np.unique(center, return_counts=True)
+    ind = np.argmax(counts)
+    color = values[ind]
+    result["colors"][color].append({"type": "center"})
+
+
 def get_color_scheme(image, target_image=None, params=None):
     """processes original image and returns dict color scheme"""
     result = {
@@ -488,6 +498,7 @@ def get_color_scheme(image, target_image=None, params=None):
 
     if "unique" in params:
         add_unique_colors(image, result, colors=None)
+        add_center_color(image, result)
 
     if "corners" in params:
         # colors in the corners of images
