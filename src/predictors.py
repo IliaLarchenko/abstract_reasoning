@@ -357,78 +357,90 @@ class fill(predictor):
                 return 4, None
 
         result = image.copy()
-        if params["process_type"] in ["isolated", "isolated_non_bg", "n_bg", "n_bg_full", "n_fill_self"]:
-            image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * params["background_color"]
+        if params["rotate"]:
+            rotations = [0, 1, 2, 3]
         else:
-            image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
-        image_with_borders[1:-1, 1:-1] = image
-        for i in range(1, image_with_borders.shape[0] - 1):
-            for j in range(1, image_with_borders.shape[1] - 1):
-                if params["process_type"] == "outer":
-                    if image[i - 1, j - 1] == params["fill_color"]:
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] = params[
-                            "background_color"
-                        ]
-                elif params["process_type"] == "inner":
-                    if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
-                        == params["background_color"]
-                    ).all():
-                        result[i - 1, j - 1] = params["fill_color"]
-                elif params["process_type"] == "inner_ignore_background":
-                    if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
-                        != params["background_color"]
-                    ).all():
-                        result[i - 1, j - 1] = params["fill_color"]
-                elif params["process_type"] == "isolated":
-                    if not (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] == params["fill_color"]
-                    ).any():
-                        result[i - 1, j - 1] = params["background_color"]
-                elif params["process_type"] == "isolated_non_bg":
-                    if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
-                        == params["background_color"]
-                    ).all() and image[i - 1, j - 1] != params["background_color"]:
-                        result[i - 1, j - 1] = params["fill_color"]
-                elif params["process_type"] == "around":
-                    if image[i - 1, j - 1] == params["fill_color"]:
-                        temp = image_with_borders[i - 1 : i + 2, j - 1 : j + 2]
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
-                            np.logical_and(np.array(self.pattern), temp == params["background_color"])
-                        ] = params["fill_color"]
-                elif params["process_type"] == "full":
-                    if i - 1 + self.pattern.shape[0] > image.shape[0] or j - 1 + self.pattern.shape[1] > image.shape[1]:
-                        continue
-                    if (
-                        image[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
-                            np.array(self.pattern)
-                        ]
-                        == params["background_color"]
-                    ).all():
-                        result[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
-                            np.array(self.pattern)
-                        ] = params["fill_color"]
-                elif params["process_type"] == "n_bg":
-                    if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
-                        == params["background_color"]
-                    ).sum() > params["n"]:
-                        result[i - 1, j - 1] = params["fill_color"]
-                elif params["process_type"] == "n_bg_self":
-                    if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
-                        == params["background_color"]
-                    ).sum() > params["n"] and image[i - 1, j - 1] == params["background_color"]:
-                        result[i - 1, j - 1] = params["fill_color"]
-                elif params["process_type"] == "n_fill_self":
-                    if (
-                        image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] == params["fill_color"]
-                    ).sum() > params["n"] and image[i - 1, j - 1] == params["background_color"]:
-                        result[i - 1, j - 1] = params["fill_color"]
-                else:
-                    return 6, None
+            rotations = [0]
+        for rotation in rotations:
+            self.pattern = np.rot90(self.pattern, rotation)
+            if params["process_type"] in ["isolated", "isolated_non_bg", "n_bg", "n_bg_full", "n_fill_self"]:
+                image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * params["background_color"]
+            else:
+                image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
+            image_with_borders[1:-1, 1:-1] = image
+            for i in range(1, image_with_borders.shape[0] - 1):
+                for j in range(1, image_with_borders.shape[1] - 1):
+                    if params["process_type"] == "outer":
+                        if image[i - 1, j - 1] == params["fill_color"]:
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] = params[
+                                "background_color"
+                            ]
+                    elif params["process_type"] == "inner":
+                        if (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["background_color"]
+                        ).all():
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "inner_ignore_background":
+                        if (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            != params["background_color"]
+                        ).all():
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "isolated":
+                        if not (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["fill_color"]
+                        ).any():
+                            result[i - 1, j - 1] = params["background_color"]
+                    elif params["process_type"] == "isolated_non_bg":
+                        if (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["background_color"]
+                        ).all() and image[i - 1, j - 1] != params["background_color"]:
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "around":
+                        if image[i - 1, j - 1] == params["fill_color"]:
+                            temp = image_with_borders[i - 1 : i + 2, j - 1 : j + 2]
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                                np.logical_and(np.array(self.pattern), temp == params["background_color"])
+                            ] = params["fill_color"]
+                    elif params["process_type"] == "full":
+                        if (
+                            i - 1 + self.pattern.shape[0] > image.shape[0]
+                            or j - 1 + self.pattern.shape[1] > image.shape[1]
+                        ):
+                            continue
+                        if (
+                            image[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
+                                np.array(self.pattern)
+                            ]
+                            == params["background_color"]
+                        ).all():
+                            result[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
+                                np.array(self.pattern)
+                            ] = params["fill_color"]
+                    elif params["process_type"] == "n_bg":
+                        if (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["background_color"]
+                        ).sum() > params["n"]:
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "n_bg_self":
+                        if (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["background_color"]
+                        ).sum() > params["n"] and image[i - 1, j - 1] == params["background_color"]:
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "n_fill_self":
+                        if (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["fill_color"]
+                        ).sum() > params["n"] and image[i - 1, j - 1] == params["background_color"]:
+                            result[i - 1, j - 1] = params["fill_color"]
+                    else:
+                        return 6, None
+            self.pattern = np.rot90(self.pattern, -rotation)
         if params["process_type"] in ["outer", "around"]:
             result = image_with_borders[1:-1, 1:-1]
         return 0, result
@@ -452,27 +464,41 @@ class fill(predictor):
                         mask = np.logical_and(target_image != background_color, target_image != fill_color)
                         if not (target_image == block_array)[mask].all():
                             continue
-                        for process_type in [
-                            "outer",
-                            "full",
-                            "isolated_non_bg",
-                            "isolated",
-                            "inner_ignore_background",
-                            "inner",
-                            "around",
-                            "n_fill_self",
-                            "n_bg_self",
-                            "n_bg",
-                        ]:
+                        for rotate in [True, False]:
+                            for process_type in [
+                                "outer",
+                                "full",
+                                "isolated_non_bg",
+                                "isolated",
+                                "inner_ignore_background",
+                                "inner",
+                                "around",
+                                "n_fill_self",
+                                "n_bg_self",
+                                "n_bg",
+                            ]:
 
-                            params = {
-                                "background_color": background_color,
-                                "fill_color": fill_color,
-                                "process_type": process_type,
-                            }
-                            if process_type in ["n_fill_self", "n_bg_self", "n_bg"]:
-                                for n in range(9):
-                                    params["n"] = n
+                                params = {
+                                    "background_color": background_color,
+                                    "fill_color": fill_color,
+                                    "process_type": process_type,
+                                    "rotate": rotate,
+                                }
+                                if process_type in ["n_fill_self", "n_bg_self", "n_bg"]:
+                                    for n in range(9):
+                                        params["n"] = n
+                                        status, result = self.predict_output(original_image, params, block=block_array)
+                                        if status != 0:
+                                            continue
+
+                                        if (result == target_image).all():
+                                            for param in block["params"]:
+                                                params["block"] = param
+                                                local_candidates = local_candidates + self.add_candidates_list(
+                                                    original_image, target_image, self.sample["train"][k], params
+                                                )
+
+                                else:
                                     status, result = self.predict_output(original_image, params, block=block_array)
                                     if status != 0:
                                         continue
@@ -483,18 +509,261 @@ class fill(predictor):
                                             local_candidates = local_candidates + self.add_candidates_list(
                                                 original_image, target_image, self.sample["train"][k], params
                                             )
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)
 
-                            else:
-                                status, result = self.predict_output(original_image, params, block=block_array)
-                                if status != 0:
-                                    continue
 
-                                if (result == target_image).all():
-                                    for param in block["params"]:
-                                        params["block"] = param
-                                        local_candidates = local_candidates + self.add_candidates_list(
-                                            original_image, target_image, self.sample["train"][k], params
-                                        )
+class fill3colors(predictor):
+    """inner fills all pixels around all pixels with particular color with new color
+    outer fills the pixels with fill color if all neighbour colors have background color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+        # self.type = params["type"]  # inner or outer
+        if params is not None and "pattern" in params:
+            self.pattern = params["pattern"]
+        else:
+            self.pattern = np.array([[True, True, True], [True, False, True], [True, True, True]])
+
+    def predict_output(self, image, params, block=None):
+        """ predicts 1 output image given input image and prediction params"""
+        if block is not None:
+            image = block
+        else:
+            status, image = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
+
+        result = image.copy()
+        if params["rotate"]:
+            rotations = [0, 1, 2, 3]
+        else:
+            rotations = [0]
+        for rotation in rotations:
+            self.pattern = np.rot90(self.pattern, rotation)
+            if params["process_type"] in ["isolated", "isolated_non_bg", "n_bg", "n_bg_full", "n_fill_self"]:
+                image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * params["background_color"]
+            else:
+                image_with_borders = np.ones((image.shape[0] + 2, image.shape[1] + 2)) * 11
+            image_with_borders[1:-1, 1:-1] = image
+            result_with_borders = image_with_borders.copy()
+            for i in range(1, image_with_borders.shape[0] - 1):
+                for j in range(1, image_with_borders.shape[1] - 1):
+                    if params["process_type"] == "outer":
+                        if image[i - 1, j - 1] == params["fill_color"]:
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] = params[
+                                "background_color"
+                            ]
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                                np.array(np.logical_not(self.pattern))
+                            ] = params["fill_color2"]
+                    elif params["process_type"] == "inner":
+                        if (
+                            np.logical_and(
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["background_color"],
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color2"],
+                            )
+                        ).all():
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "inner_ignore_background":
+                        if (
+                            (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                != params["background_color"]
+                            ).all()
+                            and (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.logical_not(np.array(self.pattern))]
+                                != params["fill_color2"]
+                            ).all()
+                        ):
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "isolated":
+                        if not np.logical_and(
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["fill_color"],
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["fill_color2"],
+                        ).any():
+                            result[i - 1, j - 1] = params["background_color"]
+                    elif params["process_type"] == "isolated_non_bg":
+                        if (
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                            == params["background_color"]
+                        ).all() and image[i - 1, j - 1] != params["fill_color2"]:
+                            result[i - 1, j - 1] = params["fill_color"]
+                    elif params["process_type"] == "around":
+                        if image[i - 1, j - 1] == params["fill_color"]:
+                            temp = image_with_borders[i - 1 : i + 2, j - 1 : j + 2]
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                                np.logical_and(np.array(self.pattern), temp == params["background_color"])
+                            ] = params["fill_color"]
+                            image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                                np.logical_and(
+                                    np.logical_not(np.array(self.pattern)), temp == params["background_color"]
+                                )
+                            ] = params["fill_color2"]
+                    elif params["process_type"] == "full":
+                        if (
+                            i - 1 + self.pattern.shape[0] > image.shape[0]
+                            or j - 1 + self.pattern.shape[1] > image.shape[1]
+                        ):
+                            continue
+                        if np.logical_or(
+                            image[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
+                                np.array(self.pattern)
+                            ]
+                            == params["background_color"],
+                            image[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
+                                np.array(self.pattern)
+                            ]
+                            == params["fill_color2"],
+                        ).all():
+                            result[i - 1 : i - 1 + self.pattern.shape[0], j - 1 : j - 1 + self.pattern.shape[1]][
+                                np.array(self.pattern)
+                            ] = params["fill_color"]
+                    elif params["process_type"] == "2colors_restore":
+                        if (
+                            np.logical_or(
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["background_color"],
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"],
+                            ).all()
+                            and (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"]
+                            ).any()
+                        ):
+                            result_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                                np.logical_and(
+                                    image_with_borders[i - 1 : i + 2, j - 1 : j + 2] == params["background_color"],
+                                    np.array(self.pattern),
+                                )
+                            ] = params["fill_color2"]
+                    elif params["process_type"] == "2colors_restore_center":
+                        if (
+                            np.logical_or(
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["background_color"],
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"],
+                            ).all()
+                            and (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"]
+                            ).any()
+                        ):
+                            result[i - 1, j - 1] = params["fill_color2"]
+                    elif params["process_type"] == "2colors_restore_outer":
+                        if (
+                            np.logical_or(
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["background_color"],
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"],
+                            ).all()
+                            and (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"]
+                            ).any()
+                        ):
+                            result_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                                np.logical_not(np.array(self.pattern))
+                            ] = params["fill_color2"]
+                    elif params["process_type"] == "2colors_restore_outer2":
+                        if (
+                            np.logical_or(
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["background_color"],
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"],
+                            ).all()
+                            and (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["fill_color"]
+                            ).any()
+                            and (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.logical_not(np.array(self.pattern))]
+                                != params["fill_color"]
+                            ).all()
+                        ):
+                            result_with_borders[i - 1 : i + 2, j - 1 : j + 2][
+                                np.logical_not(np.array(self.pattern))
+                            ] = params["fill_color2"]
+                    else:
+                        return 6, None
+            self.pattern = np.rot90(self.pattern, -rotation)
+        if params["process_type"] in ["outer", "around"]:
+            result = image_with_borders[1:-1, 1:-1]
+        if params["process_type"] in ["2colors_restore", "2colors_restore_outer", "2colors_restore_outer2"]:
+            result = result_with_borders[1:-1, 1:-1]
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                block_array = block["array"]
+                if block_array.shape != target_image.shape:
+                    continue
+                for background_color in range(10):
+                    if not (target_image == background_color).any():
+                        continue
+                    for fill_color in range(10):
+                        if not (target_image == fill_color).any():
+                            continue
+                        for fill_color2 in range(10):
+                            if not (target_image == fill_color2).any():
+                                continue
+                            mask = np.logical_and(
+                                target_image != background_color, target_image != fill_color, target_image != fill_color2
+                            )
+                            if not (target_image == block_array)[mask].all():
+                                continue
+                            for rotate in [True, False]:
+                                for process_type in [
+                                    "outer",
+                                    "full",
+                                    "isolated_non_bg",
+                                    "isolated",
+                                    "inner_ignore_background",
+                                    "inner",
+                                    "around",
+                                    "2colors_restore",
+                                    "2colors_restore_center",
+                                    "2colors_restore_outer",
+                                    "2colors_restore_outer2",
+                                ]:
+
+                                    params = {
+                                        "background_color": background_color,
+                                        "fill_color": fill_color,
+                                        "fill_color2": fill_color2,
+                                        "process_type": process_type,
+                                        "rotate": rotate,
+                                    }
+                                    status, result = self.predict_output(original_image, params, block=block_array)
+                                    if status != 0:
+                                        continue
+
+                                    if (result == target_image).all():
+                                        for param in block["params"]:
+                                            params["block"] = param
+                                            local_candidates = local_candidates + self.add_candidates_list(
+                                                original_image, target_image, self.sample["train"][k], params
+                                            )
         else:
             for candidate in self.solution_candidates:
                 status, params = self.retrive_params_values(candidate, self.sample["train"][k])
