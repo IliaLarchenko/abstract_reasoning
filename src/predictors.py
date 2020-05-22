@@ -196,10 +196,10 @@ class predictor:
         color_scheme0 = self.sample["train"][0]
         for i in range(10):
             if len(color_scheme0["colors"][i]) > 1:
-                for j, color_dict1 in enumerate(color_scheme0["colors"][i][:-1]):
+                for j, color_dict1 in enumerate(color_scheme0["colors"][i][::-1][:-1]):
                     hash1 = get_dict_hash(color_dict1)
                     delete = True
-                    for color_dict2 in color_scheme0["colors"][i][j + 1 :]:
+                    for color_dict2 in color_scheme0["colors"][i][::-1][j + 1 :]:
                         hash2 = get_dict_hash(color_dict2)
                         for color_scheme1 in list(self.sample["train"][1:]) + list(self.sample["test"]):
                             found = False
