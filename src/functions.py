@@ -119,12 +119,11 @@ def paint_mask(sample, rotate_target=0):
 
 
 def filter_list_of_dicts(list1, list2):
+    set_of_hashes = {get_dict_hash(item1) for item1 in list1}
     final_list = []
     for item2 in list2:
-        for item1 in list1:
-            if get_dict_hash(item1) == get_dict_hash(item2):
-                final_list.append(item1)
-                break
+        if get_dict_hash(item2) in set_of_hashes:
+            final_list.append(item2)
     return final_list
 
 
