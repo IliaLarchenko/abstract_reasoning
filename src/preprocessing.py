@@ -555,11 +555,7 @@ def get_inversed_colors(image):
     return 0, result
 
 
-def process_image(
-    image, max_time=600, max_blocks=200000, max_masks=200000, target_image=None, params=None, color_params=None
-):
-    """processes the original image and returns dict with structured image blocks"""
-
+def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=200000, target_image=None, params=None):
     all_params = [
         "initial",
         "background",
@@ -576,23 +572,17 @@ def process_image(
         "reflect",
         "cut_parts",
         "swap_colors",
-        "initial_masks",
-        "additional_masks",
-        "coverage_masks",
-        "min_max_masks",
         "k_part",
     ]
 
     if not params:
         params = all_params
 
+    start_time = time.time()
+
+    result["blocks"] = {"arrays": {}, "params": {}}
+
     if "initial" in params:
-        # print("initial")
-        result = get_color_scheme(image, target_image=target_image, params=color_params)
-        result["blocks"] = {"arrays": {}, "params": {}}
-
-        # generating blocks
-
         # starting with the original image
         add_block(result["blocks"], image, [[{"type": "original"}]])
 
@@ -601,7 +591,7 @@ def process_image(
         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
             add_block(result["blocks"], block, [[{"type": "inversed_colors"}]])
 
-    start_time = time.time()
+    # print(sum([len(x['params']) for x in result['blocks']['arrays'].values()]))
     # adding min and max blocks
     if (
         ("min_max_blocks" in params)
@@ -630,7 +620,7 @@ def process_image(
                 add_block(
                     result["blocks"], block, [[{"type": "block_with_side_colors_count", "block_type": block_type}]]
                 )
-
+    # print(sum([len(x['params']) for x in result['blocks']['arrays'].values()]))
     # adding background
     if ("background" in params) and (time.time() - start_time < max_time):
         # print("background")
@@ -817,106 +807,6 @@ def process_image(
                                     result["blocks"], block, [[{"type": "cut", "x1": x1, "x2": x2, "y1": y1, "y2": y2}]]
                                 )
 
-    result["masks"] = {"arrays": {}, "params": {}}
-
-    # making one mask for each generated block
-    current_blocks = result["blocks"]["arrays"].copy()
-    if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("initial_masks")
-        for key, data in current_blocks.items():
-            for color in result["colors_sorted"]:
-                status, mask = get_mask_from_block(data["array"], color)
-                if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-                    params_list = [
-                        {
-                            "operation": "none",
-                            "params": {
-                                "block": i,
-                                "color": color_dict,
-                                # "color_id": int(color),
-                            },
-                        }
-                        for i in data["params"]
-                        for color_dict in result["colors"][color]
-                    ]
-                    add_block(result["masks"], mask, params_list)
-
-    initial_masks = result["masks"]["arrays"].copy()
-    if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
-        for key, mask in initial_masks.items():
-            add_block(
-                result["masks"],
-                np.logical_not(mask["array"]),
-                [{"operation": "not", "params": param["params"]} for param in mask["params"]],
-            )
-
-    initial_masks = result["masks"]["arrays"].copy()
-    masks_to_add = []
-    processed = []
-    if ("additional_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("additional_masks")
-        for key1, mask1 in initial_masks.items():
-            processed.append(key1)
-            if time.time() - start_time < max_time * 2 and (
-                (target_image.shape == mask1["array"].shape) or (target_image.shape == mask1["array"].T.shape)
-            ):
-                # if max_masks * 3 < len(result["masks"]):
-                #     break
-                for key2, mask2 in initial_masks.items():
-                    if key2 in processed:
-                        continue
-                    if (mask1["array"].shape[0] == mask2["array"].shape[0]) and (
-                        mask1["array"].shape[1] == mask2["array"].shape[1]
-                    ):
-                        params_list_and = []
-                        params_list_or = []
-                        params_list_xor = []
-                        for param1 in mask1["params"]:
-                            for param2 in mask2["params"]:
-                                params_list_and.append(
-                                    {"operation": "and", "params": {"mask1": param1, "mask2": param2}}
-                                )
-                                params_list_or.append({"operation": "or", "params": {"mask1": param1, "mask2": param2}})
-                                params_list_xor.append(
-                                    {"operation": "xor", "params": {"mask1": param1, "mask2": param2}}
-                                )
-                        masks_to_add.append(
-                            (result["masks"], np.logical_and(mask1["array"], mask2["array"]), params_list_and)
-                        )
-                        masks_to_add.append(
-                            (result["masks"], np.logical_or(mask1["array"], mask2["array"]), params_list_or)
-                        )
-                        masks_to_add.append(
-                            (result["masks"], np.logical_xor(mask1["array"], mask2["array"]), params_list_xor)
-                        )
-
-    for path, array, params_list in masks_to_add:
-        add_block(path, array, params_list)
-
-    # coverage_masks
-    if ("coverage_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("coverage_masks")
-        for color in result["colors_sorted"][1:]:
-            status, mask = get_mask_from_max_color_coverage(image, color)
-            if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-                params_list = [
-                    {"operation": "coverage", "params": {"color": color_dict}}
-                    for color_dict in result["colors"][color].copy()
-                ]
-                add_block(result["masks"], mask, params_list)
-
-    # coverage_masks
-    if ("min_max_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("min_max_masks")
-        status, mask = get_min_block_mask(image)
-        if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-            params_list = [{"operation": "min_block"}]
-            add_block(result["masks"], mask, params_list)
-        status, mask = get_max_block_mask(image)
-        if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
-            params_list = [{"operation": "max_block"}]
-            add_block(result["masks"], mask, params_list)
-
     # swap some colors
     # if (
     #     ("swap_colors" in params)
@@ -954,8 +844,140 @@ def process_image(
     return result
 
 
-def get_mask_from_block_params(image, params, block_cache=None, mask_cache=None, color_scheme=None):
+def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200000, target_image=None, params=None):
+    start_time = time.time()
 
+    all_params = ["initial_masks", "additional_masks", "coverage_masks", "min_max_masks"]
+
+    if not params:
+        params = all_params
+
+    result["masks"] = {"arrays": {}, "params": {}}
+
+    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
+    # making one mask for each generated block
+    current_blocks = result["blocks"]["arrays"].copy()
+    if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("initial_masks")
+        for key, data in current_blocks.items():
+            for color in result["colors_sorted"]:
+                status, mask = get_mask_from_block(data["array"], color)
+                if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+                    params_list = [
+                        {
+                            "operation": "none",
+                            "params": {
+                                "block": i,
+                                "color": color_dict,
+                                # "color_id": int(color),
+                            },
+                        }
+                        for i in data["params"]
+                        for color_dict in result["colors"][color]
+                    ]
+                    add_block(result["masks"], mask, params_list)
+
+    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
+    initial_masks = result["masks"]["arrays"].copy()
+    if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
+        for key, mask in initial_masks.items():
+            add_block(
+                result["masks"],
+                np.logical_not(mask["array"]),
+                [{"operation": "not", "params": param["params"]} for param in mask["params"]],
+            )
+
+    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
+    initial_masks = result["masks"]["arrays"].copy()
+    masks_to_add = []
+    processed = []
+    if ("additional_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("additional_masks")
+        for key1, mask1 in initial_masks.items():
+            processed.append(key1)
+            if time.time() - start_time < max_time * 2 and (
+                target_image is None
+                or (target_image.shape == mask1["array"].shape)
+                or (target_image.shape == mask1["array"].T.shape)
+            ):
+                # if max_masks * 3 < len(result["masks"]):
+                #     break
+                for key2, mask2 in initial_masks.items():
+                    if key2 in processed:
+                        continue
+                    if (mask1["array"].shape[0] == mask2["array"].shape[0]) and (
+                        mask1["array"].shape[1] == mask2["array"].shape[1]
+                    ):
+                        params_list_and = []
+                        params_list_or = []
+                        params_list_xor = []
+                        for param1 in mask1["params"]:
+                            for param2 in mask2["params"]:
+                                params_list_and.append(
+                                    {"operation": "and", "params": {"mask1": param1, "mask2": param2}}
+                                )
+                                params_list_or.append({"operation": "or", "params": {"mask1": param1, "mask2": param2}})
+                                params_list_xor.append(
+                                    {"operation": "xor", "params": {"mask1": param1, "mask2": param2}}
+                                )
+                        masks_to_add.append(
+                            (result["masks"], np.logical_and(mask1["array"], mask2["array"]), params_list_and)
+                        )
+                        masks_to_add.append(
+                            (result["masks"], np.logical_or(mask1["array"], mask2["array"]), params_list_or)
+                        )
+                        masks_to_add.append(
+                            (result["masks"], np.logical_xor(mask1["array"], mask2["array"]), params_list_xor)
+                        )
+
+    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
+    for path, array, params_list in masks_to_add:
+        add_block(path, array, params_list)
+    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
+    # coverage_masks
+    if ("coverage_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("coverage_masks")
+        for color in result["colors_sorted"][1:]:
+            status, mask = get_mask_from_max_color_coverage(image, color)
+            if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+                params_list = [
+                    {"operation": "coverage", "params": {"color": color_dict}}
+                    for color_dict in result["colors"][color].copy()
+                ]
+                add_block(result["masks"], mask, params_list)
+    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
+    # coverage_masks
+    if ("min_max_masks" in params) and (time.time() - start_time < max_time * 2):
+        # print("min_max_masks")
+        status, mask = get_min_block_mask(image)
+        if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+            params_list = [{"operation": "min_block"}]
+            add_block(result["masks"], mask, params_list)
+        status, mask = get_max_block_mask(image)
+        if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
+            params_list = [{"operation": "max_block"}]
+            add_block(result["masks"], mask, params_list)
+    if time.time() - start_time > max_time:
+        print("Time is over")
+    if len(result["blocks"]["arrays"]) >= max_masks:
+        print("Max number of masks exceeded")
+    print(sum([len(x["params"]) for x in result["masks"]["arrays"].values()]))
+    return result
+
+
+def process_image(
+    image, max_time=600, max_blocks=200000, max_masks=200000, target_image=None, params=None, color_params=None
+):
+    """processes the original image and returns dict with structured image blocks"""
+
+    result = get_color_scheme(image, target_image=target_image, params=color_params)
+    result = generate_blocks(image, result, max_time, max_blocks, max_masks, target_image, params, color_params)
+    result = generate_masks(image, result, max_time, max_blocks, max_masks, target_image, params, color_params)
+
+    return result
+
+
+def get_mask_from_block_params(image, params, block_cache=None, mask_cache=None, color_scheme=None):
     if mask_cache is None:
         mask_cache = {{"arrays": {}, "params": {}}}
     dict_hash = get_dict_hash(params)
@@ -1090,28 +1112,150 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
     return 0, result
 
 
+def filter_colors(sample):
+    # filtering colors, that are not present in at least one of the images
+    all_colors = []
+    for color_scheme1 in sample["train"]:
+        list_of_colors = [get_dict_hash(color_dict) for i in range(10) for color_dict in color_scheme1["colors"][i]]
+        all_colors.append(list_of_colors)
+    for j in range(1, len(sample["train"])):
+        all_colors[0] = [x for x in all_colors[0] if x in all_colors[j]]
+    keep_colors = set(all_colors[0])
+
+    for color_scheme1 in sample["train"]:
+        for i in range(10):
+            j = 0
+            while j < len(color_scheme1["colors"][i]):
+                if get_dict_hash(color_scheme1["colors"][i][j]) in keep_colors:
+                    j += 1
+                else:
+                    del color_scheme1["colors"][i][j]
+
+    delete_colors = []
+    color_scheme0 = sample["train"][0]
+    for i in range(10):
+        if len(color_scheme0["colors"][i]) > 1:
+            for j, color_dict1 in enumerate(color_scheme0["colors"][i][::-1][:-1]):
+                hash1 = get_dict_hash(color_dict1)
+                delete = True
+                for color_dict2 in color_scheme0["colors"][i][::-1][j + 1 :]:
+                    hash2 = get_dict_hash(color_dict2)
+                    for color_scheme1 in list(sample["train"][1:]) + list(sample["test"]):
+                        found = False
+                        for k in range(10):
+                            hash_array = [get_dict_hash(color_dict) for color_dict in color_scheme1["colors"][k]]
+                            if hash1 in hash_array and hash2 in hash_array:
+                                found = True
+                                break
+                        if not found:
+                            delete = False
+                            break
+                    if delete:
+                        delete_colors.append(hash1)
+                        break
+
+    for color_scheme1 in sample["train"]:
+        for i in range(10):
+            j = 0
+            while j < len(color_scheme1["colors"][i]):
+                if get_dict_hash(color_scheme1["colors"][i][j]) in delete_colors:
+                    del color_scheme1["colors"][i][j]
+                else:
+                    j += 1
+    return
+
+
+def filter_blocks(sample, arrays_type="blocks"):
+    delete_blocks = []
+    list_of_lists_of_sets = []
+    for arrays_list in [x[arrays_type]["arrays"].values() for x in sample["train"][1:]] + [
+        x[arrays_type]["arrays"].values() for x in sample["test"]
+    ]:
+        list_of_lists_of_sets.append([])
+        for array in arrays_list:
+            list_of_lists_of_sets[-1].append({get_dict_hash(params_dict) for params_dict in array["params"]})
+
+    for initial_array in sample["train"][0][arrays_type]["arrays"].values():
+        if len(initial_array["params"]) > 1:
+            for j, params_dict1 in enumerate(initial_array["params"][::-1][:-1]):
+                hash1 = get_dict_hash(params_dict1)
+                delete = True
+                for params_dict1 in initial_array["params"][::-1][j + 1 :]:
+                    hash2 = get_dict_hash(params_dict1)
+                    for lists_of_sets in list_of_lists_of_sets:
+                        found = False
+                        for hash_set in lists_of_sets:
+                            if hash1 in hash_set and hash2 in hash_set:
+                                found = True
+                                break
+                        if not found:
+                            delete = False
+                            break
+                    if delete:
+                        delete_blocks.append(hash1)
+                        break
+
+    for arrays_list in [x[arrays_type]["arrays"].values() for x in sample["train"]] + [
+        x[arrays_type]["arrays"].values() for x in sample["test"]
+    ]:
+        for array in arrays_list:
+            params_list = array["params"]
+            j = 0
+            while j < len(params_list):
+                if get_dict_hash(params_list[j]) in delete_blocks:
+                    del params_list[j]
+                else:
+                    j += 1
+    return
+
+
 def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=False):
     """ make the whole preprocessing for particular sample"""
 
-    original_image = np.uint8(sample["train"][0]["input"])
-    target_image = np.uint8(sample["train"][0]["output"])
+    # original_image = np.uint8(sample["train"][0]["input"])
+    # target_image = np.uint8(sample["train"][0]["output"])
+    #
+    # # adding colors
+    # sample["train"][0].update(
+    #     process_image(original_image, target_image=target_image, params=params, color_params=color_params)
+    # )
 
-    sample["train"][0].update(
-        process_image(original_image, target_image=target_image, params=params, color_params=color_params)
-    )
-
-    for n, image in enumerate(sample["train"][1:]):
+    for n, image in enumerate(sample["train"]):
         original_image = np.uint8(image["input"])
-        target_image = np.uint8(sample["train"][n + 1]["output"])
-        if process_whole_ds:
-            sample["train"][n + 1].update(
-                process_image(original_image, target_image=target_image, params=params, color_params=color_params)
-            )
-        else:
-            sample["train"][n + 1].update(process_image(original_image, params=["initial"], color_params=color_params))
-
+        target_image = np.uint8(sample["train"][n]["output"])
+        sample["train"][n].update(get_color_scheme(original_image, target_image=target_image, params=color_params))
     for n, image in enumerate(sample["test"]):
         original_image = np.uint8(image["input"])
-        sample["test"][n].update(process_image(original_image, params=["initial"], color_params=color_params))
+        sample["test"][n].update(get_color_scheme(original_image, params=color_params))
+
+    filter_colors(sample)
+
+    for n, image in enumerate(sample["train"]):
+        original_image = np.uint8(image["input"])
+        target_image = np.uint8(sample["train"][n]["output"])
+        sample["train"][n].update(
+            generate_blocks(original_image, sample["train"][n], target_image=target_image, params=params)
+        )
+    for n, image in enumerate(sample["test"]):
+        original_image = np.uint8(image["input"])
+        sample["test"][n].update(generate_blocks(original_image, sample["test"][n], params=params))
+
+    # print(sum([len(x['params']) for x in sample["train"][0]['blocks']['arrays'].values()]))
+    filter_blocks(sample)
+    # print(sum([len(x['params']) for x in sample["train"][0]['blocks']['arrays'].values()]))
+
+    for n, image in enumerate(sample["train"]):
+        original_image = np.uint8(image["input"])
+        target_image = np.uint8(sample["train"][n]["output"])
+        sample["train"][n].update(
+            generate_masks(original_image, sample["train"][n], target_image=target_image, params=params)
+        )
+    for n, image in enumerate(sample["test"]):
+        original_image = np.uint8(image["input"])
+        sample["test"][n].update(generate_masks(original_image, sample["test"][n], params=params))
+
+    # print(sum([len(x['params']) for x in sample["train"][0]['masks']['arrays'].values()]))
+    # filter_blocks(sample, 'masks')
+    # print(sum([len(x['params']) for x in sample["train"][0]['masks']['arrays'].values()]))
 
     return sample
