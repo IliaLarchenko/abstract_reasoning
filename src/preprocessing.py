@@ -961,7 +961,7 @@ def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200
         print("Time is over")
     if len(result["blocks"]["arrays"]) >= max_masks:
         print("Max number of masks exceeded")
-    print(sum([len(x["params"]) for x in result["masks"]["arrays"].values()]))
+    # print(sum([len(x["params"]) for x in result["masks"]["arrays"].values()]))
     return result
 
 
