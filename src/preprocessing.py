@@ -185,6 +185,8 @@ def get_resize_to(image, size_x, size_y):
             arrays.append(image[i::scale_x, j::scale_y])
 
     result = mode(np.stack(arrays), axis=0).mode[0]
+    if result.max() > 10:
+        print(1)
 
     return 0, result
 
@@ -1102,6 +1104,8 @@ def get_predict(image, transforms, block_cache=None, color_scheme=None):
     for color_name in ["color", "color_1", "color_2"]:
         if color_name in params:
             params[color_name] = get_color(params[color_name], color_scheme["colors"])
+            if params[color_name] < 0:
+                return 2, None
     status, result = function(previous_image, **params)
 
     if status != 0 or len(result) == 0 or len(result[0]) == 0:

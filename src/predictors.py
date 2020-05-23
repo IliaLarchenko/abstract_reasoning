@@ -1033,7 +1033,10 @@ class puzzle(predictor):
                         )
                     )
                     if self.intersection < 0:
-                        predict += get_color(self.grid_color_list[0], color_scheme["colors"])
+                        new_grid_color = get_color(self.grid_color_list[0], color_scheme["colors"])
+                        if new_grid_color < 0:
+                            return 2, None
+                        predict += new_grid_color
                 else:
                     if n != array.shape[0] or m != array.shape[1]:
                         skip = True
@@ -1489,7 +1492,7 @@ class mask_to_block(predictor):
 
             # print(len(self.solution_candidates))
             random.shuffle(self.solution_candidates)
-            self.solution_candidates = self.solution_candidates[:1000]
+            self.solution_candidates = self.solution_candidates[:10000]
             # print(len(self.solution_candidates))
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
@@ -1632,6 +1635,8 @@ class pattern_from_blocks(pattern):
                 ):
                     continue
                 background_color = get_color(candidate["background_color"], color_scheme["colors"])
+                if background_color < 0:
+                    continue
                 if not (target_image == background_color).any():
                     continue
                 params = {"background_color": background_color}
