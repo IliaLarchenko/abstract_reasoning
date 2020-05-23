@@ -141,7 +141,6 @@ def run_parallel(
                     p.start()
                 pbar.update(num_finished - num_finished_previous)
                 num_finished_previous = num_finished
-                # print(f"num_finished: {num_finished}, total_num: {len(process_list)}")
                 while not queue.empty():
                     result = result + queue.get()
                 time.sleep(0.1)
