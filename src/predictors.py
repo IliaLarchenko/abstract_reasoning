@@ -3796,6 +3796,31 @@ class fill_pattern_found(predictor):
                                 result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
                                     pattern != params["check_color"]
                                 ] = params["fill_color"]
+                        elif params["process_type"] == "non_mask_fill_all":
+                            if (
+                                (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                    pattern != params["check_color"]
+                                ]
+                            ).all():
+                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                    pattern == params["check_color"]
+                                ] = params["fill_color"]
+                        elif params["process_type"] == "non_mask_fill_with_check":
+                            if (
+                                (
+                                    (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                        pattern != params["check_color"]
+                                    ]
+                                ).all()
+                                and not (
+                                    (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                        pattern == params["fill_color"]
+                                    ]
+                                ).any()
+                            ):
+                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                    pattern == params["check_color"]
+                                ] = params["check_color"]
                         else:
                             return 6, None
         return 0, result
@@ -3831,6 +3856,8 @@ class fill_pattern_found(predictor):
                                         "simple_same_color_wo_overlap",
                                         "non_mask",
                                         "non_mask_fill",
+                                        "non_mask_fill_all",
+                                        "non_mask_fill_with_check",
                                     ]:
 
                                         params = {
