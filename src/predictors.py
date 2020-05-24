@@ -3716,12 +3716,12 @@ class fill_pattern_found(predictor):
             if status != 0:
                 return 4, None
 
-        status, pattern = get_color_max(image, params["fill_color"])
+        status, pattern = get_color_max(image, params["check_color"])
         if status != 0:
             return 5, None
         if image.shape[0] - pattern.shape[0] < 2 or image.shape[1] - pattern.shape[1] < 2:
             return 6, None
-        initial_pattern = pattern == params["fill_color"]
+        initial_pattern = pattern == params["check_color"]
 
         result = image.copy()
         if params["rotate"]:
@@ -3772,34 +3772,40 @@ class fill_pattern_found(predictor):
                 for background_color in range(10):
                     if not (target_image == background_color).any():
                         continue
-                    for fill_color in range(10):
-                        if not (target_image == fill_color).any():
+                    for check_color in range(10):
+                        if not (target_image == check_color).any():
                             continue
-                        mask = np.logical_and(target_image != background_color, target_image != fill_color)
-                        if not (target_image == block_array)[mask].all():
-                            continue
-                        for rotate in [False, True]:
-                            for reflect in [False, True]:
-                                for process_type in ["simple_same_color", "simple_same_color_wo_overlap"]:
+                        for fill_color in range(10):
+                            if not (target_image == fill_color).any():
+                                continue
+                            mask = np.logical_and(
+                                target_image != background_color, target_image != fill_color, target_image != check_color
+                            )
+                            if not (target_image == block_array)[mask].all():
+                                continue
+                            for rotate in [False, True]:
+                                for reflect in [False, True]:
+                                    for process_type in ["simple_same_color", "simple_same_color_wo_overlap"]:
 
-                                    params = {
-                                        "background_color": background_color,
-                                        "fill_color": fill_color,
-                                        "process_type": process_type,
-                                        "rotate": rotate,
-                                        "reflect": reflect,
-                                    }
+                                        params = {
+                                            "background_color": background_color,
+                                            "fill_color": fill_color,
+                                            "process_type": process_type,
+                                            "rotate": rotate,
+                                            "reflect": reflect,
+                                            "check_color": check_color,
+                                        }
 
-                                    status, result = self.predict_output(original_image, params, block=block_array)
-                                    if status != 0:
-                                        continue
+                                        status, result = self.predict_output(original_image, params, block=block_array)
+                                        if status != 0:
+                                            continue
 
-                                    if (result == target_image).all():
-                                        for param in block["params"]:
-                                            params["block"] = param
-                                            local_candidates = local_candidates + self.add_candidates_list(
-                                                original_image, target_image, self.sample["train"][k], params
-                                            )
+                                        if (result == target_image).all():
+                                            for param in block["params"]:
+                                                params["block"] = param
+                                                local_candidates = local_candidates + self.add_candidates_list(
+                                                    original_image, target_image, self.sample["train"][k], params
+                                                )
         else:
             for candidate in self.solution_candidates:
                 status, params = self.retrive_params_values(candidate, self.sample["train"][k])
