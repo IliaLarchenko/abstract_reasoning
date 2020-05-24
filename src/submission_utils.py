@@ -68,7 +68,7 @@ def process_file(
                 break
         except SystemExit:
             break
-    time.sleep(1)
+    time.sleep(3)
     return
 
 
