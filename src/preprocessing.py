@@ -459,9 +459,10 @@ def add_center_color(image, result, colors=None):
     j = image.shape[1] // 4
     center = image[i : image.shape[0] - i, j : image.shape[1] - j]
     values, counts = np.unique(center, return_counts=True)
-    ind = np.argmax(counts)
-    color = values[ind]
-    result["colors"][color].append({"type": "center"})
+    if len(counts) > 0:
+        ind = np.argmax(counts)
+        color = values[ind]
+        result["colors"][color].append({"type": "center"})
 
 
 def get_color_scheme(image, target_image=None, params=None):
