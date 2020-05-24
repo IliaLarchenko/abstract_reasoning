@@ -8,14 +8,15 @@ from scipy.stats import mode
 from src.utils import matrix2answer
 
 
-def find_grid(image):
+def find_grid(image, frame=False, possible_colors=None):
     # Looks for the grid in image and returns color and size
     grid_color = -1
     size = [1, 1]
-    # TODO: border = False
-    # TODO: bold_grid
 
-    for color in range(10):
+    if possible_colors is None:
+        possible_colors = list(range(10))
+
+    for color in possible_colors:
         for i in range(size[0] + 1, image.shape[0] // 2 + 1):
             if (image.shape[0] + 1) % i == 0:
                 step = (image.shape[0] + 1) // i
@@ -29,7 +30,22 @@ def find_grid(image):
                     size[1] = i
                     grid_color = color
 
-    return grid_color, size
+    if grid_color == -1 and not frame:
+        color_candidate = image[0, 0]
+        if (
+            (image[0] == color_candidate).all()
+            and (image[-1] == color_candidate).all()
+            and (image[:, -1] == color_candidate).all()
+            and (image[:, 0] == color_candidate).all()
+        ):
+            grid_color, size, _ = find_grid(
+                image[1 : image.shape[0] - 1, 1 : image.shape[1] - 1], frame=True, possible_colors=[color_candidate]
+            )
+            return grid_color, size, frame
+        else:
+            return grid_color, size, frame
+
+    return grid_color, size, frame
 
 
 def find_color_boundaries(array, color):
@@ -57,8 +73,10 @@ def get_color_max(image, color):
         return 1, None
 
 
-def get_grid(image, grid_size, cell):
+def get_grid(image, grid_size, cell, frame=False):
     """ returns the particular cell form the image with grid"""
+    if frame:
+        return get_grid(image[1 : image.shape[0] - 1, 1 : image.shape[1] - 1], grid_size, cell, frame=False)
     if cell[0] >= grid_size[0] or cell[1] >= grid_size[1]:
         return 1, None
     steps = ((image.shape[0] + 1) // grid_size[0], (image.shape[1] + 1) // grid_size[1])
@@ -524,10 +542,11 @@ def get_color_scheme(image, target_image=None, params=None):
                 result["colors"][k].append({"type": "on_top", "side": "any"})
 
     if "grid" in params:
-        grid_color, grid_size = find_grid(image)
+        grid_color, grid_size, frame = find_grid(image)
         if grid_color >= 0:
             result["grid_color"] = grid_color
             result["grid_size"] = grid_size
+            result["grid_frame"] = frame
             result["colors"][grid_color].append({"type": "grid"})
 
     return result
@@ -656,12 +675,21 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         if result["grid_color"] > 0:
             for i in range(result["grid_size"][0]):
                 for j in range(result["grid_size"][1]):
-                    status, block = get_grid(image, result["grid_size"], (i, j))
+                    status, block = get_grid(image, result["grid_size"], (i, j), frame=result["grid_frame"])
                     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                         add_block(
                             result["blocks"],
                             block,
-                            [[{"type": "grid", "grid_size": result["grid_size"], "cell": [i, j]}]],
+                            [
+                                [
+                                    {
+                                        "type": "grid",
+                                        "grid_size": result["grid_size"],
+                                        "cell": [i, j],
+                                        "frame": result["grid_frame"],
+                                    }
+                                ]
+                            ],
                         )
 
     # adding halves of the images
@@ -693,7 +721,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                 add_block(result["blocks"], block, [[{"type": "corner", "side": side}]])
 
-    # TODO: main_blocks!!!
     main_blocks_num = len(result["blocks"])
 
     # rotate all blocks

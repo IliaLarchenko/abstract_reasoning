@@ -16,6 +16,7 @@ from src.preprocessing import (
     find_grid,
     get_color,
     get_dict_hash,
+    get_grid,
     get_mask_from_block_params,
     get_predict,
     preprocess_sample,
@@ -1000,11 +1001,12 @@ class puzzle(predictor):
         factors = []
         grid_color_list = []
         if self.intersection < 0:
-            grid_color, grid_size = find_grid(target_image)
+            grid_color, grid_size, frame = find_grid(target_image)
             if grid_color < 0:
                 return factors, []
             factors = [grid_size]
             grid_color_list = self.sample["train"][0]["colors"][grid_color]
+            self.frame = frame
         else:
             for i in range(1, t_n + 1):
                 for j in range(1, t_m + 1):
@@ -1048,6 +1050,21 @@ class puzzle(predictor):
                 ] = array
             if skip:
                 return 1, None
+
+        if self.intersection < 0 and self.frame:
+            final_predict = predict = (
+                np.uint8(
+                    np.zeros(
+                        (
+                            (n - self.intersection) * factor[0] + self.intersection + 2,
+                            (m - self.intersection) * factor[1] + self.intersection + 2,
+                        )
+                    )
+                )
+                + new_grid_color
+            )
+            final_predict[1 : final_predict.shape[0] - 1, 1 : final_predict.shape[1] - 1] = predict
+            preict = final_predict
 
         return 0, predict
 
@@ -3040,7 +3057,6 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-# TODO: test inside_block
 class inside_block(predictor):
     """reconstruct mosaic"""
 
@@ -3258,17 +3274,15 @@ class cell_to_column(predictor):
         """ predicts 1 output image given input image and prediction params"""
         result_list = []
 
-        color, size = find_grid(image)
+        color, size, frame = find_grid(image)
         if color < 0:
-            return 2, None
+            return 2
         if size[1] != 1 and size[0] != 1:
-            return 1, None
+            return 1
         if size[1] == 1:
-            cell_width = (image.shape[1] - (size[1] - 1)) // size[1]
-            cells = [image[:, i * (cell_width + 1) : i * (cell_width + 1) + cell_width] for i in range(size[1])]
+            cells = [get_grid(image, size, [0, i], frame) for i in size[0]]
         else:
-            cell_height = (image.shape[0] - (size[0] - 1)) // size[0]
-            cells = [image[i * (cell_height + 1) : i * (cell_height + 1) + cell_height] for i in range(size[0])]
+            cells = [get_grid(image, size, [i, 0], frame) for i in size[1]]
 
         for cell in cells:
             found = False
@@ -3286,17 +3300,15 @@ class cell_to_column(predictor):
         """ processes k train sample and updates self.solution_candidates"""
         original_image, target_image = self.get_images(k)
 
-        color, size = find_grid(original_image)
+        color, size, frame = find_grid(original_image)
         if color < 0:
             return 2
         if size[1] != 1 and size[0] != 1:
             return 1
         if size[1] == 1:
-            cell_width = (original_image.shape[1] - (size[1] - 1)) // size[1]
-            cells = [original_image[:, i * (cell_width + 1) : i * (cell_width + 1) + cell_width] for i in range(size[1])]
+            cells = [get_grid(original_image, size, [0, i], frame) for i in size[0]]
         else:
-            cell_height = (original_image.shape[0] - (size[0] - 1)) // size[0]
-            cells = [original_image[i * (cell_height + 1) : i * (cell_height + 1) + cell_height] for i in range(size[0])]
+            cells = [get_grid(original_image, size, [i, 0], frame) for i in size[1]]
 
         if len(cells) != target_image.shape[1]:
             return 3
@@ -3685,7 +3697,3 @@ class mask_to_block_parallel(predictor):
             return 0, answers
         else:
             return 3, None
-
-
-# TODO: pattern transfer
-# TODO: mask to answer
