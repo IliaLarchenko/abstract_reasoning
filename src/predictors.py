@@ -3861,3 +3861,77 @@ class fill_pattern_found(predictor):
                     original_image, target_image, self.sample["train"][k], params
                 )
         return self.update_solution_candidates(local_candidates, initial)
+
+
+class put_block_in_hole(predictor):
+    """inner fills all pixels around all pixels with particular color with new color
+    outer fills the pixels with fill color if all neighbour colors have background color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params, block=None):
+        """ predicts 1 output image given input image and prediction params"""
+        if block is None:
+            status, block = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
+
+        mask = image == params["background_color"]
+        if mask.sum() != (block.shape[0] * block.shape[1]):
+            return 1, None
+
+        sum0 = mask.sum(1)
+        sum1 = mask.sum(0)
+
+        if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
+            return 2, None
+
+        index0 = [i for i in range(len(sum0)) if sum0[i] > 0]
+        index1 = [i for i in range(len(sum1)) if sum1[i] > 0]
+
+        if index0[-1] + 1 - index0[0] != block.shape[0] or index1[-1] + 1 - index1[0] != block.shape[1]:
+            return 3, None
+
+        result = image.copy()
+        result[index0[0] : index0[-1] + 1, index1[0] : index1[-1] + 1] = block
+
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 1
+
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                block_array = block["array"]
+                for background_color in self.sample["train"][k]["colors_sorted"]:
+                    if (target_image == background_color).any():
+                        continue
+                    if not (target_image == original_image)[original_image != background_color].all():
+                        continue
+                    params = {"background_color": background_color}
+
+                    status, result = self.predict_output(original_image, params, block=block_array)
+                    if status != 0:
+                        continue
+
+                    if (result == target_image).all():
+                        for param in block["params"]:
+                            params["block"] = param
+                            local_candidates = local_candidates + self.add_candidates_list(
+                                original_image, target_image, self.sample["train"][k], params
+                            )
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)

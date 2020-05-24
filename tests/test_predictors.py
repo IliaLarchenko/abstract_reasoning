@@ -281,5 +281,13 @@ def test_predictor():
         (100, fill_pattern_found, {}, "bb52a14b.json", "data/evaluation", ["initial"]),
         (101, fill_pattern_found, {}, "32597951.json", "data/training", ["initial"]),
         (102, fill_pattern_found, {}, "6d75e8bb.json", "data/training", ["initial"]),
+        (
+            103,
+            put_block_in_hole,
+            {},
+            "9f27f097.json",
+            "data/evaluation",
+            ["initial", "min_max_blocks", "max_area_covered", "rotate", "transpose"],
+        ),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
