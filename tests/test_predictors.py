@@ -277,5 +277,6 @@ def test_predictor():
         ),
         (97, reconstruct_mosaic, {"simple_mode": False}, "92e50de0.json", "data/evaluation", ["initial"]),
         (98, fill, {"simple_mode": False}, "f0df5ff0.json", "data/evaluation", ["initial"]),
+        (99, fill_pattern_found, {}, "50f325b5.json", "data/evaluation", ["initial"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"

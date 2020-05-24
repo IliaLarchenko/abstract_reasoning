@@ -15,6 +15,7 @@ from src.functions import (
 from src.preprocessing import (
     find_grid,
     get_color,
+    get_color_max,
     get_dict_hash,
     get_grid,
     get_mask_from_block_params,
@@ -3697,3 +3698,114 @@ class mask_to_block_parallel(predictor):
             return 0, answers
         else:
             return 3, None
+
+
+class fill_pattern_found(predictor):
+    """inner fills all pixels around all pixels with particular color with new color
+    outer fills the pixels with fill color if all neighbour colors have background color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params, block=None):
+        """ predicts 1 output image given input image and prediction params"""
+        if block is not None:
+            image = block
+        else:
+            status, image = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
+
+        status, pattern = get_color_max(image, params["fill_color"])
+        if status != 0:
+            return 5, None
+        if image.shape[0] - pattern.shape[0] < 2 or image.shape[1] - pattern.shape[1] < 2:
+            return 6, None
+        initial_pattern = pattern == params["fill_color"]
+
+        result = image.copy()
+        if params["rotate"]:
+            rotations = [0, 1, 2, 3]
+        else:
+            rotations = [0]
+        if params["reflect"]:
+            reflection = [False, True]
+        else:
+            reflection = [False]
+        for reflect in reflection:
+            for rotation in rotations:
+                pattern = np.rot90(initial_pattern, rotation)
+                if reflect:
+                    pattern = pattern[::-1]
+                for i in range(0, image.shape[0] - pattern.shape[0] + 1):
+                    for j in range(0, image.shape[1] - pattern.shape[1] + 1):
+                        if params["process_type"] == "simple_same_color":
+                            if (
+                                image[i : i + pattern.shape[0], j : j + pattern.shape[1]][np.array(pattern)]
+                                == params["background_color"]
+                            ).all():
+                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][np.array(pattern)] = params[
+                                    "fill_color"
+                                ]
+                        if params["process_type"] == "simple_same_color_wo_overlap":
+                            if (
+                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][np.array(pattern)]
+                                == params["background_color"]
+                            ).all():
+                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][np.array(pattern)] = params[
+                                    "fill_color"
+                                ]
+                        else:
+                            return 6, None
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                block_array = block["array"]
+                if block_array.shape != target_image.shape:
+                    continue
+                for background_color in range(10):
+                    if not (target_image == background_color).any():
+                        continue
+                    for fill_color in range(10):
+                        if not (target_image == fill_color).any():
+                            continue
+                        mask = np.logical_and(target_image != background_color, target_image != fill_color)
+                        if not (target_image == block_array)[mask].all():
+                            continue
+                        for rotate in [False, True]:
+                            for reflect in [False, True]:
+                                for process_type in ["simple_same_color", "simple_same_color_wo_overlap"]:
+
+                                    params = {
+                                        "background_color": background_color,
+                                        "fill_color": fill_color,
+                                        "process_type": process_type,
+                                        "rotate": rotate,
+                                        "reflect": reflect,
+                                    }
+
+                                    status, result = self.predict_output(original_image, params, block=block_array)
+                                    if status != 0:
+                                        continue
+
+                                    if (result == target_image).all():
+                                        for param in block["params"]:
+                                            params["block"] = param
+                                            local_candidates = local_candidates + self.add_candidates_list(
+                                                original_image, target_image, self.sample["train"][k], params
+                                            )
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)
