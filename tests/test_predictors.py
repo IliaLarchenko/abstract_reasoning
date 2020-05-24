@@ -291,5 +291,6 @@ def test_predictor():
         ),
         (104, fill_pattern_found, {}, "890034e9.json", "data/training", ["initial"]),
         (105, fill_pattern_found, {}, "7df24a62.json", "data/training", ["initial"]),
+        (106, fill_pattern_found, {}, "79369cc6.json", "data/evaluation", ["initial"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
