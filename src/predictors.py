@@ -4019,9 +4019,7 @@ class eliminate_block(predictor):
                     for j in range(0, image.shape[1] - block.shape[1] + 1):
                         if params["process_type"] == "eliminate":
                             if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
-                                result[i : i + block.shape[0], j : j + block.shape[1]][pattern] = params[
-                                    "background_color"
-                                ]
+                                result[i : i + block.shape[0], j : j + block.shape[1]] = params["background_color"]
                         else:
                             return 6, None
         return 0, result
@@ -4040,14 +4038,19 @@ class eliminate_block(predictor):
                 for background_color in range(10):
                     if not (target_image == background_color).any():
                         continue
-                    mask = np.logical_and(target_image != background_color)
-                    if not (target_image == block_array)[mask].all():
+                    mask = target_image != background_color
+                    if not (target_image == original_image)[mask].all():
                         continue
                     for rotate in [False, True]:
                         for reflect in [False, True]:
                             for process_type in ["eliminate"]:
 
-                                params = {"background_color": background_color, "process_type": process_type}
+                                params = {
+                                    "background_color": background_color,
+                                    "process_type": process_type,
+                                    "rotate": rotate,
+                                    "reflect": reflect,
+                                }
 
                                 status, result = self.predict_output(original_image, params, block=block_array)
                                 if status != 0:
