@@ -566,6 +566,17 @@ class fill3colors(predictor):
                             image_with_borders[i - 1 : i + 2, j - 1 : j + 2][
                                 np.array(np.logical_not(self.pattern))
                             ] = params["fill_color2"]
+                    if params["process_type"] == "outer_with3rd_color":
+                        if (
+                            image[i - 1, j - 1] == params["fill_color"]
+                            and (
+                                image_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)]
+                                == params["background_color"]
+                            ).any()
+                        ):
+                            result_with_borders[i - 1 : i + 2, j - 1 : j + 2][np.array(self.pattern)] = params[
+                                "fill_color2"
+                            ]
                     elif params["process_type"] == "inner":
                         if (
                             np.logical_and(
@@ -706,7 +717,12 @@ class fill3colors(predictor):
             self.pattern = np.rot90(self.pattern, -rotation)
         if params["process_type"] in ["outer", "around"]:
             result = image_with_borders[1:-1, 1:-1]
-        if params["process_type"] in ["2colors_restore", "2colors_restore_outer", "2colors_restore_outer2"]:
+        if params["process_type"] in [
+            "2colors_restore",
+            "2colors_restore_outer",
+            "2colors_restore_outer2",
+            "outer_with3rd_color",
+        ]:
             result = result_with_borders[1:-1, 1:-1]
         return 0, result
 
@@ -737,6 +753,7 @@ class fill3colors(predictor):
                             for rotate in [True, False]:
                                 for process_type in [
                                     "outer",
+                                    "outer_with3rd_color",
                                     "full",
                                     "isolated_non_bg",
                                     "isolated",
