@@ -351,8 +351,11 @@ def get_max_block(image, full=True):
         return 1, None
 
 
-def get_block_with_side_colors(image, block_type="min"):
-    structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+def get_block_with_side_colors(image, block_type="min", structure=0):
+    if structure == 0:
+        structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    else:
+        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
     masks, n_masks = ndimage.label(image, structure=structure)
     # sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
 
@@ -376,8 +379,11 @@ def get_block_with_side_colors(image, block_type="min"):
         return 1, None
 
 
-def get_block_with_side_colors_count(image, block_type="min"):
-    structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+def get_block_with_side_colors_count(image, block_type="min", structure=0):
+    if structure == 0:
+        structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    else:
+        structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
     masks, n_masks = ndimage.label(image, structure=structure)
     # sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
 
@@ -633,15 +639,23 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
     ):
         # print("min_max_blocks")
         for block_type in ["min", "max"]:
-            status, block = get_block_with_side_colors(image, block_type)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                add_block(result["blocks"], block, [[{"type": "block_with_side_colors", "block_type": block_type}]])
+            for structure in [0, 1]:
+                status, block = get_block_with_side_colors(image, block_type, structure)
+                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                    add_block(
+                        result["blocks"],
+                        block,
+                        [[{"type": "block_with_side_colors", "block_type": block_type, "structure": structure}]],
+                    )
         for block_type in ["min", "max"]:
-            status, block = get_block_with_side_colors_count(image, block_type)
-            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-                add_block(
-                    result["blocks"], block, [[{"type": "block_with_side_colors_count", "block_type": block_type}]]
-                )
+            for structure in [0, 1]:
+                status, block = get_block_with_side_colors_count(image, block_type, structure)
+                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                    add_block(
+                        result["blocks"],
+                        block,
+                        [[{"type": "block_with_side_colors_count", "block_type": block_type, "structure": structure}]],
+                    )
     # print(sum([len(x['params']) for x in result['blocks']['arrays'].values()]))
     # adding background
     if ("background" in params) and (time.time() - start_time < max_time):

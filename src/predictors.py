@@ -3974,24 +3974,38 @@ class put_block_in_hole(predictor):
             if status != 0:
                 return 4, None
 
-        mask = image == params["background_color"]
-        if mask.sum() != (block.shape[0] * block.shape[1]):
-            return 1, None
-
-        sum0 = mask.sum(1)
-        sum1 = mask.sum(0)
-
-        if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
-            return 2, None
-
-        index0 = [i for i in range(len(sum0)) if sum0[i] > 0]
-        index1 = [i for i in range(len(sum1)) if sum1[i] > 0]
-
-        if index0[-1] + 1 - index0[0] != block.shape[0] or index1[-1] + 1 - index1[0] != block.shape[1]:
-            return 3, None
+        if params["multiple"]:
+            masks, n_masks = ndimage.label(
+                image == params["background_color"], structure=[[0, 1, 0], [1, 1, 1], [0, 1, 0]]
+            )
+            masks = [masks == i for i in range(1, n_masks + 1)]
+        else:
+            masks = [image == params["background_color"]]
 
         result = image.copy()
-        result[index0[0] : index0[-1] + 1, index1[0] : index1[-1] + 1] = block
+        for mask in masks:
+            # if mask.sum() != (block.shape[0] * block.shape[1]):
+            #     return 1, None
+            #
+            sum0 = mask.sum(1)
+            sum1 = mask.sum(0)
+            #
+            # if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
+            #     return 2, None
+
+            index0 = [i for i in range(len(sum0)) if sum0[i] > 0]
+            index1 = [i for i in range(len(sum1)) if sum1[i] > 0]
+
+            if index0[-1] + 1 - index0[0] != block.shape[0] or index1[-1] + 1 - index1[0] != block.shape[1]:
+                return 3, None
+
+            result[index0[0] : index0[-1] + 1, index1[0] : index1[-1] + 1] = block
+
+        if params["eliminate_initial"]:
+            for i in range(0, image.shape[0] - block.shape[0] + 1):
+                for j in range(0, image.shape[1] - block.shape[1] + 1):
+                    if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
+                        result[i : i + block.shape[0], j : j + block.shape[1]] = params["fill_color"]
 
         return 0, result
 
@@ -4009,20 +4023,35 @@ class put_block_in_hole(predictor):
                 for background_color in self.sample["train"][k]["colors_sorted"]:
                     if (target_image == background_color).any():
                         continue
-                    if not (target_image == original_image)[original_image != background_color].all():
-                        continue
-                    params = {"background_color": background_color}
+                    for fill_color in range(10):
+                        if not (target_image == fill_color).any():
+                            continue
+                        for eliminate_initial in [True, False]:
+                            if (
+                                not eliminate_initial
+                                and not (target_image == original_image)[original_image != background_color].all()
+                            ):
+                                continue
+                            if not eliminate_initial and fill_color != 0:
+                                continue
+                            for multiple in [True, False]:
+                                params = {
+                                    "background_color": background_color,
+                                    "multiple": multiple,
+                                    "eliminate_initial": eliminate_initial,
+                                    "fill_color": fill_color,
+                                }
 
-                    status, result = self.predict_output(original_image, params, block=block_array)
-                    if status != 0:
-                        continue
+                                status, result = self.predict_output(original_image, params, block=block_array)
+                                if status != 0:
+                                    continue
 
-                    if (result == target_image).all():
-                        for param in block["params"]:
-                            params["block"] = param
-                            local_candidates = local_candidates + self.add_candidates_list(
-                                original_image, target_image, self.sample["train"][k], params
-                            )
+                                if (result == target_image).all():
+                                    for param in block["params"]:
+                                        params["block"] = param
+                                        local_candidates = local_candidates + self.add_candidates_list(
+                                            original_image, target_image, self.sample["train"][k], params
+                                        )
         else:
             for candidate in self.solution_candidates:
                 status, params = self.retrive_params_values(candidate, self.sample["train"][k])
