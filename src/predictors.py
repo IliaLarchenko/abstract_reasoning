@@ -4129,6 +4129,7 @@ class put_block_to_pixel(predictor):
         result = np.ones((image.shape[0] + 2 * max_patt_dim - 1, image.shape[1] + 2 * max_patt_dim - 1))
         result = result * (-1)
         result[max_patt_dim - 1 : -max_patt_dim, max_patt_dim - 1 : -max_patt_dim] = image.copy()
+        large_image = result.copy()
 
         if params["rotate"]:
             rotations = [0, 1, 2, 3]
@@ -4147,10 +4148,10 @@ class put_block_to_pixel(predictor):
                 for i in range(0, result.shape[0] - block.shape[0]):
                     for j in range(0, result.shape[1] - block.shape[1]):
                         if params["process_type"] == "pixel_center":
-                            if (result[i + 1, j + 1] == params["background_color"]).all():
+                            if (large_image[i + 1, j + 1] == params["background_color"]).all():
                                 result[i : i + block.shape[0], j : j + block.shape[1]] = block
                         elif params["process_type"] == "pixel_0":
-                            if (result[i, j] == params["background_color"]).all():
+                            if (large_image[i, j] == params["background_color"]).all():
                                 result[i : i + block.shape[0], j : j + block.shape[1]] = block
 
         result = result[max_patt_dim - 1 : -max_patt_dim, max_patt_dim - 1 : -max_patt_dim]
@@ -4173,8 +4174,6 @@ class put_block_to_pixel(predictor):
             for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
                 block_array = block["array"]
                 for background_color in self.sample["train"][k]["colors_sorted"]:
-                    if (target_image == background_color).any():
-                        continue
                     for fill_color in range(10):
                         if not (target_image == fill_color).any():
                             continue
