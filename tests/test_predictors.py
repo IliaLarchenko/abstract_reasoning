@@ -298,7 +298,7 @@ def test_predictor():
             {},
             "e76a88a6.json",
             "data/training",
-            ["initial", "min_max_blocks", "max_area_covered"],
+            ["initial", "min_max_blocks", "max_area_covered", "block_with_side_colors"],
         ),
         (
             108,
@@ -306,7 +306,7 @@ def test_predictor():
             {},
             "321b1fc6.json",
             "data/training",
-            ["initial", "min_max_blocks", "max_area_covered"],
+            ["initial", "min_max_blocks", "max_area_covered", "block_with_side_colors"],
         ),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"

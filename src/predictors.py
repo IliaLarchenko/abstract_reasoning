@@ -4000,29 +4000,50 @@ class put_block_in_hole(predictor):
             masks = [image == params["background_color"]]
 
         result = image.copy()
-        for mask in masks:
-            # if mask.sum() != (block.shape[0] * block.shape[1]):
-            #     return 1, None
-            #
-            sum0 = mask.sum(1)
-            sum1 = mask.sum(0)
-            #
-            # if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
-            #     return 2, None
+        initial_block = block.copy()
 
-            index0 = [i for i in range(len(sum0)) if sum0[i] > 0]
-            index1 = [i for i in range(len(sum1)) if sum1[i] > 0]
+        if params["rotate"]:
+            rotations = [0, 1, 2, 3]
+        else:
+            rotations = [0]
+        if params["reflect"]:
+            reflection = [False, True]
+        else:
+            reflection = [False]
+        for reflect in reflection:
+            for rotation in rotations:
+                block = np.rot90(initial_block, rotation)
+                if reflect:
+                    block = block[::-1]
 
-            if index0[-1] + 1 - index0[0] != block.shape[0] or index1[-1] + 1 - index1[0] != block.shape[1]:
-                return 3, None
+                for mask in masks:
+                    # if mask.sum() != (block.shape[0] * block.shape[1]):
+                    #     return 1, None
+                    #
+                    sum0 = mask.sum(1)
+                    sum1 = mask.sum(0)
+                    #
+                    # if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
+                    #     return 2, None
 
-            result[index0[0] : index0[-1] + 1, index1[0] : index1[-1] + 1] = block
+                    index0 = [i for i in range(len(sum0)) if sum0[i] > 0]
+                    index1 = [i for i in range(len(sum1)) if sum1[i] > 0]
 
-        if params["eliminate_initial"]:
-            for i in range(0, image.shape[0] - block.shape[0] + 1):
-                for j in range(0, image.shape[1] - block.shape[1] + 1):
-                    if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
-                        result[i : i + block.shape[0], j : j + block.shape[1]] = params["fill_color"]
+                    if index0[-1] + 1 - index0[0] != block.shape[0] or index1[-1] + 1 - index1[0] != block.shape[1]:
+                        continue
+
+                    if (
+                        (result[index0[0] : index0[-1] + 1, index1[0] : index1[-1] + 1] == block)[
+                            result[index0[0] : index0[-1] + 1, index1[0] : index1[-1] + 1] != params["background_color"]
+                        ]
+                    ).all():
+                        result[index0[0] : index0[-1] + 1, index1[0] : index1[-1] + 1] = block
+
+                if params["eliminate_initial"]:
+                    for i in range(0, image.shape[0] - block.shape[0] + 1):
+                        for j in range(0, image.shape[1] - block.shape[1] + 1):
+                            if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
+                                result[i : i + block.shape[0], j : j + block.shape[1]] = params["fill_color"]
 
         return 0, result
 
@@ -4043,32 +4064,38 @@ class put_block_in_hole(predictor):
                     for fill_color in range(10):
                         if not (target_image == fill_color).any():
                             continue
-                        for eliminate_initial in [True, False]:
-                            if (
-                                not eliminate_initial
-                                and not (target_image == original_image)[original_image != background_color].all()
-                            ):
-                                continue
-                            if not eliminate_initial and fill_color != 0:
-                                continue
-                            for multiple in [True, False]:
-                                params = {
-                                    "background_color": background_color,
-                                    "multiple": multiple,
-                                    "eliminate_initial": eliminate_initial,
-                                    "fill_color": fill_color,
-                                }
+                        for rotate in [False, True]:
+                            for reflect in [False, True]:
+                                for eliminate_initial in [True, False]:
+                                    if (
+                                        not eliminate_initial
+                                        and not (target_image == original_image)[
+                                            original_image != background_color
+                                        ].all()
+                                    ):
+                                        continue
+                                    if not eliminate_initial and fill_color != 0:
+                                        continue
+                                    for multiple in [True, False]:
+                                        params = {
+                                            "background_color": background_color,
+                                            "multiple": multiple,
+                                            "eliminate_initial": eliminate_initial,
+                                            "fill_color": fill_color,
+                                            "rotate": rotate,
+                                            "reflect": reflect,
+                                        }
 
-                                status, result = self.predict_output(original_image, params, block=block_array)
-                                if status != 0:
-                                    continue
+                                        status, result = self.predict_output(original_image, params, block=block_array)
+                                        if status != 0:
+                                            continue
 
-                                if (result == target_image).all():
-                                    for param in block["params"]:
-                                        params["block"] = param
-                                        local_candidates = local_candidates + self.add_candidates_list(
-                                            original_image, target_image, self.sample["train"][k], params
-                                        )
+                                        if (result == target_image).all():
+                                            for param in block["params"]:
+                                                params["block"] = param
+                                                local_candidates = local_candidates + self.add_candidates_list(
+                                                    original_image, target_image, self.sample["train"][k], params
+                                                )
         else:
             for candidate in self.solution_candidates:
                 status, params = self.retrive_params_values(candidate, self.sample["train"][k])
@@ -4114,6 +4141,23 @@ class eliminate_block(predictor):
                         if params["process_type"] == "eliminate":
                             if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
                                 result[i : i + block.shape[0], j : j + block.shape[1]] = params["background_color"]
+                        if params["process_type"] == "outline":
+                            if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
+                                extended_image = np.zeros((image.shape[0] + 2, image.shape[1] + 2))
+                                extended_image[1:-1, 1:-1] = result.copy()
+                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
+                                    0
+                                ] = params["background_color"]
+                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
+                                    -1
+                                ] = params["background_color"]
+                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
+                                    :, 0
+                                ] = params["background_color"]
+                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
+                                    :, -1
+                                ] = params["background_color"]
+                                result = extended_image[1:-1, 1:-1]
                         else:
                             return 6, None
         return 0, result
@@ -4137,7 +4181,7 @@ class eliminate_block(predictor):
                         continue
                     for rotate in [False, True]:
                         for reflect in [False, True]:
-                            for process_type in ["eliminate"]:
+                            for process_type in ["eliminate", "outline"]:
 
                                 params = {
                                     "background_color": background_color,
