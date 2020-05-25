@@ -3752,93 +3752,140 @@ class fill_pattern_found(predictor):
             reflection = [False, True]
         else:
             reflection = [False]
-        for reflect in reflection:
-            for rotation in rotations:
-                pattern = np.rot90(initial_pattern, rotation)
-                if reflect:
-                    pattern = pattern[::-1]
-                for i in range(0, result.shape[0] - pattern.shape[0] + 1):
-                    for j in range(0, result.shape[1] - pattern.shape[1] + 1):
-                        if params["process_type"] == "simple_same_color":
-                            if (
-                                image[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern]
-                                == params["background_color"]
-                            ).all():
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern] = params[
-                                    "fill_color"
-                                ]
-                        elif params["process_type"] == "simple_same_color_wo_overlap":
-                            if (
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern]
-                                == params["background_color"]
-                            ).all():
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern] = params[
-                                    "fill_color"
-                                ]
-                        elif params["process_type"] == "non_mask":
-                            if (
-                                (
+        if params["frame_type"] in ["reconstruct_mask"]:
+            intersection_sizes = list(range(1, (pattern == params["check_color"]).sum() - 1))[:-1]
+        else:
+            intersection_sizes = [0]
+        for intersection_size in intersection_sizes:
+            for reflect in reflection:
+                for rotation in rotations:
+                    pattern = np.rot90(initial_pattern, rotation)
+                    if reflect:
+                        pattern = pattern[::-1]
+                    for i in range(0, result.shape[0] - pattern.shape[0] + 1):
+                        for j in range(0, result.shape[1] - pattern.shape[1] + 1):
+                            if params["process_type"] == "simple_same_color":
+                                if (
+                                    image[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern]
+                                    == params["background_color"]
+                                ).all():
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern] = params[
+                                        "fill_color"
+                                    ]
+                            elif params["process_type"] == "simple_same_color_wo_overlap":
+                                if (
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern]
+                                    == params["background_color"]
+                                ).all():
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][pattern] = params[
+                                        "fill_color"
+                                    ]
+                            elif params["process_type"] == "non_mask":
+                                if (
+                                    (
+                                        result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                            pattern == params["check_color"]
+                                        ]
+                                        == params["background_color"]
+                                    ).all()
+                                    and (
+                                        (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                            pattern != params["check_color"]
+                                        ]
+                                    ).all()
+                                ):
                                     result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
                                         pattern == params["check_color"]
-                                    ]
-                                    == params["background_color"]
-                                ).all()
-                                and (
-                                    (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
-                                        pattern != params["check_color"]
-                                    ]
-                                ).all()
-                            ):
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
-                                    pattern == params["check_color"]
-                                ] = params["fill_color"]
-                        elif params["process_type"] == "non_mask_fill":
-                            if (
-                                (
+                                    ] = params["fill_color"]
+                            elif params["process_type"] == "non_mask_fill":
+                                if (
+                                    (
+                                        result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                            pattern == params["check_color"]
+                                        ]
+                                        == params["background_color"]
+                                    ).all()
+                                    and (
+                                        (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                            pattern != params["check_color"]
+                                        ]
+                                    ).all()
+                                ):
                                     result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
                                         pattern == params["check_color"]
-                                    ]
-                                    == params["background_color"]
-                                ).all()
-                                and (
+                                    ] = params["check_color"]
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                        pattern != params["check_color"]
+                                    ] = params["fill_color"]
+                            elif params["process_type"] == "non_mask_fill_all":
+                                if (
                                     (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
                                         pattern != params["check_color"]
                                     ]
-                                ).all()
-                            ):
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
-                                    pattern == params["check_color"]
-                                ] = params["check_color"]
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
-                                    pattern != params["check_color"]
-                                ] = params["fill_color"]
-                        elif params["process_type"] == "non_mask_fill_all":
-                            if (
-                                (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
-                                    pattern != params["check_color"]
-                                ]
-                            ).all():
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
-                                    pattern == params["check_color"]
-                                ] = params["fill_color"]
-                        elif params["process_type"] == "non_mask_fill_with_check":
-                            if (
-                                (
-                                    (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
-                                        pattern != params["check_color"]
-                                    ]
-                                ).all()
-                                and not (
-                                    (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
-                                        pattern == params["fill_color"]
-                                    ]
-                                ).any()
-                            ):
-                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
-                                    pattern == params["check_color"]
-                                ] = params["check_color"]
-                        else:
-                            return 6, None
+                                ).all():
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                        pattern == params["check_color"]
+                                    ] = params["fill_color"]
+                            elif params["process_type"] == "non_mask_fill_with_check":
+                                if (
+                                    (
+                                        (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                            pattern != params["check_color"]
+                                        ]
+                                    ).all()
+                                    and not (
+                                        (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                            pattern == params["fill_color"]
+                                        ]
+                                    ).any()
+                                ):
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                        pattern == params["check_color"]
+                                    ] = params["check_color"]
+                            elif params["process_type"] == "reconstruct_mask":
+                                if (
+                                    (
+                                        (result[i : i + pattern.shape[0], j : j + pattern.shape[1]] == pattern)[
+                                            result[i : i + pattern.shape[0], j : j + pattern.shape[1]]
+                                            == params["check_color"]
+                                        ]
+                                    ).all()
+                                    and (
+                                        result[i : i + pattern.shape[0], j : j + pattern.shape[1]]
+                                        == params["check_color"]
+                                    ).sum()
+                                    >= intersection_size
+                                    and (
+                                        result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                            np.logical_and(
+                                                result[i : i + pattern.shape[0], j : j + pattern.shape[1]]
+                                                != params["check_color"],
+                                                pattern == params["check_color"],
+                                            )
+                                        ]
+                                        == params["background_color"]
+                                    ).all()
+                                ):
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                        np.logical_and(
+                                            result[i : i + pattern.shape[0], j : j + pattern.shape[1]]
+                                            != params["check_color"],
+                                            pattern == params["check_color"],
+                                        )
+                                    ] = -2
+                                    result[i : i + pattern.shape[0], j : j + pattern.shape[1]][
+                                        np.logical_and(
+                                            result[i : i + pattern.shape[0], j : j + pattern.shape[1]]
+                                            == params["check_color"],
+                                            pattern == params["check_color"],
+                                        )
+                                    ] = -3
+                            else:
+                                return 6, None
+
+        result[result == -2] = params["fill_color"]
+        result[result == -3] = params["check_color"]
+
         if params["frame_type"] != "none":
             result = result[max_patt_dim - 1 : -max_patt_dim, max_patt_dim - 1 : -max_patt_dim]
         return 0, result
@@ -3877,6 +3924,7 @@ class fill_pattern_found(predictor):
                                             "non_mask_fill",
                                             "non_mask_fill_all",
                                             "non_mask_fill_with_check",
+                                            "reconstruct_mask",
                                         ]:
 
                                             params = {
