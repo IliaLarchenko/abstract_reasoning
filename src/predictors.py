@@ -4145,18 +4145,18 @@ class eliminate_block(predictor):
                             if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
                                 extended_image = np.zeros((image.shape[0] + 2, image.shape[1] + 2))
                                 extended_image[1:-1, 1:-1] = result.copy()
-                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
-                                    0
-                                ] = params["background_color"]
-                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
-                                    -1
-                                ] = params["background_color"]
-                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
-                                    :, 0
-                                ] = params["background_color"]
-                                extended_image[i + 1 : i + 1 + block.shape[0], j + 1 : j + 1 + block.shape[1]][
-                                    :, -1
-                                ] = params["background_color"]
+                                extended_image[i : i + 2 + block.shape[0], j : j + 2 + block.shape[1]][0] = params[
+                                    "background_color"
+                                ]
+                                extended_image[i : i + 2 + block.shape[0], j : j + 2 + block.shape[1]][-1] = params[
+                                    "background_color"
+                                ]
+                                extended_image[i : i + 2 + block.shape[0], j : j + 2 + block.shape[1]][:, 0] = params[
+                                    "background_color"
+                                ]
+                                extended_image[i : i + 2 + block.shape[0], j : j + 2 + block.shape[1]][:, -1] = params[
+                                    "background_color"
+                                ]
                                 result = extended_image[1:-1, 1:-1]
                         else:
                             return 6, None
