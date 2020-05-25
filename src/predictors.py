@@ -3943,7 +3943,6 @@ class fill_pattern_found(predictor):
                                             "non_mask_fill_with_check",
                                             "reconstruct_mask",
                                         ]:
-
                                             params = {
                                                 "background_color": background_color,
                                                 "fill_color": fill_color,
@@ -4084,6 +4083,121 @@ class put_block_in_hole(predictor):
                                             "fill_color": fill_color,
                                             "rotate": rotate,
                                             "reflect": reflect,
+                                        }
+
+                                        status, result = self.predict_output(original_image, params, block=block_array)
+                                        if status != 0:
+                                            continue
+
+                                        if (result == target_image).all():
+                                            for param in block["params"]:
+                                                params["block"] = param
+                                                local_candidates = local_candidates + self.add_candidates_list(
+                                                    original_image, target_image, self.sample["train"][k], params
+                                                )
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+class put_block_to_pixel(predictor):
+    """inner fills all pixels around all pixels with particular color with new color
+    outer fills the pixels with fill color if all neighbour colors have background color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params, block=None):
+        """ predicts 1 output image given input image and prediction params"""
+        if block is None:
+            status, block = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
+
+        initial_block = block.copy()
+
+        max_patt_dim = max(block.shape)
+        if max_patt_dim == 0:
+            return 7, None
+
+        result = np.ones((image.shape[0] + 2 * max_patt_dim - 1, image.shape[1] + 2 * max_patt_dim - 1))
+        result = result * (-1)
+        result[max_patt_dim - 1 : -max_patt_dim, max_patt_dim - 1 : -max_patt_dim] = image.copy()
+
+        if params["rotate"]:
+            rotations = [0, 1, 2, 3]
+        else:
+            rotations = [0]
+        if params["reflect"]:
+            reflection = [False, True]
+        else:
+            reflection = [False]
+        for reflect in reflection:
+            for rotation in rotations:
+                block = np.rot90(initial_block, rotation)
+                if reflect:
+                    block = block[::-1]
+
+                for i in range(0, result.shape[0] - block.shape[0]):
+                    for j in range(0, result.shape[1] - block.shape[1]):
+                        if params["process_type"] == "pixel_center":
+                            if (result[i + 1, j + 1] == params["background_color"]).all():
+                                result[i : i + block.shape[0], j : j + block.shape[1]] = block
+                        elif params["process_type"] == "pixel_0":
+                            if (result[i, j] == params["background_color"]).all():
+                                result[i : i + block.shape[0], j : j + block.shape[1]] = block
+
+        result = result[max_patt_dim - 1 : -max_patt_dim, max_patt_dim - 1 : -max_patt_dim]
+        if params["eliminate_initial"]:
+            for i in range(0, image.shape[0] - block.shape[0] + 1):
+                for j in range(0, image.shape[1] - block.shape[1] + 1):
+                    if (image[i : i + block.shape[0], j : j + block.shape[1]] == block).all():
+                        result[i : i + block.shape[0], j : j + block.shape[1]] = params["fill_color"]
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if original_image.shape != target_image.shape:
+            return 1
+
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                block_array = block["array"]
+                for background_color in self.sample["train"][k]["colors_sorted"]:
+                    if (target_image == background_color).any():
+                        continue
+                    for fill_color in range(10):
+                        if not (target_image == fill_color).any():
+                            continue
+                        for rotate in [False, True]:
+                            for process_type in ["pixel_center", "pixel_0"]:
+                                for reflect in [False, True]:
+                                    for eliminate_initial in [True, False]:
+                                        if (
+                                            not eliminate_initial
+                                            and not (target_image == original_image)[
+                                                original_image != background_color
+                                            ].all()
+                                        ):
+                                            continue
+                                        if not eliminate_initial and fill_color != 0:
+                                            continue
+                                        params = {
+                                            "background_color": background_color,
+                                            "eliminate_initial": eliminate_initial,
+                                            "fill_color": fill_color,
+                                            "rotate": rotate,
+                                            "reflect": reflect,
+                                            "process_type": process_type,
                                         }
 
                                         status, result = self.predict_output(original_image, params, block=block_array)
