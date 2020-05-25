@@ -1255,6 +1255,29 @@ def filter_blocks(sample, arrays_type="blocks"):
     return
 
 
+def extract_target_blocks(sample, color_params=None):
+    target_blocks_cache = []
+    params = ["initial", "block_with_side_colors", "min_max_blocks", "max_area_covered", "cut_parts"]
+    for n in range(len(sample["train"])):
+        target_image = np.uint8(sample["train"][n]["output"])
+        target_blocks_cache.append(get_color_scheme(target_image, params=color_params))
+        target_blocks_cache[-1].update(generate_blocks(target_image, target_blocks_cache[-1], params=params))
+    final_arrays = list(
+        set.intersection(
+            *[set(target_blocks_cache[n]["blocks"]["arrays"].keys()) for n in range(len(target_blocks_cache))]
+        )
+    )
+    for i, key in enumerate(final_arrays):
+        for n in range(len(sample["train"])):
+            params_list = [[{"type": "target", "k": i}]]
+            add_block(
+                sample["train"][n]["blocks"], target_blocks_cache[0]["blocks"]["arrays"][key]["array"], params_list
+            )
+        for n in range(len(sample["test"])):
+            params_list = [[{"type": "target", "k": i}]]
+            add_block(sample["test"][n]["blocks"], target_blocks_cache[0]["blocks"]["arrays"][key]["array"], params_list)
+
+
 def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=False):
     """ make the whole preprocessing for particular sample"""
 
@@ -1286,6 +1309,8 @@ def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=F
         original_image = np.uint8(image["input"])
         sample["test"][n].update(generate_blocks(original_image, sample["test"][n], params=params))
 
+    if "target" in params:
+        extract_target_blocks(sample, color_params)
     # print(sum([len(x['params']) for x in sample["train"][0]['blocks']['arrays'].values()]))
     filter_blocks(sample)
     # print(sum([len(x['params']) for x in sample["train"][0]['blocks']['arrays'].values()]))
