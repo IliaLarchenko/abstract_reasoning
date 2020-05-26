@@ -4181,13 +4181,6 @@ class put_block_to_pixel(predictor):
                             for process_type in ["pixel_center", "pixel_0"]:
                                 for reflect in [False, True]:
                                     for eliminate_initial in [True, False]:
-                                        if (
-                                            not eliminate_initial
-                                            and not (target_image == original_image)[
-                                                original_image != background_color
-                                            ].all()
-                                        ):
-                                            continue
                                         if not eliminate_initial and fill_color != 0:
                                             continue
                                         params = {
@@ -4304,6 +4297,85 @@ class eliminate_block(predictor):
                                 }
 
                                 status, result = self.predict_output(original_image, params, block=block_array)
+                                if status != 0:
+                                    continue
+
+                                if (result == target_image).all():
+                                    for param in block["params"]:
+                                        params["block"] = param
+                                        local_candidates = local_candidates + self.add_candidates_list(
+                                            original_image, target_image, self.sample["train"][k], params
+                                        )
+        else:
+            for candidate in self.solution_candidates:
+                status, params = self.retrive_params_values(candidate, self.sample["train"][k])
+                if status != 0:
+                    continue
+                local_candidates = local_candidates + self.add_candidates_list(
+                    original_image, target_image, self.sample["train"][k], params
+                )
+        return self.update_solution_candidates(local_candidates, initial)
+
+
+class rotate_and_copy_block(predictor):
+    """inner fills all pixels around all pixels with particular color with new color
+    outer fills the pixels with fill color if all neighbour colors have background color"""
+
+    def __init__(self, params=None, preprocess_params=None):
+        super().__init__(params, preprocess_params)
+
+    def predict_output(self, image, params, block=None, target_image=None):
+        """ predicts 1 output image given input image and prediction params"""
+        if block is None:
+            status, block = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
+            if status != 0:
+                return 4, None
+
+        block = np.rot90(block, params["rotate"])
+        if params["reflect"]:
+            block = block[::-1]
+        if params["process_type"] == "rotate":
+            if target_image is not None and (
+                target_image.shape[0] != (block.shape[0] + 2 * block.shape[1])
+                or target_image.shape[1] != (block.shape[0] + 2 * block.shape[1])
+            ):
+                return 5, None
+            result = np.ones((block.shape[0] + 2 * block.shape[1], block.shape[0] + 2 * block.shape[1]))
+            result = result * params["background_color"]
+            result[block.shape[1] : block.shape[1] + block.shape[0], 0 : block.shape[1]] = block
+            result[block.shape[1] : block.shape[1] + block.shape[0], -block.shape[1] :] = np.rot90(block, 2)
+            result[0 : block.shape[1], block.shape[1] : block.shape[1] + block.shape[0]] = np.rot90(block, -1)
+            result[-block.shape[1] :, block.shape[1] : block.shape[1] + block.shape[0]] = np.rot90(block, 1)
+        else:
+            return 6, None
+        return 0, result
+
+    def process_one_sample(self, k, initial=False):
+        """ processes k train sample and updates self.solution_candidates"""
+        local_candidates = []
+        original_image, target_image = self.get_images(k)
+
+        if initial:
+            for _, block in self.sample["train"][k]["blocks"]["arrays"].items():
+                block_array = block["array"]
+                for background_color in range(10):
+                    if not (target_image == background_color).any():
+                        continue
+                    for rotate in [0, 1, 2, 3]:
+                        for reflect in [False, True]:
+                            for process_type in ["rotate"]:
+                                if process_type == "rotate" and target_image.shape[0] != target_image.shape[1]:
+                                    continue
+                                params = {
+                                    "background_color": background_color,
+                                    "process_type": process_type,
+                                    "rotate": rotate,
+                                    "reflect": reflect,
+                                }
+
+                                status, result = self.predict_output(
+                                    original_image, params, block=block_array, target_image=target_image
+                                )
                                 if status != 0:
                                     continue
 

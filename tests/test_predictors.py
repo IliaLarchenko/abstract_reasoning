@@ -316,5 +316,6 @@ def test_predictor():
             "data/training",
             ["initial", "block_with_side_colors", "min_max_blocks", "max_area_covered"],
         ),
+        (110, rotate_and_copy_block, {}, "2697da3f.json", "data/evaluation", ["initial", "max_area_covered"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
