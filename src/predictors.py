@@ -3021,6 +3021,7 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
         if initial:
             directions = ["vert", "hor", "all"]
             big_first_options = [True, False]
+            largest_non_bg_options = [True, False]
             have_bg_options = [True, False]
             if self.params["simple_mode"]:
                 rotate_block_options = [False]
@@ -3032,39 +3033,45 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
             have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
+            largest_non_bg_options = list({params["largest_non_bg"] for params in self.solution_candidates})
             rotate_block_options = list({params["rotate_block"] for params in self.solution_candidates})
             k_th_block_options = list({params["k_th_block"] for params in self.solution_candidates})
 
-        for color in self.sample["train"][k]["colors_sorted"]:
-            mask = original_image == color
-            sum0 = mask.sum(0)
-            sum1 = mask.sum(1)
+        for largest_non_bg in largest_non_bg_options:
+            for color in self.sample["train"][k]["colors_sorted"]:
+                mask = original_image == color
+                sum0 = mask.sum(0)
+                sum1 = mask.sum(1)
 
-            if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
-                continue
-            if target_image.shape[0] != max(sum0) or target_image.shape[1] != max(sum1):
-                continue
-            for direction in directions:
-                for big_first in big_first_options:
-                    for have_bg in have_bg_options:
-                        if (target_image == color).any() and not have_bg:
+                if len(np.unique(sum0)) != 2 or len(np.unique(sum1)) != 2:
+                    continue
+                if target_image.shape[0] != max(sum0) or target_image.shape[1] != max(sum1):
+                    continue
+                for direction in directions:
+                    for big_first in big_first_options:
+                        if largest_non_bg and not big_first:
                             continue
-                        for rotate_block in rotate_block_options:
-                            for k_th_block in k_th_block_options:
-                                # if k_th_block != 0 and big_first:
-                                #     continue
-                                params = {
-                                    "color": color,
-                                    "direction": direction,
-                                    "big_first": big_first,
-                                    "have_bg": have_bg,
-                                    "rotate_block": rotate_block,
-                                    "k_th_block": k_th_block,
-                                }
+                        for have_bg in have_bg_options:
+                            if largest_non_bg and not have_bg:
+                                continue
+                            if (target_image == color).any() and not have_bg:
+                                continue
+                            for rotate_block in rotate_block_options:
+                                for k_th_block in k_th_block_options:
+                                    # if k_th_block != 0 and big_first:
+                                    #     continue
+                                    params = {
+                                        "color": color,
+                                        "direction": direction,
+                                        "big_first": big_first,
+                                        "have_bg": have_bg,
+                                        "rotate_block": rotate_block,
+                                        "k_th_block": k_th_block,
+                                    }
 
-                                local_candidates = local_candidates + self.add_candidates_list(
-                                    original_image, target_image, self.sample["train"][k], params
-                                )
+                                    local_candidates = local_candidates + self.add_candidates_list(
+                                        original_image, target_image, self.sample["train"][k], params
+                                    )
         return self.update_solution_candidates(local_candidates, initial)
 
 
