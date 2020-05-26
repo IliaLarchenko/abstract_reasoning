@@ -273,16 +273,14 @@ class predictor:
                 solved = True
                 masks, n_masks = ndimage.label(image != all_background_color, structure=structure)
                 new_image_masks = [(masks == i) for i in range(1, n_masks + 1)]
-                if not (target_image == image)[
-                    np.logical_and(image != all_background_color, target_image != all_background_color)
-                ].all():
-                    solved = False
-                    continue
                 for image_mask in new_image_masks:
                     boundaries = find_color_boundaries(image_mask, True)
                     new_image = image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1]
                     new_target = target_image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1]
-                    status, prediction = self.predict_output(new_image, params)
+                    if "block" in params:
+                        status, prediction = self.predict_output(new_image, params, block=new_image)
+                    else:
+                        status, prediction = self.predict_output(new_image, params)
                     if status != 0 or prediction.shape != new_target.shape or not (prediction == new_target).all():
                         solved = False
                         break
@@ -376,7 +374,10 @@ class predictor:
                             new_image = original_image[
                                 boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1
                             ]
-                            status, prediction = self.predict_output(new_image, params)
+                            if "block" in params:
+                                status, prediction = self.predict_output(new_image, params, block=new_image)
+                            else:
+                                status, prediction = self.predict_output(new_image, params)
                             if status != 0 or prediction.shape != new_image.shape:
                                 solved = False
                                 break
