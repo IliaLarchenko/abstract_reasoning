@@ -264,10 +264,20 @@ class predictor:
         if "elim_background" in self.params and self.params["elim_background"]:
             structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
-            for all_background_color in color_scheme["colors_sorted"]:
+            if "all_background_color" in params:
+                color_iter_list = [params["all_background_color"]]
+            else:
+                color_iter_list = color_scheme["colors_sorted"]
+            for all_background_color in color_iter_list:
+                final_prediction = image.copy()
                 solved = True
                 masks, n_masks = ndimage.label(image != all_background_color, structure=structure)
                 new_image_masks = [(masks == i) for i in range(1, n_masks + 1)]
+                if not (target_image == image)[
+                    np.logical_and(image != all_background_color, target_image != all_background_color)
+                ].all():
+                    solved = False
+                    continue
                 for image_mask in new_image_masks:
                     boundaries = find_color_boundaries(image_mask, True)
                     new_image = image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1]
@@ -276,9 +286,12 @@ class predictor:
                     if status != 0 or prediction.shape != new_target.shape or not (prediction == new_target).all():
                         solved = False
                         break
-                if solved:
+                    final_prediction[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1] = prediction
+                if solved and final_prediction.shape == target_image.shape and (final_prediction == target_image).all():
                     params["all_background_color"] = all_background_color
                     break
+                else:
+                    solved = False
             if not solved:
                 return []
 
