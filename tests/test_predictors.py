@@ -318,5 +318,6 @@ def test_predictor():
         ),
         (110, rotate_and_copy_block, {}, "2697da3f.json", "data/evaluation", ["initial", "max_area_covered"]),
         (111, reconstruct_mosaic, {"elim_background": True}, "9c1e755f.json", "data/evaluation", ["initial"]),
+        (112, reconstruct_mosaic, {"elim_background": True}, "a57f2f04.json", "data/evaluation", ["initial"]),
     ]:
         assert check(predictor_class, params, file_path, DATA_PATH, preprocessing_params) == True, f"Error in {id}"
