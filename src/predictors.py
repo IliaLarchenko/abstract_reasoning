@@ -13,6 +13,7 @@ from src.functions import (
     swap_two_colors,
 )
 from src.preprocessing import (
+    find_color_boundaries,
     find_grid,
     get_color,
     get_color_max,
@@ -260,9 +261,31 @@ class predictor:
         params["block_cache"] = color_scheme["blocks"]
         params["mask_cache"] = color_scheme["masks"]
 
-        status, prediction = self.predict_output(image, params)
-        if status != 0 or prediction.shape != target_image.shape or not (prediction == target_image).all():
-            return []
+        if "elim_background" in self.params and self.params["elim_background"]:
+            structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+
+            for all_background_color in color_scheme["colors_sorted"]:
+                solved = True
+                masks, n_masks = ndimage.label(image != all_background_color, structure=structure)
+                new_image_masks = [(masks == i) for i in range(1, n_masks + 1)]
+                for image_mask in new_image_masks:
+                    boundaries = find_color_boundaries(image_mask, True)
+                    new_image = image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1]
+                    new_target = target_image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1]
+                    status, prediction = self.predict_output(new_image, params)
+                    if status != 0 or prediction.shape != new_target.shape or not (prediction == new_target).all():
+                        solved = False
+                        break
+                if solved:
+                    params["all_background_color"] = all_background_color
+                    break
+            if not solved:
+                return []
+
+        else:
+            status, prediction = self.predict_output(image, params)
+            if status != 0 or prediction.shape != target_image.shape or not (prediction == target_image).all():
+                return []
 
         result = [old_params.copy()]
         for k, v in params.copy().items():
@@ -326,6 +349,33 @@ class predictor:
                     status, prediction = self.predict_output(original_image, params)
                     if status != 0:
                         continue
+
+                    if "elim_background" in self.params and self.params["elim_background"]:
+                        result = original_image.copy()
+                        structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+
+                        all_background_color = params["all_background_color"]
+                        solved = True
+                        masks, n_masks = ndimage.label(original_image != all_background_color, structure=structure)
+                        new_image_masks = [(masks == i) for i in range(1, n_masks + 1)]
+                        for image_mask in new_image_masks:
+                            boundaries = find_color_boundaries(image_mask, True)
+                            new_image = original_image[
+                                boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1
+                            ]
+                            status, prediction = self.predict_output(new_image, params)
+                            if status != 0 or prediction.shape != new_image.shape:
+                                solved = False
+                                break
+                            result[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1] = prediction
+                        if not solved:
+                            continue
+                        prediction = result
+
+                    else:
+                        status, prediction = self.predict_output(original_image, params)
+                        if status != 0:
+                            continue
 
                     answers[test_n].append(self.process_prediction(prediction, original_image=original_image))
                     result_generated = True
@@ -2691,6 +2741,8 @@ class reconstruct_mosaic(predictor):
                 range(2, (image != params["color"]).max(1).sum() + (image != params["color"]).max(0).sum() + 1)
             )
             itteration_list1 = itteration_list1[::-1]
+        if params["largest_non_bg"]:
+            itteration_list1 = [(image != params["color"]).max(1).sum() + (image != params["color"]).max(0).sum()]
         for size in itteration_list1:
             if params["direction"] == "all":
                 itteration_list = list(range(1, size))
@@ -2698,6 +2750,8 @@ class reconstruct_mosaic(predictor):
                 itteration_list = [image.shape[0]]
             else:
                 itteration_list = [size - image.shape[1]]
+            if params["largest_non_bg"]:
+                itteration_list = [(image != params["color"]).max(1).sum()]
             for i_size in itteration_list:
                 j_size = size - i_size
                 if j_size < 1 or i_size < 1:
@@ -2727,7 +2781,8 @@ class reconstruct_mosaic(predictor):
 
         if initial:
             directions = ["all", "vert", "hor"]
-            big_first_options = [False, True]
+            big_first_options = [True, False]
+            largest_non_bg_options = [True, False]
             have_bg_options = [True, False]
             if self.params["simple_mode"]:
                 rotate_block_options = [False]
@@ -2738,32 +2793,39 @@ class reconstruct_mosaic(predictor):
         else:
             directions = list({params["direction"] for params in self.solution_candidates})
             big_first_options = list({params["big_first"] for params in self.solution_candidates})
+            largest_non_bg_options = list({params["largest_non_bg"] for params in self.solution_candidates})
             have_bg_options = list({params["have_bg"] for params in self.solution_candidates})
             rotate_block_options = list({params["rotate_block"] for params in self.solution_candidates})
             k_th_block_options = list({params["k_th_block"] for params in self.solution_candidates})
 
-        for color in self.sample["train"][k]["colors_sorted"]:
-            for direction in directions:
-                for big_first in big_first_options:
-                    for have_bg in have_bg_options:
-                        if (target_image == color).any() and not have_bg:
+        for largest_non_bg in largest_non_bg_options:
+            for color in self.sample["train"][k]["colors_sorted"]:
+                for direction in directions:
+                    for big_first in big_first_options:
+                        if largest_non_bg and not big_first:
                             continue
-                        for rotate_block in rotate_block_options:
-                            for k_th_block in k_th_block_options:
-                                # if k_th_block != 0 and big_first:
-                                #     continue
-                                params = {
-                                    "color": color,
-                                    "direction": direction,
-                                    "big_first": big_first,
-                                    "have_bg": have_bg,
-                                    "rotate_block": rotate_block,
-                                    "k_th_block": k_th_block,
-                                }
+                        for have_bg in have_bg_options:
+                            if largest_non_bg and not have_bg:
+                                continue
+                            if (target_image == color).any() and not have_bg:
+                                continue
+                            for rotate_block in rotate_block_options:
+                                for k_th_block in k_th_block_options:
+                                    # if k_th_block != 0 and big_first:
+                                    #     continue
+                                    params = {
+                                        "color": color,
+                                        "direction": direction,
+                                        "big_first": big_first,
+                                        "have_bg": have_bg,
+                                        "rotate_block": rotate_block,
+                                        "k_th_block": k_th_block,
+                                        "largest_non_bg": largest_non_bg,
+                                    }
 
-                                local_candidates = local_candidates + self.add_candidates_list(
-                                    original_image, target_image, self.sample["train"][k], params
-                                )
+                                    local_candidates = local_candidates + self.add_candidates_list(
+                                        original_image, target_image, self.sample["train"][k], params
+                                    )
         return self.update_solution_candidates(local_candidates, initial)
 
 
