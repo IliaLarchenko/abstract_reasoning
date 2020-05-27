@@ -259,8 +259,6 @@ class Predictor:
 
     def process_one_sample(self, k, initial=False):
         """ processes k train sample and updates self.solution_candidates"""
-        local_candidates = []
-        original_image, target_image = self.get_images(k)
         return 0
 
     def process_full_train(self):
@@ -423,8 +421,7 @@ class Predictor:
 
 # puzzle like predictors
 class Puzzle(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
+    """Stack different blocks together to get the output"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
@@ -531,13 +528,11 @@ class Puzzle(Predictor):
                 for j in range(factor[1]):
                     if initial:
                         local_candidates = self.sample["train"][k]["blocks"]["arrays"].keys()
-                        # print(local_candidates)
                     else:
                         local_candidates = self.solution_candidates[n_factor][i][j]
 
                     for data in local_candidates:
                         if initial:
-                            # print(data)
                             array = self.sample["train"][k]["blocks"]["arrays"][data]["array"]
                             params = self.sample["train"][k]["blocks"]["arrays"][data]["params"]
                         else:
@@ -650,7 +645,6 @@ class Puzzle(Predictor):
         if result_generated:
             if "mode" in self.params and self.params["mode"]:
                 for i in range(len(answers)):
-                    # answers_stacked = np.stack(answers[i])
                     answer = mode(np.stack(answers[i]), axis=0).mode[0]
                     answers[i] = [answer]
             return 0, answers
@@ -743,12 +737,10 @@ class PuzzlePixel(Puzzle):
 
 # fill like predictors
 class Fill(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
+    """applies different rules using 3x3 masks"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
-        # self.type = params["type"]  # inner or outer
         if params is not None and "pattern" in params:
             self.pattern = params["pattern"]
         else:
@@ -928,12 +920,10 @@ class Fill(Predictor):
 
 
 class Fill3Colors(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
+    """same as Fill but iterates over 3 colors"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
-        # self.type = params["type"]  # inner or outer
         if params is not None and "pattern" in params:
             self.pattern = params["pattern"]
         else:
@@ -1156,6 +1146,7 @@ class Fill3Colors(Predictor):
                             if not (target_image == block_array)[mask].all():
                                 continue
                             for rotate in [True, False]:
+                                # process types names are quite messy, sorry some of them are meaningless
                                 for process_type in [
                                     "outer",
                                     "outer_with3rd_color",
@@ -1200,12 +1191,10 @@ class Fill3Colors(Predictor):
 
 
 class FillWithMask(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
+    """Applies rules based on masks extracted from images"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
-        # self.type = params["type"]  # inner or outer
         if params is not None and "pattern" in params:
             self.pattern = params["pattern"]
         else:
@@ -1400,11 +1389,9 @@ class FillWithMask(Predictor):
                                                         local_candidates.append(new_params)
         else:
             for candidate in self.solution_candidates:
-                # print(candidate)
                 status, params = self.retrive_params_values(candidate, self.sample["train"][k])
                 if status != 0:
                     continue
-                # print(params)
                 local_candidates = local_candidates + self.add_candidates_list(
                     original_image, target_image, self.sample["train"][k], params
                 )
@@ -1412,11 +1399,7 @@ class FillWithMask(Predictor):
 
 
 class FillPatternFound(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """Applies rules based on masks extracted from images"""
 
     def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
@@ -1673,9 +1656,6 @@ class FillPatternFound(Predictor):
 class ConnectDots(Predictor):
     """connect dost of same color, on one line"""
 
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
-
     def predict_part(self, image, params, part_type, result=None):
         if result is None:
             result = image.copy()
@@ -1712,7 +1692,6 @@ class ConnectDots(Predictor):
             status, image = get_predict(image, params["block"], params["block_cache"], params["color_scheme"])
             if status != 0:
                 return 4, None
-        result = image.copy()
 
         if params["vert_first"]:
             result = self.predict_part(image, params, "vert")
@@ -1773,9 +1752,6 @@ class ConnectDots(Predictor):
 
 class ConnectDotsAllColors(Predictor):
     """connect dost of same color, on one line"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
 
     def predict_part(self, image, params, part_type, result=None):
         if result is None:
@@ -1888,10 +1864,7 @@ class ConnectDotsAllColors(Predictor):
 
 
 class FillLines(Predictor):
-    """fill the whole horizontal and/or vertical lines with one color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """fill the whole horizontal and/or vertical lines of one color"""
 
     def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
@@ -1992,8 +1965,6 @@ class ReconstructMosaic(Predictor):
         r = (image.shape[1] - j) // block.shape[1] + int(((image.shape[1] - j) % block.shape[1]) > 0)
         t = (i) // block.shape[0] + int((i) % block.shape[0] > 0)
         l = (j) // block.shape[1] + int((j) % block.shape[1] > 0)
-
-        # print(image.shape, t,b, l,r, i, j)
 
         full_image = np.ones(((b + t) * block.shape[0], (r + l) * block.shape[1])) * color
         start_i = (block.shape[0] - i) % block.shape[0]
@@ -2121,8 +2092,6 @@ class ReconstructMosaic(Predictor):
                 j_size = size - i_size
                 if j_size < 1 or i_size < 1:
                     continue
-                # for i_min in range(min(image.shape[0], i_size)):
-                #     for j_min in range(min(image.shape[1], j_size)):
                 block = image[0 : 0 + i_size, 0 : 0 + j_size]
                 status, predict = self.check_surface(
                     image, 0, 0, block, params["color"], params["have_bg"], params["rotate_block"]
@@ -2176,8 +2145,6 @@ class ReconstructMosaic(Predictor):
                                 continue
                             for rotate_block in rotate_block_options:
                                 for k_th_block in k_th_block_options:
-                                    # if k_th_block != 0 and big_first:
-                                    #     continue
                                     params = {
                                         "color": color,
                                         "direction": direction,
@@ -2195,7 +2162,7 @@ class ReconstructMosaic(Predictor):
 
 
 class ReconstructMosaicRR(Predictor):
-    """reconstruct mosaic"""
+    """reconstruct mosaic using rotations and reflections"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
@@ -2328,7 +2295,7 @@ class ReconstructMosaicRR(Predictor):
 
 
 class ReconstructMosaicExtract(ReconstructMosaic):
-    """reconstruct mosaic"""
+    """returns the reconstructed part of the mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
@@ -2361,8 +2328,6 @@ class ReconstructMosaicExtract(ReconstructMosaic):
                 j_size = size - i_size
                 if j_size < 1 or i_size < 1:
                     continue
-                # for i_min in range(min(image.shape[0], i_size)):
-                #     for j_min in range(min(image.shape[1], j_size)):
                 block = image[0 : 0 + i_size, 0 : 0 + j_size]
                 status, predict = self.check_surface(
                     image, 0, 0, block, params["color"], params["have_bg"], params["rotate_block"]
@@ -2423,8 +2388,6 @@ class ReconstructMosaicExtract(ReconstructMosaic):
                                 continue
                             for rotate_block in rotate_block_options:
                                 for k_th_block in k_th_block_options:
-                                    # if k_th_block != 0 and big_first:
-                                    #     continue
                                     params = {
                                         "color": color,
                                         "direction": direction,
@@ -2441,7 +2404,7 @@ class ReconstructMosaicExtract(ReconstructMosaic):
 
 
 class ReconstructMosaicRRExtract(ReconstructMosaicRR):
-    """reconstruct mosaic"""
+    """returns the reconstructed part of the rotate/reflect mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
@@ -2512,10 +2475,6 @@ class ReconstructMosaicRRExtract(ReconstructMosaicRR):
 # pattern predictors
 class Pattern(Predictor):
     """applies pattern to every pixel with particular color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
-        # self.type = params["type"]
 
     def get_patterns(self, original_image, target_image):
         pattern_list = []
@@ -2622,10 +2581,7 @@ class Pattern(Predictor):
 
 
 class PatternFromBlocks(Pattern):
-    """applies pattern to every pixel with particular color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """applies pattern extracted form some block to every pixel with particular color"""
 
     def predict_output(self, image, params, pattern=None, mask=None, target_image=None):
         if pattern is None:
@@ -2755,10 +2711,7 @@ class PatternFromBlocks(Pattern):
 
 # gravity predictors
 class Gravity(Predictor):
-    """move non_background objects toward something"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """move non_background pixels toward something"""
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -2825,9 +2778,6 @@ class Gravity(Predictor):
 
 class GravityBlocks(Predictor):
     """move non_background objects toward something"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
 
     def get_block_mask(self, image, i, j, block_type, structure_type):
         if structure_type == 0:
@@ -2904,10 +2854,7 @@ class GravityBlocks(Predictor):
 
 
 class GravityBlocksToColors(GravityBlocks):
-    """move non_background objects toward something"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """move non_background objects toward some color"""
 
     def find_gravity_color(self, image, gravity_color):
         mask = image == gravity_color
@@ -3031,10 +2978,7 @@ class GravityBlocksToColors(GravityBlocks):
 
 
 class GravityToColor(GravityBlocksToColors):
-    """move non_background objects toward something"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """move non_background pixels toward some color"""
 
     def predict_partial_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -3103,9 +3047,6 @@ class GravityToColor(GravityBlocksToColors):
 class EliminateColor(Predictor):
     """eliminate parts of some color"""
 
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
-
     def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
         if block is not None:
@@ -3170,10 +3111,7 @@ class EliminateColor(Predictor):
 
 
 class EliminateDuplicates(Predictor):
-    """eliminate rows and colomns if they are the same and near each other"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """eliminate rows and columns if they are the same and near each other"""
 
     def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
@@ -3250,10 +3188,7 @@ class EliminateDuplicates(Predictor):
 
 
 class ReplaceColumn(Predictor):
-    """replace any column with another fexed column"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """replace any column with another fixed column"""
 
     def init_call(self):
         self.filter_colors()
@@ -3311,10 +3246,7 @@ class ReplaceColumn(Predictor):
 
 
 class CellToColumn(Predictor):
-    """replace any grid cell with  fixed column"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """replace any grid cell with a fixed column"""
 
     def init_call(self):
         self.filter_colors()
@@ -3389,11 +3321,7 @@ class CellToColumn(Predictor):
 
 
 class PutBlockIntoHole(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """moves block into rectangular zone of some color"""
 
     def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
@@ -3519,11 +3447,7 @@ class PutBlockIntoHole(Predictor):
 
 
 class PutBlockOnPixel(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """replace particular color pixels with some blocks"""
 
     def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
@@ -3626,11 +3550,7 @@ class PutBlockOnPixel(Predictor):
 
 
 class EliminateBlock(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """replace blocks with some background color"""
 
     def predict_output(self, image, params, block=None):
         """ predicts 1 output image given input image and prediction params"""
@@ -3730,10 +3650,7 @@ class EliminateBlock(Predictor):
 
 
 class InsideBlock(Predictor):
-    """reconstruct mosaic"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """cut off the outer pixels of the block"""
 
     def predict_output(self, image, params):
         """ predicts 1 output image given input image and prediction params"""
@@ -3762,7 +3679,6 @@ class InsideBlock(Predictor):
                 if diff_1 != diff_0 or diff_1 <= 0 or diff_0 % 2 != 0:
                     continue
                 if (array[diff_0 // 2 : -diff_0 // 2, diff_0 // 2 : -diff_0 // 2] == target_image).all():
-                    # print(block)
                     for params in block["params"]:
                         local_candidates.append({"i": diff_0 // 2, "block": params})
         else:
@@ -3834,7 +3750,6 @@ class MaskToBlock(Predictor):
     def add_block(self, target_image, ignore_mask, k):
         results = []
         for block_hash, block in self.sample["train"][k]["blocks"]["arrays"].items():
-            # print(ignore_mask)
             if (block["array"].shape == target_image.shape) and (
                 block["array"][np.logical_not(ignore_mask)] == target_image[np.logical_not(ignore_mask)]
             ).all():
@@ -3953,10 +3868,8 @@ class MaskToBlock(Predictor):
             if status != 0:
                 continue
 
-            # print(len(self.solution_candidates))
             random.shuffle(self.solution_candidates)
             self.solution_candidates = self.solution_candidates[:10000]
-            # print(len(self.solution_candidates))
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
                 color_scheme = self.sample["test"][test_n]
@@ -3984,10 +3897,6 @@ class MaskToBlock(Predictor):
 
 class Colors(Predictor):
     """returns colors as answers"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
-        # self.type = params["type"]
 
     def predict_output(self, image, params):
         if params["type"] == "one":
@@ -4152,9 +4061,6 @@ class Colors(Predictor):
 class ExtendTargets(Predictor):
     """replace any grid cell with  fixed column"""
 
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
-
     def init_call(self):
         self.filter_colors()
         if self.params["mosaic_target"]:
@@ -4251,7 +4157,7 @@ class ExtendTargets(Predictor):
 
 
 class ImageSlicer(Predictor):
-    """fill the whole horizontal and/or vertical lines with one color"""
+    """divde image into several ones and apply aotheer predictors to each one"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
@@ -4395,7 +4301,6 @@ class MaskToBlockParallel(Predictor):
     def add_block(self, target_image, ignore_mask, k):
         results = []
         for block_hash, block in self.sample["train"][k]["blocks"]["arrays"].items():
-            # print(ignore_mask)
             if (block["array"].shape == target_image.shape) and (
                 block["array"][np.logical_not(ignore_mask)] == target_image[np.logical_not(ignore_mask)]
             ).all():
@@ -4443,7 +4348,6 @@ class MaskToBlockParallel(Predictor):
     def process_one_sample(self, k, initial=False):
         """ processes k train sample and updates self.solution_candidates"""
 
-        candidates = []
         original_image, target_image = self.get_images(k)
 
         ignore_mask = np.zeros_like(target_image, dtype=bool)
@@ -4487,10 +4391,8 @@ class MaskToBlockParallel(Predictor):
             if status != 0:
                 continue
 
-            # print(len(self.solution_candidates))
             random.shuffle(self.solution_candidates)
-            self.solution_candidates = self.solution_candidates[:1000]
-            # print(len(self.solution_candidates))
+            self.solution_candidates = self.solution_candidates[:10000]
             for test_n, test_data in enumerate(self.sample["test"]):
                 original_image = self.get_images(test_n, train=False)
                 color_scheme = self.sample["test"][test_n]
@@ -4517,11 +4419,7 @@ class MaskToBlockParallel(Predictor):
 
 
 class RotateAndCopyBlock(Predictor):
-    """inner fills all pixels around all pixels with particular color with new color
-    outer fills the pixels with fill color if all neighbour colors have background color"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
+    """rotates an copies initial block"""
 
     def predict_output(self, image, params, block=None, target_image=None):
         """ predicts 1 output image given input image and prediction params"""
