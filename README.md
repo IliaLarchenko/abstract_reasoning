@@ -417,3 +417,17 @@ I have often faced the situation when I improve core logic to solve some complex
 I have tried to describe everything I have done as clearly as possible, but I understand that the logic and code are not straightforward, so feel free to ask any questions.
 
 I hope you have found any useful thoughts and ideas in my solution. 
+
+
+### Citation
+
+```
+@misc{abstract-reasoning-challenge-solution,
+    author = {Ilia Larchenko},
+    title = {Abstract Reasoning Challenge Solution},
+    year = {2020},
+    publisher = {GitHub},
+    journal = {Github repository},
+    howpublished = {\url{https://github.com/IliaLarchenko/abstract_reasoning}}
+}
+```
