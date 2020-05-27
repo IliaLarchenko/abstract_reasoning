@@ -277,7 +277,7 @@ def get_reflect(image, side):
 
 def get_color_swap(image, color_1, color_2):
     """swapping two colors"""
-    if not (image == color_1).any() or not (image == color_2).any():
+    if not (image == color_1).any() and not (image == color_2).any():
         return 1, None
     result = image.copy()
     result[image == color_1] = color_2
@@ -892,9 +892,9 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
     ):
         # print("swap_colors")
         current_blocks = result["blocks"]["arrays"].copy()
-        for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+        for color_1 in range(9):
             if time.time() - start_time < max_time:
-                for color_2 in result["colors_sorted"][i:]:
+                for color_2 in range(color_1 + 1, 10):
                     for key, data in current_blocks.items():
                         status, block = get_color_swap(data["array"], color_1, color_2)
                         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
@@ -902,9 +902,9 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
                                 for color_dict_2 in result["colors"][color_2].copy():
                                     list_param_list.append(
                                         [
-                                            i
+                                            j
                                             + [{"type": "color_swap", "color_1": color_dict_1, "color_2": color_dict_2}]
-                                            for i in data["params"]
+                                            for j in data["params"]
                                         ]
                                     )
                                     list_blocks.append(block)
