@@ -7,6 +7,37 @@ Even though the competition itself is very original, I hope the ideas I used can
 
 # 1. Introduction
 - The task of the competition was "to create an AI that can solve reasoning tasks it has never seen before." You can see a couple of examples of these tasks below.
+
+##### Example 1
+
+Train:
+
+![train1](images/train11.png)
+
+![train2](images/train12.png)
+
+![train3](images/train12.png)
+
+Test:
+
+![test](images/test11.png)
+
+
+##### Example 2
+
+Train:
+
+![train1](images/train21.png)
+
+![train2](images/train22.png)
+
+![train3](images/train22.png)
+
+Test:
+
+![test](images/test21.png)
+
+
 - This competition is highly specific and not similar to any other DS competitions I have participated in. This particular repository and the description below are addressed to those who participated in the competition or at least familiar with the task. I recommend you to read the information [on the official Kaggle page](https://www.kaggle.com/c/abstraction-and-reasoning-challenge), [github repository](https://github.com/fchollet/ARC) and / or [the original article about abstract reasoning](https://arxiv.org/abs/1911.01547)
 
 
@@ -107,6 +138,17 @@ Etc.
 
 - There is also one special type of blocks - `[{"type": "target", "k": I}]`. It is used when solving tasks; we need to use the block not presented on any of the input images but presented on all target images in the test. Please, find the example below.
 
+Train:
+
+![train1](images/train31.png)
+
+![train2](images/train32.png)
+
+
+Test:
+
+![test](images/test31.png)
+
 
 ### 2.1.3. Masks
 
@@ -160,27 +202,123 @@ return answers
 The examples of some predictors are below, along with some cases of the result.
 
 
-– Puzzle. Generate the output image by concatenating blocks generated from the input image.
+– Puzzle - generates the output image by concatenating blocks generated from the input image.
 
+Train:
+
+![train1](images/train41.png)
+
+![train2](images/train42.png)
+
+![train2](images/train43.png)
+
+Test:
+
+![test](images/test41.png)
 
 – MaskToBlock - applies from 1 to 3 binary masks to some block.
+
+Train:
+
+![train1](images/train51.png)
+
+![train2](images/train52.png)
+
+![train2](images/train53.png)
+
+![train2](images/train54.png)
+
+Test:
+
+![test](images/test51.png)
+
 
 
 - Fill – applies different 3x3 masks for pixels of images. Either check some condition in this mask and then fill the central pixel or check the condition of the central pixel and fills everything else using the mask.
 
+Train:
+
+![train1](images/train61.png)
+
+![train2](images/train62.png)
+
+![train2](images/train63.png)
+
+Test:
+
+![test](images/test61.png)
+
 
 - ReconstructMosaic – reconstruct the mosaic with some covered parts
 
+Train:
+
+![train1](images/train71.png)
+
+![train2](images/train72.png)
+
+![train2](images/train73.png)
+
+Test:
+
+![test](images/test71.png)
 
 - ReplaceColumn – replaces some columns of the input image to fixed columns of output.
+
+Train:
+
+![train1](images/train81.png)
+
+![train2](images/train82.png)
+
+![train2](images/train83.png)
+
+Test:
+
+![test](images/test81.png)
 
 
 - ConnectDots – connects dots of particular color.
 
+Train:
+
+![train1](images/train91.png)
+
+![train2](images/train92.png)
+
+![train2](images/train93.png)
+
+Test:
+
+![test](images/test91.png)
 
 - GravityBlock – moves some blocks toward some gravity source
 
+Train:
+
+![train1](images/train101.png)
+
+![train2](images/train102.png)
+
+![train2](images/train103.png)
+
+Test:
+
+![test](images/test101.png)
+
 - Pattern – replaces every True pixel of the mask with some block.
+
+Train:
+
+![train1](images/train111.png)
+
+![train2](images/train112.png)
+
+![train2](images/train113.png)
+
+Test:
+
+![test](images/test111.png)
 
 
 Etc.
@@ -200,6 +338,18 @@ Sometimes it is useful to rotate, reflect, and/or roll the input and / or output
 
 ## 3.3 Eliminate Background.
 In some cases, there are parts of the image that contain relatively simple tasks that can be solved by existing predictors. `elim_background` option helps to work with these cases. Example below.
+
+Train:
+
+![train1](images/train121.png)
+
+![train2](images/train122.png)
+
+![train2](images/train123.png)
+
+Test:
+
+![test](images/test121.png)
 
 
 
@@ -241,7 +391,7 @@ The same logic is applied to masks.
 
 ## 4.2 Filtering.
 A high level of abstraction leads to situations when one transformation can be described in many different ways, and all of them will be equivalent and correct. It is ok, but it increases the computational complexity. That is why I do filtering.
-The simplest example is about colores: let's imaging that all test and train images have four colors each, that means that {"type": "min", "k": 0} and {"type": "max", "k": 3} – will always represent the same color for each image (but can represent different colors for different). This means that we can safely delete one of these options form all samples.
+The simplest example is about colors: let's imaging that all test and train images have four colors each, that means that `{"type": "min", "k": 0}` and `{"type": "max", "k": 3}` will always represent the same color for each image (but can represent different colors for different). This means that we can safely delete one of these options form all samples.
 More generally, if two abstract representation of some object results in the same object for every image (train and test), we can ignore one of them. 
 This logic applies to all types of objects: colors, blocks, and masks.
 
