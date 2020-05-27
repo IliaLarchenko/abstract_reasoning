@@ -9,7 +9,7 @@ from src.utils import matrix2answer
 
 
 def find_grid(image, frame=False, possible_colors=None):
-    # Looks for the grid in image and returns color and size
+    """Looks for the grid in image and returns color and size"""
     grid_color = -1
     size = [1, 1]
 
@@ -49,7 +49,7 @@ def find_grid(image, frame=False, possible_colors=None):
 
 
 def find_color_boundaries(array, color):
-    # Looks for the boundaries of any color and returns them
+    """Looks for the boundaries of any color and returns them"""
     if (array == color).any() == False:
         return None
     ind_0 = np.arange(array.shape[0])
@@ -65,7 +65,7 @@ def find_color_boundaries(array, color):
 
 
 def get_color_max(image, color):
-    # Returns the part of the image inside the color boundaries
+    """Returns the part of the image inside the color boundaries"""
     boundaries = find_color_boundaries(image, color)
     if boundaries:
         return (0, image[boundaries[0] : boundaries[1] + 1, boundaries[2] : boundaries[3] + 1])
@@ -74,7 +74,7 @@ def get_color_max(image, color):
 
 
 def get_pixel(image, i, j):
-    # Returns the pixel by coordinates
+    """Returns the pixel by coordinates"""
     if i >= image.shape[0] or j >= image.shape[1]:
         return 1, None
     return 0, image[i : i + 1, j : j + 1]
@@ -368,7 +368,6 @@ def get_block_with_side_colors(image, block_type="min", structure=0):
     else:
         structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
     masks, n_masks = ndimage.label(image, structure=structure)
-    # sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
 
     if n_masks == 0:
         return 2, None
@@ -396,8 +395,6 @@ def get_block_with_side_colors_count(image, block_type="min", structure=0):
     else:
         structure = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]
     masks, n_masks = ndimage.label(image, structure=structure)
-    # sizes = [(masks == i).sum() for i in range(1, n_masks + 1)]
-
     if n_masks == 0:
         return 2, None
 
@@ -630,7 +627,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
             add_block(result["blocks"], block, [[{"type": "inversed_colors"}]])
 
-    # print(sum([len(x['params']) for x in result['blocks']['arrays'].values()]))
     # adding min and max blocks
     if (
         ("min_max_blocks" in params)
@@ -696,7 +692,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         and (time.time() - start_time < max_time)
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
-        # print("grid_cells")
         if result["grid_color"] > 0:
             for i in range(result["grid_size"][0]):
                 for j in range(result["grid_size"][1]):
@@ -719,7 +714,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
 
     # adding halves of the images
     if ("halves" in params) and (time.time() - start_time < max_time) and (len(result["blocks"]["arrays"]) < max_blocks):
-        # print("halves")
         for side in ["l", "r", "t", "b", "long1", "long2"]:
             status, block = get_half(image, side=side)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
@@ -746,7 +740,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
 
     # adding halves of the images
     if ("k_part" in params) and (time.time() - start_time < max_time) and (len(result["blocks"]["arrays"]) < max_blocks):
-        # print("part")
         for num in [3, 4]:
             for k in range(num):
                 status, block = get_k_part(image, num=num, k=k)
@@ -759,7 +752,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         and (time.time() - start_time < max_time)
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
-        # print("halves")
         for side in ["tl", "tr", "bl", "br"]:
             status, block = get_corner(image, side=side)
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
@@ -769,7 +761,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
 
     # rotate all blocks
     if ("rotate" in params) and (time.time() - start_time < max_time) and (len(result["blocks"]["arrays"]) < max_blocks):
-        # print("rotate")
         current_blocks = result["blocks"]["arrays"].copy()
         for k in range(1, 4):
             for key, data in current_blocks.items():
@@ -784,7 +775,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         and (time.time() - start_time < max_time)
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
-        # print("transpose")
         current_blocks = result["blocks"]["arrays"].copy()
         for key, data in current_blocks.items():
             status, block = get_transpose(data["array"])
@@ -798,7 +788,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         and (time.time() - start_time < max_time)
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
-        # print("cut_edges")
         current_blocks = result["blocks"]["arrays"].copy()
         for l, r, t, b in [
             (1, 1, 1, 1),
@@ -822,7 +811,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
 
     # resize all blocks
     if ("resize" in params) and (time.time() - start_time < max_time) and (len(result["blocks"]["arrays"]) < max_blocks):
-        # print("resize")
         current_blocks = result["blocks"]["arrays"].copy()
         for scale in [2, 3, 1 / 2, 1 / 3]:
             for key, data in current_blocks.items():
@@ -846,7 +834,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         and (time.time() - start_time < max_time)
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
-        # print("reflect")
         current_blocks = result["blocks"]["arrays"].copy()
         for side in ["r", "l", "t", "b", "rt", "rb", "lt", "lb"]:
             if time.time() - start_time < max_time:
@@ -862,7 +849,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         and (time.time() - start_time < max_time)
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
-        # print("cut_parts")
         max_x = image.shape[0]
         max_y = image.shape[1]
         min_block_size = 2
@@ -890,7 +876,6 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
         and (time.time() - start_time < max_time)
         and (len(result["blocks"]["arrays"]) < max_blocks)
     ):
-        # print("swap_colors")
         current_blocks = result["blocks"]["arrays"].copy()
         for color_1 in range(9):
             if time.time() - start_time < max_time:
@@ -929,30 +914,20 @@ def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200
 
     result["masks"] = {"arrays": {}, "params": {}}
 
-    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
     # making one mask for each generated block
     current_blocks = result["blocks"]["arrays"].copy()
     if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("initial_masks")
         for key, data in current_blocks.items():
             for color in result["colors_sorted"]:
                 status, mask = get_mask_from_block(data["array"], color)
                 if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
                     params_list = [
-                        {
-                            "operation": "none",
-                            "params": {
-                                "block": i,
-                                "color": color_dict,
-                                # "color_id": int(color),
-                            },
-                        }
+                        {"operation": "none", "params": {"block": i, "color": color_dict}}
                         for i in data["params"]
                         for color_dict in result["colors"][color]
                     ]
                     add_block(result["masks"], mask, params_list)
 
-    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
     initial_masks = result["masks"]["arrays"].copy()
     if ("initial_masks" in params) and (time.time() - start_time < max_time * 2):
         for key, mask in initial_masks.items():
@@ -962,12 +937,10 @@ def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200
                 [{"operation": "not", "params": param["params"]} for param in mask["params"]],
             )
 
-    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
     initial_masks = result["masks"]["arrays"].copy()
     masks_to_add = []
     processed = []
     if ("additional_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("additional_masks")
         for key1, mask1 in initial_masks.items():
             processed.append(key1)
             if time.time() - start_time < max_time * 2 and (
@@ -975,8 +948,6 @@ def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200
                 or (target_image.shape == mask1["array"].shape)
                 or (target_image.shape == mask1["array"].T.shape)
             ):
-                # if max_masks * 3 < len(result["masks"]):
-                #     break
                 for key2, mask2 in initial_masks.items():
                     if key2 in processed:
                         continue
@@ -1005,13 +976,10 @@ def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200
                             (result["masks"], np.logical_xor(mask1["array"], mask2["array"]), params_list_xor)
                         )
 
-    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
     for path, array, params_list in masks_to_add:
         add_block(path, array, params_list)
-    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
     # coverage_masks
     if ("coverage_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("coverage_masks")
         for color in result["colors_sorted"][1:]:
             status, mask = get_mask_from_max_color_coverage(image, color)
             if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
@@ -1020,10 +988,8 @@ def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200
                     for color_dict in result["colors"][color].copy()
                 ]
                 add_block(result["masks"], mask, params_list)
-    # print(sum([len(x['params']) for x in result['masks']['arrays'].values()]))
     # coverage_masks
     if ("min_max_masks" in params) and (time.time() - start_time < max_time * 2):
-        # print("min_max_masks")
         status, mask = get_min_block_mask(image)
         if status == 0 and mask.shape[0] > 0 and mask.shape[1] > 0:
             params_list = [{"operation": "min_block"}]
@@ -1036,7 +1002,6 @@ def generate_masks(image, result, max_time=600, max_blocks=200000, max_masks=200
         print("Time is over")
     if len(result["blocks"]["arrays"]) >= max_masks:
         print("Max number of masks exceeded")
-    # print(sum([len(x["params"]) for x in result["masks"]["arrays"].values()]))
     return result
 
 
@@ -1312,14 +1277,6 @@ def extract_target_blocks(sample, color_params=None):
 def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=False):
     """ make the whole preprocessing for particular sample"""
 
-    # original_image = np.uint8(sample["train"][0]["input"])
-    # target_image = np.uint8(sample["train"][0]["output"])
-    #
-    # # adding colors
-    # sample["train"][0].update(
-    #     process_image(original_image, target_image=target_image, params=params, color_params=color_params)
-    # )
-
     for n, image in enumerate(sample["train"]):
         original_image = np.uint8(image["input"])
         target_image = np.uint8(sample["train"][n]["output"])
@@ -1342,9 +1299,7 @@ def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=F
 
     if "target" in params:
         extract_target_blocks(sample, color_params)
-    # print(sum([len(x['params']) for x in sample["train"][0]['blocks']['arrays'].values()]))
     filter_blocks(sample)
-    # print(sum([len(x['params']) for x in sample["train"][0]['blocks']['arrays'].values()]))
 
     for n, image in enumerate(sample["train"]):
         original_image = np.uint8(image["input"])
@@ -1355,9 +1310,5 @@ def preprocess_sample(sample, params=None, color_params=None, process_whole_ds=F
     for n, image in enumerate(sample["test"]):
         original_image = np.uint8(image["input"])
         sample["test"][n].update(generate_masks(original_image, sample["test"][n], params=params))
-
-    # print(sum([len(x['params']) for x in sample["train"][0]['masks']['arrays'].values()]))
-    # filter_blocks(sample, 'masks')
-    # print(sum([len(x['params']) for x in sample["train"][0]['masks']['arrays'].values()]))
 
     return sample

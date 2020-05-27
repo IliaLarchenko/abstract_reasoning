@@ -171,8 +171,14 @@ def test_predictor():
         ),  # strange, but works
         (83, MaskToBlock, {"mask_num": 3}, "ea9794b1.json", "data/evaluation", ["initial", "corners", "initial_masks"]),
         (84, MaskToBlock, {"mask_num": 3}, "3d31c5b3.json", "data/evaluation", ["initial", "k_part", "initial_masks"]),
-        # (85, mask_to_block,{"mask_num": 3},
-        #   "6a11f6da.json", "data/evaluation", ["initial", "k_part", "initial_masks"]), #very slow
+        (
+            85,
+            MaskToBlock,
+            {"mask_num": 3},
+            "6a11f6da.json",
+            "data/evaluation",
+            ["initial", "k_part", "initial_masks"],
+        ),  # very slow
         (
             86,
             MaskToBlock,
