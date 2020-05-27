@@ -27,7 +27,7 @@ from src.preprocessing import (
 from src.utils import matrix2answer
 
 
-class predictor:
+class Predictor:
     def __init__(self, params=None, preprocess_params=None):
         if params is None:
             self.params = {}
@@ -421,7 +421,7 @@ class predictor:
             return 3, None
 
 
-class fill(predictor):
+class Fill(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -606,7 +606,7 @@ class fill(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class fill3colors(predictor):
+class Fill3Colors(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -878,7 +878,7 @@ class fill3colors(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class fill_with_mask(predictor):
+class FillWithMask(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -1090,7 +1090,7 @@ class fill_with_mask(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class puzzle(predictor):
+class Puzzle(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -1326,7 +1326,7 @@ class puzzle(predictor):
             return 3, None
 
 
-class pattern(predictor):
+class Pattern(Predictor):
     """applies pattern to every pixel with particular color"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -1437,7 +1437,7 @@ class pattern(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class mask_to_block(predictor):
+class MaskToBlock(Predictor):
     """applies several masks to block"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -1644,7 +1644,7 @@ class mask_to_block(predictor):
             return 3, None
 
 
-class pattern_from_blocks(pattern):
+class PatternFromBlocks(Pattern):
     """applies pattern to every pixel with particular color"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -1776,7 +1776,7 @@ class pattern_from_blocks(pattern):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class colors(predictor):
+class Colors(Predictor):
     """returns colors as answers"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -1943,7 +1943,7 @@ class colors(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class gravity(predictor):
+class Gravity(Predictor):
     """move non_background objects toward something"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2012,7 +2012,7 @@ class gravity(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class gravity_blocks(predictor):
+class GravityBlocks(Predictor):
     """move non_background objects toward something"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2092,7 +2092,7 @@ class gravity_blocks(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class gravity_blocks_2_color(gravity_blocks):
+class GravityBlocksToColors(GravityBlocks):
     """move non_background objects toward something"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2219,7 +2219,7 @@ class gravity_blocks_2_color(gravity_blocks):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class gravity2color(gravity_blocks_2_color):
+class GravityToColor(GravityBlocksToColors):
     """move non_background objects toward something"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2288,7 +2288,7 @@ class gravity2color(gravity_blocks_2_color):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class eliminate_color(predictor):
+class EliminateColor(Predictor):
     """eliminate parts of some color"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2357,7 +2357,7 @@ class eliminate_color(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class eliminate_duplicates(predictor):
+class EliminateDuplicates(Predictor):
     """eliminate rows and colomns if they are the same and near each other"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2437,7 +2437,7 @@ class eliminate_duplicates(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class connect_dots(predictor):
+class ConnectDots(Predictor):
     """connect dost of same color, on one line"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2538,7 +2538,7 @@ class connect_dots(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class connect_dots_all_colors(predictor):
+class ConnectDotsAllColors(Predictor):
     """connect dost of same color, on one line"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2654,7 +2654,7 @@ class connect_dots_all_colors(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class reconstruct_mosaic(predictor):
+class ReconstructMosaic(Predictor):
     """reconstruct mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -2869,7 +2869,7 @@ class reconstruct_mosaic(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class reconstruct_mosaic_rr(predictor):
+class ReconstructMosaicRR(Predictor):
     """reconstruct mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3002,7 +3002,7 @@ class reconstruct_mosaic_rr(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class reconstruct_mosaic_extract(reconstruct_mosaic):
+class ReconstructMosaicExtract(ReconstructMosaic):
     """reconstruct mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3115,7 +3115,7 @@ class reconstruct_mosaic_extract(reconstruct_mosaic):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
+class ReconstructMosaicRRExtract(ReconstructMosaicRR):
     """reconstruct mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3184,7 +3184,7 @@ class reconstruct_mosaic_rr_extract(reconstruct_mosaic_rr):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class inside_block(predictor):
+class InsideBlock(Predictor):
     """reconstruct mosaic"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3229,7 +3229,7 @@ class inside_block(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class fill_lines(predictor):
+class FillLines(Predictor):
     """fill the whole horizontal and/or vertical lines with one color"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3320,7 +3320,7 @@ class fill_lines(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class replace_column(predictor):
+class ReplaceColumn(Predictor):
     """replace any column with another fexed column"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3381,7 +3381,7 @@ class replace_column(predictor):
         return 0
 
 
-class cell_to_column(predictor):
+class CellToColumn(Predictor):
     """replace any grid cell with  fixed column"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3459,7 +3459,7 @@ class cell_to_column(predictor):
         return 0
 
 
-class extend_targets(predictor):
+class ExtendTargets(Predictor):
     """replace any grid cell with  fixed column"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3560,27 +3560,27 @@ class extend_targets(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class image_slicer(predictor):
+class ImageSlicer(Predictor):
     """fill the whole horizontal and/or vertical lines with one color"""
 
     def __init__(self, params=None, preprocess_params=None):
         super().__init__(params, preprocess_params)
         self.predictors = [
-            connect_dots_all_colors(params),
-            extend_targets(params),
-            cell_to_column(params),
-            replace_column(params),
-            replace_column({"rotate": 1}),
-            gravity_blocks_2_color(params),
-            gravity_blocks(params),
-            gravity2color(params),
-            gravity(params),
-            colors(params),
-            pattern(params),
-            fill_lines(params),
-            fill(params),
-            inside_block(params),
-            connect_dots(params),
+            ConnectDotsAllColors(params),
+            ExtendTargets(params),
+            CellToColumn(params),
+            ReplaceColumn(params),
+            ReplaceColumn({"rotate": 1}),
+            GravityBlocksToColors(params),
+            GravityBlocks(params),
+            GravityToColor(params),
+            Gravity(params),
+            Colors(params),
+            Pattern(params),
+            FillLines(params),
+            Fill(params),
+            InsideBlock(params),
+            ConnectDots(params),
         ]
         self.preprocess_params = ["initial"]
 
@@ -3646,7 +3646,7 @@ class image_slicer(predictor):
         return 0, final_answers
 
 
-class mask_to_block_parallel(predictor):
+class MaskToBlockParallel(Predictor):
     """applies several masks to block"""
 
     def __init__(self, params=None, preprocess_params=None):
@@ -3826,7 +3826,7 @@ class mask_to_block_parallel(predictor):
             return 3, None
 
 
-class fill_pattern_found(predictor):
+class FillPatternFound(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -4085,7 +4085,7 @@ class fill_pattern_found(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class put_block_in_hole(predictor):
+class PutBlockIntoHole(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -4215,7 +4215,7 @@ class put_block_in_hole(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class put_block_to_pixel(predictor):
+class PutBlockOnPixel(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -4322,7 +4322,7 @@ class put_block_to_pixel(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class eliminate_block(predictor):
+class EliminateBlock(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -4426,7 +4426,7 @@ class eliminate_block(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class rotate_and_copy_block(predictor):
+class RotateAndCopyBlock(Predictor):
     """inner fills all pixels around all pixels with particular color with new color
     outer fills the pixels with fill color if all neighbour colors have background color"""
 
@@ -4505,7 +4505,7 @@ class rotate_and_copy_block(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class puzzle_pixel(puzzle):
+class PuzzlePixel(Puzzle):
     """very similar to puzzle but applicable only to pixel_level blocks"""
 
     def predict_output(self, image, color_scheme, factor, params, block_cache):
