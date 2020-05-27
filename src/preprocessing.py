@@ -73,6 +73,17 @@ def get_color_max(image, color):
         return 1, None
 
 
+def get_pixel(image, i, j):
+    # Returns the pixel by coordinates
+    if i >= image.shape[0] or j >= image.shape[1]:
+        return 1, None
+    return 0, image[i : i + 1, j : j + 1]
+
+
+def get_pixel_fixed(image, i):
+    return 0, np.array([[i]])
+
+
 def get_grid(image, grid_size, cell, frame=False):
     """ returns the particular cell form the image with grid"""
     if frame:
@@ -714,6 +725,25 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
             if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
                 add_block(result["blocks"], block, [[{"type": "half", "side": side}]])
 
+    # extracting pixels from image
+    if ("pixels" in params) and (time.time() - start_time < max_time) and (len(result["blocks"]["arrays"]) < max_blocks):
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                status, block = get_pixel(image, i=i, j=j)
+                if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                    add_block(result["blocks"], block, [[{"type": "pixel", "i": i, "j": j}]])
+
+    # extracting pixels from image
+    if (
+        ("pixel_fixed" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        for i in range(10):
+            status, block = get_pixel_fixed(image, i=i)
+            if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                add_block(result["blocks"], block, [[{"type": "pixel_fixed", "i": i}]])
+
     # adding halves of the images
     if ("k_part" in params) and (time.time() - start_time < max_time) and (len(result["blocks"]["arrays"]) < max_blocks):
         # print("part")
@@ -851,35 +881,36 @@ def generate_blocks(image, result, max_time=600, max_blocks=200000, max_masks=20
                                     result["blocks"], block, [[{"type": "cut", "x1": x1, "x2": x2, "y1": y1, "y2": y2}]]
                                 )
 
+    list_param_list = []
+    list_blocks = []
+
     # swap some colors
-    # if (
-    #     ("swap_colors" in params)
-    #     and (time.time() - start_time < max_time)
-    #     and (len(result["blocks"]["arrays"]) < max_blocks)
-    # ):
-    #     # print("swap_colors")
-    #     current_blocks = result["blocks"]["arrays"].copy()
-    #     for i, color_1 in enumerate(result["colors_sorted"][:-1]):
-    #         if time.time() - start_time < max_time:
-    #             for color_2 in result["colors_sorted"][i:]:
-    #                 for key, data in current_blocks.items():
-    #                     status, block = get_color_swap(data["array"], color_1, color_2)
-    #                     if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
-    #                         for color_dict_1 in result["colors"][color_1].copy():
-    #                             for color_dict_2 in result["colors"][color_2].copy():
-    #                                 params_list = [
-    #                                     i
-    #                                     + [
-    #                                         {
-    #                                             "type": "color_swap",
-    #                                             "color_1": color_dict_1,
-    #                                             "color_2": color_dict_2,
-    #                                         }
-    #                                     ]
-    #                                     for i in data["params"]
-    #                                 ]
-    #
-    #                                 add_block(result["blocks"], block, params_list)
+    if (
+        ("swap_colors" in params)
+        and (time.time() - start_time < max_time)
+        and (len(result["blocks"]["arrays"]) < max_blocks)
+    ):
+        # print("swap_colors")
+        current_blocks = result["blocks"]["arrays"].copy()
+        for i, color_1 in enumerate(result["colors_sorted"][:-1]):
+            if time.time() - start_time < max_time:
+                for color_2 in result["colors_sorted"][i:]:
+                    for key, data in current_blocks.items():
+                        status, block = get_color_swap(data["array"], color_1, color_2)
+                        if status == 0 and block.shape[0] > 0 and block.shape[1] > 0:
+                            for color_dict_1 in result["colors"][color_1].copy():
+                                for color_dict_2 in result["colors"][color_2].copy():
+                                    list_param_list.append(
+                                        [
+                                            i
+                                            + [{"type": "color_swap", "color_1": color_dict_1, "color_2": color_dict_2}]
+                                            for i in data["params"]
+                                        ]
+                                    )
+                                    list_blocks.append(block)
+
+    for block, params_list in zip(list_blocks, list_param_list):
+        add_block(result["blocks"], block, params_list)
 
     if time.time() - start_time > max_time:
         print("Time is over")
