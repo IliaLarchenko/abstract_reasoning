@@ -322,7 +322,7 @@ def test_predictor():
         (
             113,
             puzzle,
-            {"intersection": 0, "moda": True},
+            {"intersection": 0, "mode": True},
             "5bd6f4ac.json",
             "data/training",
             ["initial", "pixels", "pixel_fixed"],
@@ -330,7 +330,7 @@ def test_predictor():
         (
             114,
             puzzle,
-            {"intersection": 0, "moda": True},
+            {"intersection": 0, "mode": True},
             "73251a56.json",
             "data/training",
             ["initial", "pixels", "pixel_fixed"],
@@ -338,7 +338,7 @@ def test_predictor():
         (
             115,
             puzzle,
-            {"intersection": 0, "moda": True},
+            {"intersection": 0, "mode": True},
             "af24b4cc.json",
             "data/evaluation",
             ["initial", "pixels", "pixel_fixed"],
@@ -346,7 +346,7 @@ def test_predictor():
         (
             116,
             puzzle,
-            {"intersection": 0, "moda": True},
+            {"intersection": 0, "mode": True},
             "ca8de6ea.json",
             "data/evaluation",
             ["initial", "pixels", "pixel_fixed"],
@@ -354,7 +354,7 @@ def test_predictor():
         (
             117,
             puzzle,
-            {"intersection": 0, "moda": True},
+            {"intersection": 0, "mode": True},
             "4aab4007.json",
             "data/evaluation",
             ["initial", "pixels", "pixel_fixed"],
@@ -362,7 +362,7 @@ def test_predictor():
         (
             118,
             puzzle_pixel,
-            {"intersection": 0, "moda": True},
+            {"intersection": 0, "mode": True},
             "1e97544e.json",
             "data/evaluation",
             ["initial", "pixels", "pixel_fixed"],

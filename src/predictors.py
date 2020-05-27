@@ -1316,7 +1316,7 @@ class puzzle(predictor):
                         result_generated = True
 
         if result_generated:
-            if "moda" in self.params and self.params["moda"]:
+            if "mode" in self.params and self.params["mode"]:
                 for i in range(len(answers)):
                     # answers_stacked = np.stack(answers[i])
                     answer = mode(np.stack(answers[i]), axis=0).mode[0]
@@ -4505,30 +4505,8 @@ class rotate_and_copy_block(predictor):
         return self.update_solution_candidates(local_candidates, initial)
 
 
-class puzzle_pixel(predictor):
+class puzzle_pixel(puzzle):
     """very similar to puzzle but applicable only to pixel_level blocks"""
-
-    def __init__(self, params=None, preprocess_params=None):
-        super().__init__(params, preprocess_params)
-        self.intersection = params["intersection"]
-
-    def initiate_factors(self, target_image):
-        t_n, t_m = target_image.shape
-        factors = []
-        grid_color_list = []
-        if self.intersection < 0:
-            grid_color, grid_size, frame = find_grid(target_image)
-            if grid_color < 0:
-                return factors, []
-            factors = [grid_size]
-            grid_color_list = self.sample["train"][0]["colors"][grid_color]
-            self.frame = frame
-        else:
-            for i in range(1, t_n + 1):
-                for j in range(1, t_m + 1):
-                    if (t_n - self.intersection) % i == 0 and (t_m - self.intersection) % j == 0:
-                        factors.append([i, j])
-        return factors, grid_color_list
 
     def predict_output(self, image, color_scheme, factor, params, block_cache):
         """ predicts 1 output image given input image and prediction params"""
@@ -4548,7 +4526,7 @@ class puzzle_pixel(predictor):
                     skip = True
                     break
 
-                if "moda" in self.params and self.params["moda"]:
+                if "mode" in self.params and self.params["mode"]:
                     counts_prior = [1 for x in range(10)]
                     unique, counts = np.unique(image, return_counts=True)
                     for l, count in zip(unique, counts):
@@ -4608,157 +4586,3 @@ class puzzle_pixel(predictor):
             preict = final_predict
 
         return 0, predict
-
-    def initiate_candidates_list(self, initial_values=None):
-        """creates an empty candidates list corresponding to factors
-        for each (m,n) factor it is m x n matrix of lists"""
-        candidates = []
-        if not initial_values:
-            initial_values = []
-        for n_factor, factor in enumerate(self.factors):
-            candidates.append([])
-            for i in range(factor[0]):
-                candidates[n_factor].append([])
-                for j in range(factor[1]):
-                    candidates[n_factor][i].append(initial_values.copy())
-        return candidates
-
-    def process_one_sample(self, k, initial=False):
-        """ processes k train sample and updates self.solution_candidates"""
-
-        original_image, target_image = self.get_images(k)
-
-        candidates_num = 0
-        t_n, t_m = target_image.shape
-        color_scheme = self.sample["train"][k]
-        new_candidates = self.initiate_candidates_list()
-        for n_factor, factor in enumerate(self.factors.copy()):
-            for i in range(factor[0]):
-                for j in range(factor[1]):
-                    if initial:
-                        local_candidates = self.sample["train"][k]["blocks"]["arrays"].keys()
-                        # print(local_candidates)
-                    else:
-                        local_candidates = self.solution_candidates[n_factor][i][j]
-
-                    for data in local_candidates:
-                        if initial:
-                            # print(data)
-                            array = self.sample["train"][k]["blocks"]["arrays"][data]["array"]
-                            params = self.sample["train"][k]["blocks"]["arrays"][data]["params"]
-                        else:
-                            params = [data]
-                            status, array = get_predict(
-                                original_image, data, self.sample["train"][k]["blocks"], color_scheme
-                            )
-                            if status != 0:
-                                continue
-
-                        n, m = array.shape
-                        # work with valid candidates only
-                        if n <= 0 or m <= 0:
-                            continue
-                        if (
-                            n - self.intersection != (t_n - self.intersection) / factor[0]
-                            or m - self.intersection != (t_m - self.intersection) / factor[1]
-                        ):
-                            continue
-
-                        start_n = i * (n - self.intersection)
-                        start_m = j * (m - self.intersection)
-
-                        if not (
-                            (n == target_image[start_n : start_n + n, start_m : start_m + m].shape[0])
-                            and (m == target_image[start_n : start_n + n, start_m : start_m + m].shape[1])
-                        ):
-                            continue
-
-                        # adding the candidate to the candidates list
-                        if (array == target_image[start_n : start_n + n, start_m : start_m + m]).all():
-                            new_candidates[n_factor][i][j].extend(params)
-                            candidates_num += 1
-                    # if there is no candidates for one of the cells the whole factor is invalid
-                    if len(new_candidates[n_factor][i][j]) == 0:
-                        self.factors[n_factor] = [0, 0]
-                        break
-                if self.factors[n_factor][0] == 0:
-                    break
-
-        self.solution_candidates = new_candidates
-
-        if candidates_num > 0:
-            return 0
-        else:
-            return 1
-
-    def filter_factors(self, local_factors):
-        for factor in self.factors:
-            found = False
-            for new_factor in local_factors:
-                if factor == new_factor:
-                    found = True
-                    break
-            if not found:
-                factor = [0, 0]
-
-        return
-
-    def process_full_train(self):
-
-        for k in range(len(self.sample["train"])):
-            original_image, target_image = self.get_images(k)
-            if k == 0:
-                self.factors, self.grid_color_list = self.initiate_factors(target_image)
-            else:
-                local_factors, grid_color_list = self.initiate_factors(target_image)
-                self.filter_factors(local_factors)
-                self.grid_color_list = filter_list_of_dicts(grid_color_list, self.grid_color_list)
-
-            status = self.process_one_sample(k, initial=(k == 0))
-            if status != 0:
-                return 1
-
-        if len(self.solution_candidates) == 0:
-            return 2
-
-        return 0
-
-    def __call__(self, sample):
-        """ works like fit_predict"""
-        self.sample = sample
-        if not self.init_call():
-            return 5, None
-        status = self.process_full_train()
-        if status != 0:
-            return status, None
-
-        answers = []
-        for _ in self.sample["test"]:
-            answers.append([])
-
-        result_generated = False
-        for test_n, test_data in enumerate(self.sample["test"]):
-            original_image = self.get_images(test_n, train=False)
-            color_scheme = self.sample["test"][test_n]
-            for n_factor, factor in enumerate(self.factors):
-                if factor[0] > 0 and factor[1] > 0:
-                    status, prediction = self.predict_output(
-                        original_image,
-                        color_scheme,
-                        factor,
-                        self.solution_candidates[n_factor],
-                        self.sample["test"][test_n]["blocks"],
-                    )
-                    if status == 0:
-                        answers[test_n].append(self.process_prediction(prediction, original_image=original_image))
-                        result_generated = True
-
-        if result_generated:
-            if "moda" in self.params and self.params["moda"]:
-                for i in range(len(answers)):
-                    # answers_stacked = np.stack(answers[i])
-                    answer = mode(np.stack(answers[i]), axis=0).mode[0]
-                    answers[i] = [answer]
-            return 0, answers
-        else:
-            return 3, None
