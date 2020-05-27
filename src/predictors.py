@@ -4059,7 +4059,7 @@ class Colors(Predictor):
 
 
 class ExtendTargets(Predictor):
-    """replace any grid cell with  fixed column"""
+    """creates prediction based on targets mostly"""
 
     def init_call(self):
         self.filter_colors()
