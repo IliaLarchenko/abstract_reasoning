@@ -4,14 +4,14 @@ This repository contains my solution of the [Abstraction and Reasoning Challenge
 Even though the competition itself is very original, I hope the ideas I used can help someone in other applied tasks.
 
 # 0. Disclaimer
-- This competition required a lot of tries and errors, and any time I choose between simple, high-quality production-level code and fast iteration, I decided latter. So the code itself is not optimal and unclear sometimes. But in this particular case, I think that ideas are more important than code itself.
+This competition required a lot of tries and errors, and any time I choose between simple, high-quality production-level code and fast iteration, I decided latter. So the code itself is not optimal and unclear sometimes. But in this particular case, I think that ideas are more important than code itself.
 
 # 1. Introduction
-- The task of the competition was "to create an AI that can solve reasoning tasks it has never seen before." You can see a couple of examples of these tasks below.
+The task of the competition was "to create an AI that can solve reasoning tasks it has never seen before." You can see a couple of examples of these tasks below.
 
 ##### Example 1
 
-Train:
+**Train:**
 
 ![train1](images/train11.png)
 
@@ -19,14 +19,14 @@ Train:
 
 ![train3](images/train12.png)
 
-Test:
+**Test:**
 
 ![test](images/test11.png)
 
 
 ##### Example 2
 
-Train:
+**Train:**
 
 ![train1](images/train21.png)
 
@@ -34,69 +34,68 @@ Train:
 
 ![train3](images/train22.png)
 
-Test:
+**Test:**
 
 ![test](images/test21.png)
 
 
-- This competition is highly specific and not similar to any other DS competitions I have participated in. This particular repository and the description below are addressed to those who participated in the competition or at least familiar with the task. I recommend you to read the information [on the official Kaggle page](https://www.kaggle.com/c/abstraction-and-reasoning-challenge), [github repository](https://github.com/fchollet/ARC) and / or [the original article about abstract reasoning](https://arxiv.org/abs/1911.01547)
+This competition is highly specific and not similar to any other DS competitions I have participated in. This particular repository and the description below are addressed to those who participated in the competition or at least familiar with the task. I recommend you to read the information [on the official Kaggle page](https://www.kaggle.com/c/abstraction-and-reasoning-challenge), [github repository](https://github.com/fchollet/ARC) and / or [the original article about abstract reasoning](https://arxiv.org/abs/1911.01547)
 
 
 # 2. My approach
 
-- In general, my method can be described as a domain-specific language (DSL) based. I have created the abstract representation of the colors, image blocks extracted from the original input image, and different binary masks. Using these abstractions, I wrote several "predictors" that try to derive a set of transformations used to get every output image from the corresponding input image and, if it succeeds – apply these transformations to test input to get the final answer.
+In general, my method can be described as a domain-specific language (DSL) based. I have created the abstract representation of the colors, image blocks extracted from the original input image, and different binary masks. Using these abstractions, I wrote several "predictors" that try to derive a set of transformations used to get every output image from the corresponding input image and, if it succeeds – apply these transformations to test input to get the final answer.
 
 ## 2.1 Abstractions
-- Each abstract representation of color, block, or mask is a JSON-like object that describes a set of transformations used to get this object from the original image. Below are several examples.
+Each abstract representation of color, block, or mask is a JSON-like object that describes a set of transformations used to get this object from the original image. Below are several examples.
 
 ### 2.1.1 Colors
-- I use a few ways to represent colors; below are some of them:
+I use a few ways to represent colors; below are some of them:
 
-– Absolute values. Each color is described as a number from 0 to 9.
+Absolute values. Each color is described as a number from 0 to 9.
 Representation: `{“type”: “abs”, “k”: 0}`
 
-– The numerical order of color in the list of all colors presented in the input image sorted (ascending or descending) by the number of pixels with these colors.
+The numerical order of color in the list of all colors presented in the input image sorted (ascending or descending) by the number of pixels with these colors.
 Representation: `{“type”: “min”, “k”: 0}`, `{“type”: “max”, “k”: 0}`
 
-– The color of the grid if there is one on the input image.
+The color of the grid if there is one on the input image.
 Representation: `{“type”: “grid_color”}`
 
 
-– The unique color in one of the image parts (top, bottom, left, or right part; corners, and so on).
+The unique color in one of the image parts (top, bottom, left, or right part; corners, and so on).
 Representation: `{"type": "unique", "side": "right"}`, `{"type": "unique", "side": "tl"}`, `{"type": "unique", "side": "any"}`
 
 
-– No background color for cases where every input has only two colors and 0 is one of them for every image.
+No background color for cases where every input has only two colors and 0 is one of them for every image.
 Representation: `{"type": "non_zero"}`
 
 Etc.
 
 
 ### 2.1.2 Blocks
-- Block is a 10-color image somehow derived from the input image. Each block is represented as a list of dicts; each dict describes some transformation of an image. One should apply all these transformations to the input image in the order they are presented in the list to get the block. Below are some examples.
+Block is a 10-color image somehow derived from the input image. Each block is represented as a list of dicts; each dict describes some transformation of an image. One should apply all these transformations to the input image in the order they are presented in the list to get the block. Below are some examples.
 
 The first order blocks (generated directly from the original image):
 
-– The image itself.
+- The image itself.
 Representation: `[{"type": "original"}]`
 
-– One of the halves of the original image.
+- One of the halves of the original image.
 Representation: `[{"type": "half", "side": "t"}]`, `[{"type": "half", "side": "b"}]`, `[{"type": "half", "side": "long1"}]`
 
-– The largest connected block excluding the background.
+- The largest connected block excluding the background.
 Representation: `[{"type": "max_block", "full": 0}]`
 
-
-– The smallest possible rectangle that covers all pixels of a particular color.
+- The smallest possible rectangle that covers all pixels of a particular color.
 Representation: `[{"type": "color_max", "color": color_dict}]`
 color_dict – means here can be any abstract representation of color, described in 2.1.1.
 
 
-– Grid cell.
+- Grid cell.
 Representation: `[{"type": "grid", "grid_size": [4,4],"cell": [3, 1],"frame": True,}]`
 
 
-– The pixel with particular coordinates.
+- The pixel with particular coordinates.
 Representation: `[{"type": "pixel", "i": 1, "j": 4}]`
 
 
@@ -108,30 +107,29 @@ The second-order blocks – generated by applying some transformations to the fi
 
 
 
-– Rotation.
+- Rotation.
 Representation: `[source_block ,{"type": "rotation", "k": 2}]`
-`source_block` means that there can be one or several dictionaries, used to generate some source block from the original input image, then the rotation is applied to this source block
+`source_block` _means that there can be one or several dictionaries, used to generate some source block from the original input image, then the rotation is applied to this source block_
 
 
-– Transposing.
+- Transposing.
 Representation: `[source_block ,{"type": "transpose"}]`
 
 
-– Edge cutting.
+- Edge cutting.
 Representation: `[source_block ,{"type": "cut_edge", "l": 0, "r": 1, "t": 1, "b": 0}]`
-In this example, we cut off 1 pixel from the left and one pixel from the top of the image.
+_In this example, we cut off 1 pixel from the left and one pixel from the top of the image._
 
 
-
-– Resizing image with some scale factor.
+- Resizing image with some scale factor.
 Representation: `[source_block , {"type": "resize", "scale": 2}]`, `[source_block , {"type": "resize", "scale": 1/3}]`
 
 
-– Resizing image to some fixed shape.
+- Resizing image to some fixed shape.
 Representation: `[source_block , {"type": "resize_to", "size_x": 3, "size_y": 3}]`
 
 
-– Swapping some colors.
+- Swapping some colors.
 Representation: `[source_block , {"type": "color_swap", "color_1": color_dict_1, "color_2": color_dict_2}]`
 
 
@@ -139,14 +137,14 @@ Etc.
 
 - There is also one special type of blocks - `[{"type": "target", "k": I}]`. It is used when solving tasks; we need to use the block not presented on any of the input images but presented on all target images in the test. Please, find the example below.
 
-Train:
+**Train:**
 
 ![train1](images/train31.png)
 
 ![train2](images/train32.png)
 
 
-Test:
+**Test:**
 
 ![test](images/test31.png)
 
@@ -155,19 +153,19 @@ Test:
 
 Masks are binary images somehow derived from original images. Each mask is represented as a nested dict.
 
-– Initial mask literally: `block == color`
+- Initial mask literally: `block == color`
 Representation: {"operation": "none", "params": {"block": bloc_list,"color": color_dict}}
 bloc_list here is a list of transforms used to get the block for the mask generation
 
 
-– Logical operations over different masks
+- Logical operations over different masks
 Representation: {"operation": "not", "params": mask_dict}, {"operation": "and", "params": {"mask1": mask_dict 1, "mask2": mask_dict 2}}, {"operation": "or", "params": {"mask1": mask_dict 1, "mask2": mask_dict 2}}, {"operation": "xor", "params": {"mask1": mask_dict 1, "mask2": mask_dict 2}}
 
-– Mask with the original image's size, representing the smallest possible rectangle covering all pixels of a particular color.
+- Mask with the original image's size, representing the smallest possible rectangle covering all pixels of a particular color.
 Representation: {"operation": "coverage", "params": {"color": color_dict}}
 
 
-– Mask with the original image's size, representing the largest or smallest connected block excluding the background.
+- Mask with the original image's size, representing the largest or smallest connected block excluding the background.
 Representation: {"operation": "max_block"}
 
 
@@ -203,9 +201,9 @@ return answers
 The examples of some predictors are below, along with some cases of the result.
 
 
-– Puzzle - generates the output image by concatenating blocks generated from the input image.
+- **Puzzle** - generates the output image by concatenating blocks generated from the input image.
 
-Train:
+**Train:**
 
 ![train1](images/train41.png)
 
@@ -213,13 +211,13 @@ Train:
 
 ![train2](images/train43.png)
 
-Test:
+**Test:**
 
 ![test](images/test41.png)
 
-– MaskToBlock - applies from 1 to 3 binary masks to some block.
+- **MaskToBlock** - applies from 1 to 3 binary masks to some block.
 
-Train:
+**Train:**
 
 ![train1](images/train51.png)
 
@@ -229,15 +227,15 @@ Train:
 
 ![train2](images/train54.png)
 
-Test:
+**Test:**
 
 ![test](images/test51.png)
 
 
 
-- Fill – applies different 3x3 masks for pixels of images. Either check some condition in this mask and then fill the central pixel or check the condition of the central pixel and fills everything else using the mask.
+- **Fill** – applies different 3x3 masks for pixels of images. Either check some condition in this mask and then fill the central pixel or check the condition of the central pixel and fills everything else using the mask.
 
-Train:
+**Train:**
 
 ![train1](images/train61.png)
 
@@ -245,14 +243,14 @@ Train:
 
 ![train2](images/train63.png)
 
-Test:
+**Test:**
 
 ![test](images/test61.png)
 
 
-- ReconstructMosaic – reconstruct the mosaic with some covered parts
+ -**ReconstructMosaic** – reconstruct the mosaic with some covered parts
 
-Train:
+**Train:**
 
 ![train1](images/train71.png)
 
@@ -260,13 +258,13 @@ Train:
 
 ![train2](images/train73.png)
 
-Test:
+**Test:**
 
 ![test](images/test71.png)
 
-- ReplaceColumn – replaces some columns of the input image to fixed columns of output.
+- **ReplaceColumn** – replaces some columns of the input image to fixed columns of output.
 
-Train:
+**Train:**
 
 ![train1](images/train81.png)
 
@@ -274,14 +272,14 @@ Train:
 
 ![train2](images/train83.png)
 
-Test:
+**Test:**
 
 ![test](images/test81.png)
 
 
-- ConnectDots – connects dots of particular color.
+- **ConnectDots** – connects dots of particular color.
 
-Train:
+**Train:**
 
 ![train1](images/train91.png)
 
@@ -289,13 +287,13 @@ Train:
 
 ![train2](images/train93.png)
 
-Test:
+**Test:**
 
 ![test](images/test91.png)
 
-- GravityBlock – moves some blocks toward some gravity source
+- **GravityBlock** – moves some blocks toward some gravity source
 
-Train:
+**Train:**
 
 ![train1](images/train101.png)
 
@@ -303,13 +301,13 @@ Train:
 
 ![train2](images/train103.png)
 
-Test:
+**Test:**
 
 ![test](images/test101.png)
 
-- Pattern – replaces every True pixel of the mask with some block.
+- **Pattern** – replaces every True pixel of the mask with some block.
 
-Train:
+**Train:**
 
 ![train1](images/train111.png)
 
@@ -317,7 +315,7 @@ Train:
 
 ![train2](images/train113.png)
 
-Test:
+**Test:**
 
 ![test](images/test111.png)
 
@@ -340,7 +338,7 @@ Sometimes it is useful to rotate, reflect, and/or roll the input and / or output
 ## 3.3 Eliminate Background.
 In some cases, there are parts of the image that contain relatively simple tasks that can be solved by existing predictors. `elim_background` option helps to work with these cases. Example below.
 
-Train:
+**Train:**
 
 ![train1](images/train121.png)
 
@@ -348,7 +346,7 @@ Train:
 
 ![train2](images/train123.png)
 
-Test:
+**Test:**
 
 ![test](images/test121.png)
 
