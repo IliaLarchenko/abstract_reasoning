@@ -1,4 +1,4 @@
-This repository contains my solution of the [Abstraction and Reasoning Challenge](https://www.kaggle.com/c/abstraction-and-reasoning-challenge) on Kaggle, where my team took Nth place. It is only my part of our final solution. Using it alone with blend with some public kernels, one could get a position somewhere in the higher silver. This approach also solves 138 and 96 samples from the train and valid sets, respectively. The lists of solved cases you can find in `solved.json`.
+This repository contains my solution of the [Abstraction and Reasoning Challenge](https://www.kaggle.com/c/abstraction-and-reasoning-challenge) on Kaggle, where my team took 3rd place. It is only my part of our final solution. Using it alone with blend with some public kernels, one could get a position somewhere in the higher silver. This approach also solves 138 and 96 samples from the train and valid sets, respectively. The lists of solved cases you can find in `solved.json`.
 `demo_notebook.ipynb` demonstrates how to make predictions using my code.
 
 Even though the competition itself is very original, I hope the ideas I used can help someone in other applied tasks.
@@ -17,7 +17,7 @@ The task of the competition was "to create an AI that can solve reasoning tasks 
 
 ![train2](images/train12.png)
 
-![train3](images/train12.png)
+![train3](images/train13.png)
 
 **Test:**
 
@@ -39,7 +39,7 @@ The task of the competition was "to create an AI that can solve reasoning tasks 
 ![test](images/test21.png)
 
 
-This competition is highly specific and not similar to any other DS competitions I have participated in. This particular repository and the description below are addressed to those who participated in the competition or at least familiar with the task. I recommend you to read the information [on the official Kaggle page](https://www.kaggle.com/c/abstraction-and-reasoning-challenge), [github repository](https://github.com/fchollet/ARC) and / or [the original article about abstract reasoning](https://arxiv.org/abs/1911.01547)
+This competition is highly specific and not similar to any other DS competitions I have participated in. This particular repository and the description below are addressed to those who participated in the competition or at least familiar with the task. I recommend you to read the information [on the official Kaggle page](https://www.kaggle.com/c/abstraction-and-reasoning-challenge), [github repository](https://github.com/fchollet/ARC) and / or [the original article about abstraction and reasoning](https://arxiv.org/abs/1911.01547)
 
 
 # 2. My approach
@@ -319,19 +319,19 @@ The examples of some predictors and the results are below.
 Etc.
 
 
-# 3. Kind of decorators or callbacks.
+# 3. Kind of decorators or callbacks
 
 I also implemented some functionality, helping my predictors to solve a broader range of tasks. The way I applied them does not strictly qualify as decorators or callbacks but have similar ideas behind them.
 
-## 3.1 Skip some train samples.
+## 3.1 Skip some train samples
 If you pass to any predictor `{"skip_train": n}`, it will skip n input-output train pairs. It helps in a couple of cases:
 - One of the train samples has a mistake in it.
 - Train samples can be divided into 2+ categories, the predictor can solve the task only for one of them, and you are lucky, and the test is also from this group.
 
-## 3.2 Rotate, Reflect, Roll.
+## 3.2 Rotate, Reflect, Roll
 Sometimes it is useful to rotate, reflect, and/or roll the input and / or output image for your predictor to solve the case.
 
-## 3.3 Eliminate Background.
+## 3.3 Eliminate Background
 In some cases, there are parts of the image that contain relatively simple tasks that can be solved by existing predictors. `elim_background` option helps to work with these cases. Example below.
 
 **Train:**
@@ -384,7 +384,7 @@ If I have a JSON-like object with parameters some abstract rule for block genera
 The same logic is applied to masks.
 
 
-## 4.2 Filtering.
+## 4.2 Filtering
 A high level of abstraction leads to situations when one transformation can be described in many different ways, and all of them will be equivalent and correct. It is ok, but it increases the computational complexity. That is why I do filtering.
 The simplest example is about colors: let's imaging that all test and train images have four colors each, that means that `{"type": "min", "k": 0}` and `{"type": "max", "k": 3}` will always represent the same color for each image (but can represent different colors for different). This means that we can safely delete one of these options form all samples.
 More generally, if two abstract representation of some object results in the same object for every image (train and test), we can ignore one of them. 
@@ -400,7 +400,7 @@ You can check the way I have done it in `submission_utils.py`.
 
  
 
-# 5. Other useful ideas.
+# 5. Other useful ideas
 
 ## 5.1 Testing
 This is the first Kaggle competition where I have covered almost everything I have done with a unit tests.
@@ -417,9 +417,9 @@ I hope you have found any useful thoughts and ideas in my solution.
 ### Citation
 
 ```
-@misc{abstract-reasoning-challenge-solution,
+@misc{abstraction-and-reasoning-challenge-solution,
     author = {Ilia Larchenko},
-    title = {Abstract Reasoning Challenge Solution},
+    title = {Abstraction and Reasoning Challenge Solution},
     year = {2020},
     publisher = {GitHub},
     journal = {Github repository},
