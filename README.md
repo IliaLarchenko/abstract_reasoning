@@ -1,4 +1,4 @@
-This repository contains my solution of the [Abstraction and Reasoning Challenge](https://www.kaggle.com/c/abstraction-and-reasoning-challenge) on Kaggle, where my team took 3rd place. It is only my part of our final solution. Using it alone with blend with some public kernels, one could get a position somewhere in the higher silver. This approach also solves 138 and 96 samples from the train and valid sets, respectively. The lists of solved cases you can find in `solved.json`.
+This repository contains my solution of the [Abstraction and Reasoning Challenge](https://www.kaggle.com/c/abstraction-and-reasoning-challenge) on Kaggle, where my team took 3rd place. It is only my part of our final solution. Using it alone with blend with some public kernels, one could get a position somewhere in the higher silver. This approach also solves 138 and 96 samples from the train and valid sets, respectively. You can find the lists of solved cases in `solved.json`.
 `demo_notebook.ipynb` demonstrates how to make predictions using my code.
 
 Even though the competition itself is very original, I hope the ideas I used can help someone in other applied tasks.
@@ -176,11 +176,14 @@ The general logic of every predictor is described in the pseudo-code below (alth
 
 ```
 for n, (input_image, output_image) in enumerate(sample[‘train’]):
-    list_of_possible_rules = generate_solution(input_image, output_image)
+    list_of_solutions = []
+    for possible_solution in all_possible_solutions:
+        if apply_solution(input_image, possible_solution) == output_image:
+            list_of_solutions.append(possible_solution)
     if n == 0:
-        final_list_of_solutions = list_of_possible_rules
+        final_list_of_solutions = list_of_solutions
     else:
-        final_list_of_solutions = intersection(list_of_possible_rules, final_list_of_solutions)
+        final_list_of_solutions = intersection(list_of_solutions, final_list_of_solutions)
 
     if len(final_list_of_solutions) == 0
         return None
@@ -321,7 +324,7 @@ Etc.
 
 # 3. Kind of decorators or callbacks
 
-I also implemented some functionality, helping my predictors to solve a broader range of tasks. The way I applied them does not strictly qualify as decorators or callbacks but have similar ideas behind them.
+I have also implemented some functionality, helping my predictors to solve a broader range of tasks. The way I applied them does not strictly qualify as decorators or callbacks but have similar ideas behind them.
 
 ## 3.1 Skip some train samples
 If you pass to any predictor `{"skip_train": n}`, it will skip n input-output train pairs. It helps in a couple of cases:
@@ -403,7 +406,7 @@ You can check the way I have done it in `submission_utils.py`.
 # 5. Other useful ideas
 
 ## 5.1 Testing
-This is the first Kaggle competition where I have covered almost everything I have done with a unit tests.
+This is the first Kaggle competition where I have covered almost everything I have done with unit tests.
 
 I have often faced the situation when I improve core logic to solve some complex problems and later find out that some simple ones don't work anymore. After that, I have decided that I will add a unit test for most of the new tasks I have solved. Finally, I have 100+ tests in `test_predictots.py` that help me control that nothing is broken. I use the `pytest` library for it.
 
