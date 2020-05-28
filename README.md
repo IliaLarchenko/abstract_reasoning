@@ -1,6 +1,8 @@
 This repository contains my solution of the [Abstraction and Reasoning Challenge](https://www.kaggle.com/c/abstraction-and-reasoning-challenge) on Kaggle, where my team took 3rd place. It is only my part of our final solution. Using it alone with blend with some public kernels, one could get a position somewhere in the higher silver. This approach also solves 138 and 96 samples from the train and valid sets, respectively. You can find the lists of solved cases in `solved.json`.
 `demo_notebook.ipynb` demonstrates how to make predictions using my code.
 
+You can also look into [Kaggle Notebook](https://www.kaggle.com/ilialar/5-tasks-part-of-3rd-place-solution) solving 5 test tasks with my solution.
+
 Even though the competition itself is very original, I hope the ideas I used can help someone in other applied tasks.
 
 # 0. Disclaimer
