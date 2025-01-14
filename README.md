@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14646751.svg)](https://doi.org/10.5281/zenodo.14646751)
+
 This repository contains my solution of the [Abstraction and Reasoning Challenge](https://www.kaggle.com/c/abstraction-and-reasoning-challenge) on Kaggle, where my team took 3rd place. It is only my part of our final solution. Using it alone with blend with some public kernels, one could get a position somewhere in the higher silver. This approach also solves 138 and 96 samples from the train and valid sets, respectively. You can find the lists of solved cases in `solved.json`.
 `demo_notebook.ipynb` demonstrates how to make predictions using my code.
 
@@ -422,12 +424,13 @@ I hope you have found any useful thoughts and ideas in my solution.
 ### Citation
 
 ```
-@misc{abstraction-and-reasoning-challenge-solution,
+@misc{larchenko2020abstract_reasoning,
     author = {Ilia Larchenko},
     title = {Abstraction and Reasoning Challenge Solution},
     year = {2020},
-    publisher = {GitHub},
-    journal = {Github repository},
-    howpublished = {\url{https://github.com/IliaLarchenko/abstract_reasoning}}
+    publisher = {Zenodo},
+    doi = {10.5281/zenodo.14646751},
+    url = {https://doi.org/10.5281/zenodo.14646751},
+    note = {GitHub repository: \url{https://github.com/IliaLarchenko/abstract_reasoning}}
 }
 ```
